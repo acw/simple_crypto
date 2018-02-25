@@ -1,0 +1,21 @@
+[package]
+name = "simple_rsa"
+version = "0.1.0"
+authors = ["Adam Wick <awick@uhsure.com>"]
+description = "A simple crypto library for Rust."
+categories = ["cryptography"]
+keywords = ["crypto","cryptography"]
+license-file = "LICENSE"
+repository = "https://github.com/acw/simple_crypto"
+
+[dependencies]
+rand        = "^0.3"
+
+[dev-dependencies]
+quickcheck = "^0.4.1"
+
+[profile.test]
+opt-level = 2
+debug = true
+debug-assertions = true
+
