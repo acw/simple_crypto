@@ -256,6 +256,66 @@ impl<'a> BitAnd<&'a U512> for &'a U512 {
 
 //------------------------------------------------------------------------------
 
+impl BitXorAssign for U512 {
+    fn bitxor_assign(&mut self, other: U512) {
+        self.bitxor_assign(&other)
+    }
+}
+
+impl<'a> BitXorAssign<&'a U512> for U512 {
+    fn bitxor_assign(&mut self, other: &U512) {
+        let mut oback = other.contents.iter();
+        for x in self.contents.iter_mut() {
+            match oback.next() {
+                None => panic!("Internal error in cryptonum (&=)."),
+                Some(v) => *x = *x ^ *v
+            }
+        }
+    }
+}
+
+impl BitXor for U512 {
+    type Output = U512;
+
+    fn bitxor(self, rhs: U512) -> U512 {
+        let mut copy = self.clone();
+        copy ^= rhs;
+        copy
+    }
+}
+
+impl<'a> BitXor<&'a U512> for U512 {
+    type Output = U512;
+
+    fn bitxor(self, rhs: &U512) -> U512 {
+        let mut copy = self.clone();
+        copy ^= rhs;
+        copy
+    }
+}
+
+impl<'a> BitXor<U512> for &'a U512 {
+    type Output = U512;
+
+    fn bitxor(self, rhs: U512) -> U512 {
+        let mut copy = self.clone();
+        copy ^= rhs;
+        copy
+    }
+}
+
+impl<'a> BitXor<&'a U512> for &'a U512 {
+    type Output = U512;
+
+    fn bitxor(self, rhs: &U512) -> U512 {
+        let mut copy = self.clone();
+        copy ^= rhs;
+        copy
+    }
+}
+
+//------------------------------------------------------------------------------
+
 #[cfg(test)]
 mod test {
     use quickcheck::{Arbitrary,Gen};
@@ -388,6 +448,9 @@ mod test {
         fn and_associative(a: U512, b: U512, c: U512) -> bool {
             (&a & (&b & &c)) == ((&a & &b) & &c)
         }
+        fn xor_as_defined(a: U512, b: U512) -> bool {
+            (&a ^ &b) == ((&a | &b) & !(&a & &b))
+        }
         fn small_or_check(x: u64, y: u64) -> bool {
             let x512 = U512::from_u64(x);
             let y512 = U512::from_u64(y);
@@ -399,6 +462,12 @@ mod test {
             let y512 = U512::from_u64(y);
             let z512 = x512 & y512;
             z512.to_u64() == (x & y)
+        }
+        fn small_xor_check(x: u64, y: u64) -> bool {
+            let x512 = U512::from_u64(x);
+            let y512 = U512::from_u64(y);
+            let z512 = x512 ^ y512;
+            z512.to_u64() == (x ^ y)
         }
         fn small_neg_check(x: u64) -> bool {
             let x512 = U512::from_u64(x);
