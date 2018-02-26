@@ -5,6 +5,7 @@
 //! of course, but that's its origin.
 
 use std::cmp::Ordering;
+use std::iter::repeat;
 use std::ops::*;
 
 /// A 512-bit unsigned value
@@ -316,6 +317,90 @@ impl<'a> BitXor<&'a U512> for &'a U512 {
 
 //------------------------------------------------------------------------------
 
+impl ShlAssign<usize> for U512 {
+    fn shl_assign(&mut self, amount: usize) {
+        let digits = amount / 63;
+        let bits   = amount % 63;
+        let orig   = self.contents.clone();
+
+        for i in 0..9 {
+            if i < digits {
+                self.contents[i] = 0;
+            } else {
+                let origidx = i - digits;
+                let prev = if origidx == 0 { 0 } else { orig[origidx - 1] };
+                let carry = prev >> (63 - bits);
+                self.contents[i] = (orig[origidx] << bits) | carry;
+                self.contents[i] &= 0x7FFFFFFFFFFFFFFF;
+            }
+        }
+        self.contents[8] &= 0xFF;
+    }
+}
+
+impl Shl<usize> for U512 {
+    type Output = U512;
+
+    fn shl(self, rhs: usize) -> U512 {
+        let mut copy = self.clone();
+        copy <<= rhs;
+        copy
+    }
+}
+
+impl<'a> Shl<usize> for &'a U512 {
+    type Output = U512;
+
+    fn shl(self, rhs: usize) -> U512 {
+        let mut copy = self.clone();
+        copy <<= rhs;
+        copy
+    }
+}
+
+//------------------------------------------------------------------------------
+
+impl ShrAssign<usize> for U512 {
+    fn shr_assign(&mut self, amount: usize) {
+        let digits = amount / 63;
+        let bits   = amount % 63;
+        let orig   = self.contents.clone();
+
+        for i in 0..9 {
+            let oldidx = i + digits;
+            let caridx = i + digits + 1;
+            let old    = if oldidx > 8 { 0 } else { orig[oldidx] };
+            let carry  = if caridx > 8 { 0 } else { orig[caridx] };
+            let (cb,_) = carry.overflowing_shl(63 - bits as u32);
+            self.contents[i] = (old >> bits) | cb;
+            self.contents[i] &= 0x7FFFFFFFFFFFFFFF;
+        }
+        self.contents[8] &= 0xFF;
+    }
+}
+
+impl Shr<usize> for U512 {
+    type Output = U512;
+
+    fn shr(self, rhs: usize) -> U512 {
+        let mut copy = self.clone();
+        copy >>= rhs;
+        copy
+    }
+}
+
+impl<'a> Shr<usize> for &'a U512 {
+    type Output = U512;
+
+    fn shr(self, rhs: usize) -> U512 {
+        let mut copy = self.clone();
+        copy >>= rhs;
+        copy
+    }
+}
+
+//------------------------------------------------------------------------------
+
 #[cfg(test)]
 mod test {
     use quickcheck::{Arbitrary,Gen};
@@ -474,5 +559,39 @@ mod test {
             let z512 = !x512;
             z512.to_u64() == !x
         }
+    }
+
+    #[test]
+    fn shl_tests() {
+        assert_eq!(U512{ contents: [1,1,1,1,1,1,1,1,1] } << 0,
+                   U512{ contents: [1,1,1,1,1,1,1,1,1] });
+        assert_eq!(U512{ contents: [1,1,1,1,1,1,1,1,1] } << 512,
+                   U512{ contents: [0,0,0,0,0,0,0,0,0] });
+        assert_eq!(U512{ contents: [2,0,0,0,0,0,0,0,0] } << 1,
+                   U512{ contents: [4,0,0,0,0,0,0,0,0] });
+        assert_eq!(U512{ contents: [1,0,0,0,0,0,0,0,0] } << 63,
+                   U512{ contents: [0,1,0,0,0,0,0,0,0] });
+        assert_eq!(U512{ contents: [1,0,0,0,0,0,0,0,0] } << 65,
+                   U512{ contents: [0,4,0,0,0,0,0,0,0] });
+        assert_eq!(U512{ contents: [0x4000000000000000,0,0,0,0,0,0,0,0] } << 1,
+                   U512{ contents: [0,1,0,0,0,0,0,0,0] });
+        assert_eq!(U512{ contents: [1,0,0,0,0,0,0,0,0xFF] } << 1,
+                   U512{ contents: [2,0,0,0,0,0,0,0,0xFE] });
+    }
+
+    #[test]
+    fn shr_tests() {
+        assert_eq!(U512{ contents: [1,1,1,1,1,1,1,1,1] } >> 0,
+                   U512{ contents: [1,1,1,1,1,1,1,1,1] });
+        assert_eq!(U512{ contents: [1,1,1,1,1,1,1,1,1] } >> 512,
+                   U512{ contents: [0,0,0,0,0,0,0,0,0] });
+        assert_eq!(U512{ contents: [2,0,0,0,0,0,0,0,0] } >> 1,
+                   U512{ contents: [1,0,0,0,0,0,0,0,0] });
+        assert_eq!(U512{ contents: [0,1,0,0,0,0,0,0,0] } >> 1,
+                   U512{ contents: [0x4000000000000000,0,0,0,0,0,0,0,0] });
+        assert_eq!(U512{ contents: [0,1,0,0,0,0,0,0,0] } >> 63,
+                   U512{ contents: [1,0,0,0,0,0,0,0,0] });
+        assert_eq!(U512{ contents: [0,4,0,0,0,0,0,0,0] } >> 65,
+                   U512{ contents: [1,0,0,0,0,0,0,0,0] });
     }
 }
