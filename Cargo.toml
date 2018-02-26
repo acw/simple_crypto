@@ -1,5 +1,5 @@
 [package]
-name = "simple_rsa"
+name = "simple_crypto"
 version = "0.1.0"
 authors = ["Adam Wick <awick@uhsure.com>"]
 description = "A simple crypto library for Rust."
