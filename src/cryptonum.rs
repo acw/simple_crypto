@@ -5,7 +5,6 @@
 //! of course, but that's its origin.
 
 use std::cmp::Ordering;
-use std::iter::repeat;
 use std::ops::*;
 
 /// A 512-bit unsigned value
@@ -401,6 +400,70 @@ impl<'a> Shr<usize> for &'a U512 {
 
 //------------------------------------------------------------------------------
 
+impl AddAssign<U512> for U512 {
+    fn add_assign(&mut self, rhs: U512) {
+        self.add_assign(&rhs);
+    }
+}
+
+impl<'a> AddAssign<&'a U512> for U512 {
+    fn add_assign(&mut self, rhs: &U512) {
+        let mut carry = 0;
+
+        for i in 0..9 {
+            let a = self.contents[i];
+            let b = rhs.contents[i];
+            let total = a + b + carry;
+
+            carry = total >> 63;
+            self.contents[i] = total & 0x7FFFFFFFFFFFFFFF;
+        }
+        self.contents[8] &= 0xFF;
+    }
+}
+
+impl Add<U512> for U512 {
+    type Output = U512;
+
+    fn add(self, rhs: U512) -> U512 {
+        let mut res = self.clone();
+        res.add_assign(rhs);
+        res
+    }
+}
+
+impl<'a> Add<U512> for &'a U512 {
+    type Output = U512;
+
+    fn add(self, rhs: U512) -> U512 {
+        let mut res = self.clone();
+        res.add_assign(rhs);
+        res
+    }
+}
+
+impl<'a> Add<&'a U512> for U512 {
+    type Output = U512;
+
+    fn add(self, rhs: &U512) -> U512 {
+        let mut res = self.clone();
+        res.add_assign(rhs);
+        res
+    }
+}
+
+impl<'a,'b> Add<&'a U512> for &'b U512 {
+    type Output = U512;
+
+    fn add(self, rhs: &U512) -> U512 {
+        let mut res = self.clone();
+        res.add_assign(rhs);
+        res
+    }
+}
+
+//------------------------------------------------------------------------------
+
 #[cfg(test)]
 mod test {
     use quickcheck::{Arbitrary,Gen};
@@ -593,5 +656,27 @@ mod test {
                    U512{ contents: [1,0,0,0,0,0,0,0,0] });
         assert_eq!(U512{ contents: [0,4,0,0,0,0,0,0,0] } >> 65,
                    U512{ contents: [1,0,0,0,0,0,0,0,0] });
+    }
+
+    #[test]
+    fn add_tests() {
+        assert_eq!(U512{ contents: [1,1,1,1,1,1,1,1,1] } +
+                   U512{ contents: [1,1,1,1,1,1,1,1,1] },
+                   U512{ contents: [2,2,2,2,2,2,2,2,2] });
+        assert_eq!(U512{ contents: [1,0,0,0,0,0,0,0,0] } +
+                   U512{ contents: [0x7FFFFFFFFFFFFFFF,0,0,0,0,0,0,0,0] },
+                   U512{ contents: [0,1,0,0,0,0,0,0,0] });
+        assert_eq!(U512{ contents: [0,0,0,0,0,0,0,0,1] } +
+                   U512{ contents: [0,0,0,0,0,0,0,0,0xFF] },
+                   U512{ contents: [0,0,0,0,0,0,0,0,0] });
+    }
+
+    quickcheck! {
+        fn add_symmetry(a: U512, b: U512) -> bool {
+            (&a + &b) == (&b + &a)
+        }
+        fn add_commutivity(a: U512, b: U512, c: U512) -> bool {
+            (&a + (&b + &c)) == ((&a + &b) + &c)
+        }
     }
 }
