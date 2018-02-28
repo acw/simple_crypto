@@ -460,6 +460,62 @@ impl<'a,'b> Add<&'a U512> for &'b U512 {
 
 //------------------------------------------------------------------------------
 
+impl SubAssign<U512> for U512 {
+    fn sub_assign(&mut self, rhs: U512) {
+        self.sub_assign(&rhs);
+    }
+}
+
+impl<'a> SubAssign<&'a U512> for U512 {
+    fn sub_assign(&mut self, rhs: &U512) {
+        let negated_rhs = !rhs;
+        let inverse_rhs = negated_rhs + U512::from_u64(1);
+        self.add_assign(inverse_rhs);
+    }
+}
+
+impl Sub<U512> for U512 {
+    type Output = U512;
+
+    fn sub(self, rhs: U512) -> U512 {
+        let mut res = self.clone();
+        res.sub_assign(rhs);
+        res
+    }
+}
+
+impl<'a> Sub<U512> for &'a U512 {
+    type Output = U512;
+
+    fn sub(self, rhs: U512) -> U512 {
+        let mut res = self.clone();
+        res.sub_assign(rhs);
+        res
+    }
+}
+
+impl<'a> Sub<&'a U512> for U512 {
+    type Output = U512;
+
+    fn sub(self, rhs: &U512) -> U512 {
+        let mut res = self.clone();
+        res.sub_assign(rhs);
+        res
+    }
+}
+
+impl<'a,'b> Sub<&'a U512> for &'b U512 {
+    type Output = U512;
+
+    fn sub(self, rhs: &U512) -> U512 {
+        let mut res = self.clone();
+        res.sub_assign(rhs);
+        res
+    }
+}
+
+//------------------------------------------------------------------------------
+
 impl MulAssign<U512> for U512 {
     fn mul_assign(&mut self, rhs: U512) {
         self.mul_assign(&rhs);
@@ -796,6 +852,31 @@ mod test {
     }
 
     #[test]
+    fn sub_tests() {
+        assert_eq!(U512{ contents: [1,1,1,1,1,1,1,1] } -
+                   U512{ contents: [1,1,1,1,1,1,1,1] },
+                   U512{ contents: [0,0,0,0,0,0,0,0] });
+        assert_eq!(U512{ contents: [0,1,0,0,0,0,0,0] } -
+                   U512{ contents: [1,0,0,0,0,0,0,0] },
+                   U512{ contents: [0xFFFFFFFFFFFFFFFF,0,0,0,0,0,0,0] });
+        assert_eq!(U512{ contents: [0,0,0,0,0,0,0,0] } -
+                   U512{ contents: [1,0,0,0,0,0,0,0] },
+                   U512{ contents: [0xFFFFFFFFFFFFFFFF,0xFFFFFFFFFFFFFFFF,
+                                    0xFFFFFFFFFFFFFFFF,0xFFFFFFFFFFFFFFFF,
+                                    0xFFFFFFFFFFFFFFFF,0xFFFFFFFFFFFFFFFF,
+                                    0xFFFFFFFFFFFFFFFF,0xFFFFFFFFFFFFFFFF] });
+    }
+
+    quickcheck! {
+        fn sub_destroys(a: U512) -> bool {
+            (&a - &a) == U512::zero()
+        }
+        fn sub_add_ident(a: U512, b: U512) -> bool {
+            ((&a - &b) + &b) == a
+        }
+    }
+
+    #[test]
     fn mul_tests() {
         assert_eq!(U512{ contents: [1,0,0,0,0,0,0,0] } *
                    U512{ contents: [1,0,0,0,0,0,0,0] },
@@ -847,6 +928,9 @@ mod test {
     quickcheck! {
         fn addmul_distribution(a: U512, b: U512, c: U512) -> bool {
             (&a * (&b + &c)) == ((&a * &b) + (&a * &c))
+        }
+        fn submul_distribution(a: U512, b: U512, c: U512) -> bool {
+            (&a * (&b - &c)) == ((&a * &b) - (&a * &c))
         }
         fn mul2shift1_equiv(a: U512) -> bool {
             (&a << 1) == (&a * U512::from_u64(2))
