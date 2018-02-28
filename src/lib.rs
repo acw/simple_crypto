@@ -1,3 +1,4 @@
+#![feature(i128_type)]
 //! # Simple Crypto: A quaint little crypto library for rust.
 //!
 //! This is the simple_crypto library. Its goal is to provide straightforward

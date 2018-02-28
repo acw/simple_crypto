@@ -10,35 +10,31 @@ use std::ops::*;
 /// A 512-bit unsigned value
 #[derive(PartialEq,Eq,Debug,Clone)]
 pub struct U512 {
-    // Why 9? Remember, we represent numbers in base 2^63, so that we can
-    // recover the carry bit as necessary. So we actually need ceiling(512/63)
-    // = 9 bytes to hold a 512-bit number.
-    contents: [u64; 9]
+    contents: [u64; 8]
 }
 
 impl U512 {
     /// 0!
     pub fn zero() -> U512 {
         U512 {
-            contents: [0, 0, 0, 0, 0, 0, 0, 0, 0]
+            contents: [0, 0, 0, 0, 0, 0, 0, 0]
         }
     }
 
     /// The maximum possible value: 2^512 - 1.
     pub fn max() -> U512 {
         U512 {
-            contents: [0x7FFFFFFFFFFFFFFF, 0x7FFFFFFFFFFFFFFF,
-                       0x7FFFFFFFFFFFFFFF, 0x7FFFFFFFFFFFFFFF,
-                       0x7FFFFFFFFFFFFFFF, 0x7FFFFFFFFFFFFFFF,
-                       0x7FFFFFFFFFFFFFFF, 0x7FFFFFFFFFFFFFFF,
-                       0xFF]
+            contents: [0xFFFFFFFFFFFFFFFF, 0xFFFFFFFFFFFFFFFF,
+                       0xFFFFFFFFFFFFFFFF, 0xFFFFFFFFFFFFFFFF,
+                       0xFFFFFFFFFFFFFFFF, 0xFFFFFFFFFFFFFFFF,
+                       0xFFFFFFFFFFFFFFFF, 0xFFFFFFFFFFFFFFFF]
         }
     }
 
     /// Convert a `u8` to a `U512`. This is always safe.
     pub fn from_u8(x: u8) -> U512 {
         U512 {
-            contents: [x as u64, 0, 0, 0, 0, 0, 0, 0, 0]
+            contents: [x as u64, 0, 0, 0, 0, 0, 0, 0]
         }
     }
 
@@ -51,7 +47,7 @@ impl U512 {
     /// Convert a `u16` to a `U512`. This is always safe.
     pub fn from_u16(x: u16) -> U512 {
         U512 {
-            contents: [x as u64, 0, 0, 0, 0, 0, 0, 0, 0]
+            contents: [x as u64, 0, 0, 0, 0, 0, 0, 0]
         }
     }
 
@@ -64,7 +60,7 @@ impl U512 {
     /// Convert a `u32` to a `U512`. This is always safe.
     pub fn from_u32(x: u32) -> U512 {
         U512 {
-            contents: [x as u64, 0, 0, 0, 0, 0, 0, 0, 0]
+            contents: [x as u64, 0, 0, 0, 0, 0, 0, 0]
         }
     }
 
@@ -77,14 +73,14 @@ impl U512 {
     /// Convert a `u64` to a `U512`. This is always safe.
     pub fn from_u64(x: u64) -> U512 {
         U512 {
-            contents: [x & 0x7FFFFFFFFFFFFFFF, x >> 63, 0, 0, 0, 0, 0, 0, 0]
+            contents: [x, 0, 0, 0, 0, 0, 0, 0]
         }
     }
 
     /// Convert a U512 into a `u64`. This should be the equivalent of masking
     /// the U512 with `0xFFFFFFFFFFFFFFFF` and then converting to a `u64`.
     pub fn to_u64(&self) -> u64 {
-        (self.contents[0] as u64) | (self.contents[1] << 63)
+        self.contents[0]
     }
 }
 
@@ -98,15 +94,21 @@ impl PartialOrd for U512 {
 
 impl Ord for U512 {
     fn cmp(&self, other: &U512) -> Ordering {
-        let sback = self.contents.iter().rev();
-        let oback = other.contents.iter().rev();
-        for (x,y) in sback.zip(oback) {
-            match x.cmp(y) {
-                Ordering::Equal => {},
-                res             => return res
+        let mut i = 7;
+
+        loop {
+            match self.contents[i].cmp(&other.contents[i]) {
+                Ordering::Equal => {
+                    if i == 0 {
+                        return Ordering::Equal;
+                    } else {
+                        i -= 1;
+                    }
+                }
+                res =>
+                    return res
             }
         }
-        Ordering::Equal
     }
 }
 
@@ -187,9 +189,8 @@ impl<'a> Not for &'a U512 {
         let mut output = self.clone();
 
         for x in output.contents.iter_mut() {
-            *x = !*x & 0x7FFFFFFFFFFFFFFF;
+            *x = !*x;
         }
-        output.contents[8] &= 0xFF;
         output
     }
 }
@@ -318,22 +319,21 @@ impl<'a> BitXor<&'a U512> for &'a U512 {
 
 impl ShlAssign<usize> for U512 {
     fn shl_assign(&mut self, amount: usize) {
-        let digits = amount / 63;
-        let bits   = amount % 63;
+        let digits = amount / 64;
+        let bits   = amount % 64;
         let orig   = self.contents.clone();
 
-        for i in 0..9 {
+        for i in 0..8 {
             if i < digits {
                 self.contents[i] = 0;
             } else {
                 let origidx = i - digits;
                 let prev = if origidx == 0 { 0 } else { orig[origidx - 1] };
-                let carry = prev >> (63 - bits);
+                let (carry,_) = if bits == 0 { (0, false) }
+                                else { prev.overflowing_shr(64 - bits as u32) };
                 self.contents[i] = (orig[origidx] << bits) | carry;
-                self.contents[i] &= 0x7FFFFFFFFFFFFFFF;
             }
         }
-        self.contents[8] &= 0xFF;
     }
 }
 
@@ -361,20 +361,18 @@ impl<'a> Shl<usize> for &'a U512 {
 
 impl ShrAssign<usize> for U512 {
     fn shr_assign(&mut self, amount: usize) {
-        let digits = amount / 63;
-        let bits   = amount % 63;
+        let digits = amount / 64;
+        let bits   = amount % 64;
         let orig   = self.contents.clone();
 
-        for i in 0..9 {
+        for i in 0..8 {
             let oldidx = i + digits;
             let caridx = i + digits + 1;
-            let old    = if oldidx > 8 { 0 } else { orig[oldidx] };
-            let carry  = if caridx > 8 { 0 } else { orig[caridx] };
-            let (cb,_) = carry.overflowing_shl(63 - bits as u32);
+            let old    = if oldidx > 7 { 0 } else { orig[oldidx] };
+            let carry  = if caridx > 7 { 0 } else { orig[caridx] };
+            let cb     = if bits == 0  { 0 } else { carry << (64 - bits) };
             self.contents[i] = (old >> bits) | cb;
-            self.contents[i] &= 0x7FFFFFFFFFFFFFFF;
         }
-        self.contents[8] &= 0xFF;
     }
 }
 
@@ -410,15 +408,13 @@ impl<'a> AddAssign<&'a U512> for U512 {
     fn add_assign(&mut self, rhs: &U512) {
         let mut carry = 0;
 
-        for i in 0..9 {
-            let a = self.contents[i];
-            let b = rhs.contents[i];
+        for i in 0..8 {
+            let a = self.contents[i] as u128;
+            let b = rhs.contents[i] as u128;
             let total = a + b + carry;
-
-            carry = total >> 63;
-            self.contents[i] = total & 0x7FFFFFFFFFFFFFFF;
+            self.contents[i] = total as u64;
+            carry = total >> 64;
         }
-        self.contents[8] &= 0xFF;
     }
 }
 
@@ -471,17 +467,17 @@ mod test {
 
     #[test]
     fn test_builders() {
-        assert_eq!(U512{ contents: [0,0,0,0,0,0,0,0,0] },
+        assert_eq!(U512{ contents: [0,0,0,0,0,0,0,0] },
                    U512::from_u8(0));
-        assert_eq!(U512{ contents: [0x7F,0,0,0,0,0,0,0,0] },
+        assert_eq!(U512{ contents: [0x7F,0,0,0,0,0,0,0] },
                    U512::from_u8(0x7F));
-        assert_eq!(U512{ contents: [0x7F7F,0,0,0,0,0,0,0,0] },
+        assert_eq!(U512{ contents: [0x7F7F,0,0,0,0,0,0,0] },
                    U512::from_u16(0x7F7F));
-        assert_eq!(U512{ contents: [0xCA5CADE5,0,0,0,0,0,0,0,0] },
+        assert_eq!(U512{ contents: [0xCA5CADE5,0,0,0,0,0,0,0] },
                    U512::from_u32(0xCA5CADE5));
-        assert_eq!(U512{ contents: [0xCA5CADE5,0,0,0,0,0,0,0,0] },
+        assert_eq!(U512{ contents: [0xCA5CADE5,0,0,0,0,0,0,0] },
                    U512::from_u64(0xCA5CADE5));
-        assert_eq!(U512{ contents: [0x7FFFFFFFFFFFFFFF,1,0,0,0,0,0,0,0] },
+        assert_eq!(U512{ contents: [0xFFFFFFFFFFFFFFFF,0,0,0,0,0,0,0] },
                    U512::from_u64(0xFFFFFFFFFFFFFFFF));
     }
 
@@ -531,16 +527,15 @@ mod test {
 
     impl Arbitrary for U512 {
         fn arbitrary<G: Gen>(g: &mut G) -> U512 {
-            let x1 = g.next_u64() & 0x7FFFFFFFFFFFFFFF;
-            let x2 = g.next_u64() & 0x7FFFFFFFFFFFFFFF;
-            let x3 = g.next_u64() & 0x7FFFFFFFFFFFFFFF;
-            let x4 = g.next_u64() & 0x7FFFFFFFFFFFFFFF;
-            let x5 = g.next_u64() & 0x7FFFFFFFFFFFFFFF;
-            let x6 = g.next_u64() & 0x7FFFFFFFFFFFFFFF;
-            let x7 = g.next_u64() & 0x7FFFFFFFFFFFFFFF;
-            let x8 = g.next_u64() & 0x7FFFFFFFFFFFFFFF;
-            let x9 = g.next_u64() & 0xFF;
-            U512{ contents: [x1, x2, x3, x4, x5, x6, x7, x8, x9] }
+            let x1 = g.next_u64();
+            let x2 = g.next_u64();
+            let x3 = g.next_u64();
+            let x4 = g.next_u64();
+            let x5 = g.next_u64();
+            let x6 = g.next_u64();
+            let x7 = g.next_u64();
+            let x8 = g.next_u64();
+            U512{ contents: [x1, x2, x3, x4, x5, x6, x7, x8] }
         }
     }
 
@@ -626,49 +621,70 @@ mod test {
 
     #[test]
     fn shl_tests() {
-        assert_eq!(U512{ contents: [1,1,1,1,1,1,1,1,1] } << 0,
-                   U512{ contents: [1,1,1,1,1,1,1,1,1] });
-        assert_eq!(U512{ contents: [1,1,1,1,1,1,1,1,1] } << 512,
-                   U512{ contents: [0,0,0,0,0,0,0,0,0] });
-        assert_eq!(U512{ contents: [2,0,0,0,0,0,0,0,0] } << 1,
-                   U512{ contents: [4,0,0,0,0,0,0,0,0] });
-        assert_eq!(U512{ contents: [1,0,0,0,0,0,0,0,0] } << 63,
-                   U512{ contents: [0,1,0,0,0,0,0,0,0] });
-        assert_eq!(U512{ contents: [1,0,0,0,0,0,0,0,0] } << 65,
-                   U512{ contents: [0,4,0,0,0,0,0,0,0] });
-        assert_eq!(U512{ contents: [0x4000000000000000,0,0,0,0,0,0,0,0] } << 1,
-                   U512{ contents: [0,1,0,0,0,0,0,0,0] });
-        assert_eq!(U512{ contents: [1,0,0,0,0,0,0,0,0xFF] } << 1,
-                   U512{ contents: [2,0,0,0,0,0,0,0,0xFE] });
+        assert_eq!(U512{ contents: [1,1,1,1,1,1,1,1] } << 0,
+                   U512{ contents: [1,1,1,1,1,1,1,1] });
+        assert_eq!(U512{ contents: [1,2,3,4,5,6,7,8] } << 0,
+                   U512{ contents: [1,2,3,4,5,6,7,8] });
+        assert_eq!(U512{ contents: [1,1,1,1,1,1,1,1] } << 512,
+                   U512{ contents: [0,0,0,0,0,0,0,0] });
+        assert_eq!(U512{ contents: [2,0,0,0,0,0,0,0] } << 1,
+                   U512{ contents: [4,0,0,0,0,0,0,0] });
+        assert_eq!(U512{ contents: [1,0,0,0,0,0,0,0] } << 64,
+                   U512{ contents: [0,1,0,0,0,0,0,0] });
+        assert_eq!(U512{ contents: [1,0,0,0,0,0,0,0] } << 66,
+                   U512{ contents: [0,4,0,0,0,0,0,0] });
+        assert_eq!(U512{ contents: [0x8000000000000000,0,0,0,0,0,0,0] } << 1,
+                   U512{ contents: [0,1,0,0,0,0,0,0] });
+        assert_eq!(U512{ contents: [1,0,0,0,0,0,0,0] } << 1,
+                   U512{ contents: [2,0,0,0,0,0,0,0] });
     }
 
     #[test]
     fn shr_tests() {
-        assert_eq!(U512{ contents: [1,1,1,1,1,1,1,1,1] } >> 0,
-                   U512{ contents: [1,1,1,1,1,1,1,1,1] });
-        assert_eq!(U512{ contents: [1,1,1,1,1,1,1,1,1] } >> 512,
-                   U512{ contents: [0,0,0,0,0,0,0,0,0] });
-        assert_eq!(U512{ contents: [2,0,0,0,0,0,0,0,0] } >> 1,
-                   U512{ contents: [1,0,0,0,0,0,0,0,0] });
-        assert_eq!(U512{ contents: [0,1,0,0,0,0,0,0,0] } >> 1,
-                   U512{ contents: [0x4000000000000000,0,0,0,0,0,0,0,0] });
-        assert_eq!(U512{ contents: [0,1,0,0,0,0,0,0,0] } >> 63,
-                   U512{ contents: [1,0,0,0,0,0,0,0,0] });
-        assert_eq!(U512{ contents: [0,4,0,0,0,0,0,0,0] } >> 65,
-                   U512{ contents: [1,0,0,0,0,0,0,0,0] });
+        assert_eq!(U512{ contents: [1,1,1,1,1,1,1,1] } >> 0,
+                   U512{ contents: [1,1,1,1,1,1,1,1] });
+        assert_eq!(U512{ contents: [1,2,3,4,5,6,7,8] } >> 0,
+                   U512{ contents: [1,2,3,4,5,6,7,8] });
+        assert_eq!(U512{ contents: [1,1,1,1,1,1,1,1] } >> 512,
+                   U512{ contents: [0,0,0,0,0,0,0,0] });
+        assert_eq!(U512{ contents: [2,0,0,0,0,0,0,0] } >> 1,
+                   U512{ contents: [1,0,0,0,0,0,0,0] });
+        assert_eq!(U512{ contents: [0,1,0,0,0,0,0,0] } >> 1,
+                   U512{ contents: [0x8000000000000000,0,0,0,0,0,0,0] });
+        assert_eq!(U512{ contents: [0,1,0,0,0,0,0,0] } >> 64,
+                   U512{ contents: [1,0,0,0,0,0,0,0] });
+        assert_eq!(U512{ contents: [0,4,0,0,0,0,0,0] } >> 66,
+                   U512{ contents: [1,0,0,0,0,0,0,0] });
+    }
+
+    quickcheck! {
+        fn shift_mask_equivr(x: U512, in_shift: usize) -> bool {
+            let shift       = in_shift % 512;
+            let mask        = U512::max() << shift;
+            let masked_x    = &x & mask;
+            let shift_maskr = (x >> shift) << shift;
+            shift_maskr == masked_x
+        }
+        fn shift_mask_equivl(x: U512, in_shift: usize) -> bool {
+            let shift       = in_shift % 512;
+            let mask        = U512::max() >> shift;
+            let masked_x    = &x & mask;
+            let shift_maskl = (x << shift) >> shift;
+            shift_maskl == masked_x
+        }
     }
 
     #[test]
     fn add_tests() {
-        assert_eq!(U512{ contents: [1,1,1,1,1,1,1,1,1] } +
-                   U512{ contents: [1,1,1,1,1,1,1,1,1] },
-                   U512{ contents: [2,2,2,2,2,2,2,2,2] });
-        assert_eq!(U512{ contents: [1,0,0,0,0,0,0,0,0] } +
-                   U512{ contents: [0x7FFFFFFFFFFFFFFF,0,0,0,0,0,0,0,0] },
-                   U512{ contents: [0,1,0,0,0,0,0,0,0] });
-        assert_eq!(U512{ contents: [0,0,0,0,0,0,0,0,1] } +
-                   U512{ contents: [0,0,0,0,0,0,0,0,0xFF] },
-                   U512{ contents: [0,0,0,0,0,0,0,0,0] });
+        assert_eq!(U512{ contents: [1,1,1,1,1,1,1,1] } +
+                   U512{ contents: [1,1,1,1,1,1,1,1] },
+                   U512{ contents: [2,2,2,2,2,2,2,2] });
+        assert_eq!(U512{ contents: [1,0,0,0,0,0,0,0] } +
+                   U512{ contents: [0xFFFFFFFFFFFFFFFF,0,0,0,0,0,0,0] },
+                   U512{ contents: [0,1,0,0,0,0,0,0] });
+        assert_eq!(U512{ contents: [0,0,0,0,0,0,0,1] } +
+                   U512{ contents: [0,0,0,0,0,0,0,0xFFFFFFFFFFFFFFFF] },
+                   U512{ contents: [0,0,0,0,0,0,0,0] });
     }
 
     quickcheck! {
