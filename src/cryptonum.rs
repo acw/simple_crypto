@@ -460,6 +460,102 @@ impl<'a,'b> Add<&'a U512> for &'b U512 {
 
 //------------------------------------------------------------------------------
 
+impl MulAssign<U512> for U512 {
+    fn mul_assign(&mut self, rhs: U512) {
+        self.mul_assign(&rhs);
+    }
+}
+
+impl<'a> MulAssign<&'a U512> for U512 {
+    fn mul_assign(&mut self, rhs: &U512) {
+        let orig      = self.contents.clone();
+        let mut table = [[0 as u128; 8]; 8];
+        // This uses "simple" grade school techniques to work things out. But,
+        // for reference, consider two 4 digit numbers:
+        //
+        //     l0c3        l0c2        l0c1        l0c0    [orig]
+        //  x  l1c3        l1c2        l1c1        l1c0    [rhs.contents]
+        //  ------------------------------------------------------------
+        //     (l0c3*l1c0) (l0c2*l1c0) (l0c1*l1c0) (l0c0*l1c0)
+        //     (l0c2*l1c1) (l0c1*l1c1) (l0c0*l1c1)
+        //     (l0c1*l1c2) (l0c0*l1c2)
+        //     (l0c0*l1c3)
+        //  ------------------------------------------------------------
+        //     AAAAA       BBBBB       CCCCC       DDDDD
+        for line in 0..8 {
+            let maxcol = 8 - line;
+            for col in 0..maxcol {
+                let left  = orig[col] as u128;
+                let right = rhs.contents[line] as u128;
+                table[line][col + line] = left * right;
+            }
+        }
+        // ripple the carry across each line, ensuring that each entry in the
+        // table is 64-bits
+        for line in 0..8 {
+            let mut carry = 0;
+            for col in 0..8 {
+                table[line][col] = table[line][col] + carry;
+                carry = table[line][col] >> 64;
+                table[line][col] &= 0xFFFFFFFFFFFFFFFF;
+            }
+        }
+        // now do the final addition across the lines, rippling the carry as
+        // normal
+        let mut carry = 0;
+        for col in 0..8 {
+            let mut total = carry;
+            for line in 0..8 {
+                total += table[line][col];
+            }
+            self.contents[col] = total as u64;
+            carry = total >> 64;
+        }
+    }
+}
+
+impl Mul<U512> for U512 {
+    type Output = U512;
+
+    fn mul(self, rhs: U512) -> U512 {
+        let mut res = self.clone();
+        res.mul_assign(rhs);
+        res
+    }
+}
+
+impl<'a> Mul<U512> for &'a U512 {
+    type Output = U512;
+
+    fn mul(self, rhs: U512) -> U512 {
+        let mut res = self.clone();
+        res.mul_assign(rhs);
+        res
+    }
+}
+
+impl<'a> Mul<&'a U512> for U512 {
+    type Output = U512;
+
+    fn mul(self, rhs: &U512) -> U512 {
+        let mut res = self.clone();
+        res.mul_assign(rhs);
+        res
+    }
+}
+
+impl<'a,'b> Mul<&'a U512> for &'b U512 {
+    type Output = U512;
+
+    fn mul(self, rhs: &U512) -> U512 {
+        let mut res = self.clone();
+        res.mul_assign(rhs);
+        res
+    }
+}
+
+//------------------------------------------------------------------------------
+
 #[cfg(test)]
 mod test {
     use quickcheck::{Arbitrary,Gen};
@@ -693,6 +789,70 @@ mod test {
         }
         fn add_commutivity(a: U512, b: U512, c: U512) -> bool {
             (&a + (&b + &c)) == ((&a + &b) + &c)
+        }
+        fn add_identity(a: U512) -> bool {
+            (&a + U512::zero()) == a
+        }
+    }
+
+    #[test]
+    fn mul_tests() {
+        assert_eq!(U512{ contents: [1,0,0,0,0,0,0,0] } *
+                   U512{ contents: [1,0,0,0,0,0,0,0] },
+                   U512{ contents: [1,0,0,0,0,0,0,0] });
+        assert_eq!(U512{ contents: [1,0,0,0,0,0,0,0] } *
+                   U512{ contents: [0,0,0,0,0,0,0,0] },
+                   U512{ contents: [0,0,0,0,0,0,0,0] });
+        assert_eq!(U512{ contents: [1,0,0,0,0,0,0,0] } *
+                   U512{ contents: [2,0,0,0,0,0,0,0] },
+                   U512{ contents: [2,0,0,0,0,0,0,0] });
+        assert_eq!(U512{ contents: [0xFFFFFFFFFFFFFFFF,0,0,0,0,0,0,0] } *
+                   U512{ contents: [0xFFFFFFFFFFFFFFFF,0,0,0,0,0,0,0] },
+                   U512{ contents: [1,0xFFFFFFFFFFFFFFFE,0,0,0,0,0,0] });
+        assert_eq!(U512{ contents: [1,0,0,0,0,0,0,0] } *
+                   U512{ contents: [0xFFFFFFFFFFFFFFFF,0xFFFFFFFFFFFFFFFF,
+                                    0xFFFFFFFFFFFFFFFF,0xFFFFFFFFFFFFFFFF,
+                                    0xFFFFFFFFFFFFFFFF,0xFFFFFFFFFFFFFFFF,
+                                    0xFFFFFFFFFFFFFFFF,0xFFFFFFFFFFFFFFFF] },
+                   U512{ contents: [0xFFFFFFFFFFFFFFFF,0xFFFFFFFFFFFFFFFF,
+                                    0xFFFFFFFFFFFFFFFF,0xFFFFFFFFFFFFFFFF,
+                                    0xFFFFFFFFFFFFFFFF,0xFFFFFFFFFFFFFFFF,
+                                    0xFFFFFFFFFFFFFFFF,0xFFFFFFFFFFFFFFFF] });
+         assert_eq!(U512{ contents: [2,0,0,0,0,0,0,0] } *
+                   U512{ contents: [0xFFFFFFFFFFFFFFFF,0xFFFFFFFFFFFFFFFF,
+                                    0xFFFFFFFFFFFFFFFF,0xFFFFFFFFFFFFFFFF,
+                                    0xFFFFFFFFFFFFFFFF,0xFFFFFFFFFFFFFFFF,
+                                    0xFFFFFFFFFFFFFFFF,0xFFFFFFFFFFFFFFFF] },
+                   U512{ contents: [0xFFFFFFFFFFFFFFFE,0xFFFFFFFFFFFFFFFF,
+                                    0xFFFFFFFFFFFFFFFF,0xFFFFFFFFFFFFFFFF,
+                                    0xFFFFFFFFFFFFFFFF,0xFFFFFFFFFFFFFFFF,
+                                    0xFFFFFFFFFFFFFFFF,0xFFFFFFFFFFFFFFFF] });
+    }
+
+    quickcheck! {
+        fn mul_symmetry(a: U512, b: U512) -> bool {
+            (&a * &b) == (&b * &a)
+        }
+        fn mul_commutivity(a: U512, b: U512, c: U512) -> bool {
+            (&a * (&b * &c)) == ((&a * &b) * &c)
+        }
+        fn mul_identity(a: U512) -> bool {
+            (&a * U512::from_u64(1)) == a
+        }
+        fn mul_zero(a: U512) -> bool {
+            (&a * U512::zero()) == U512::zero()
+        }
+    }
+
+    quickcheck! {
+        fn addmul_distribution(a: U512, b: U512, c: U512) -> bool {
+            (&a * (&b + &c)) == ((&a * &b) + (&a * &c))
+        }
+        fn mul2shift1_equiv(a: U512) -> bool {
+            (&a << 1) == (&a * U512::from_u64(2))
+        }
+        fn mul16shift4_equiv(a: U512) -> bool {
+            (&a << 4) == (&a * U512::from_u64(16))
         }
     }
 }
