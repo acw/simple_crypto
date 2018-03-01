@@ -4,6 +4,9 @@
 //! the rest of the Simple-Crypto libraries. Feel free to use it other places,
 //! of course, but that's its origin.
 
+mod core;
+
+use self::core::{generic_cmp};
 use std::cmp::Ordering;
 use std::ops::*;
 
@@ -94,21 +97,7 @@ impl PartialOrd for U512 {
 
 impl Ord for U512 {
     fn cmp(&self, other: &U512) -> Ordering {
-        let mut i = 7;
-
-        loop {
-            match self.contents[i].cmp(&other.contents[i]) {
-                Ordering::Equal => {
-                    if i == 0 {
-                        return Ordering::Equal;
-                    } else {
-                        i -= 1;
-                    }
-                }
-                res =>
-                    return res
-            }
-        }
+        generic_cmp(&self.contents, &other.contents)
     }
 }
 
@@ -612,83 +601,83 @@ impl<'a,'b> Mul<&'a U512> for &'b U512 {
 
 //------------------------------------------------------------------------------
 
-fn divmod(inx: U512, y: U512) -> (U512, U512) {
-    let mut x = inx.clone();
-
-    // This algorithm is from the Handbook of Applied Cryptography, Chapter 14,
-    // algorithm 14.20.
-
-    // 0. Compute 'n' and 't'
-    let n = 8;
-    let mut t = 8;
-    while (t > 0) && (y.contents[t] == 0) { t -= 1 }
-    assert!(y[t] != 0); // this is where division by zero will fire
-
-    // 1. For j from 0 to (n - 1) do: q_j <- 0
-    let mut q = [0; 9];
-    // 2. While (x >= yb^(n-t)) do the following:
-    //       q_(n-t) <- q_(n-t) + 1
-    //       x       <- x - yb^(n-t)
-    let mut ybnt = iny << (64 * (n - t));
-    while x >= ybnt {
-        q[n-t] = q[n-t] + 1;
-        x      = x - ybnt;
-    }
-    // 3. For i from n down to (t + 1) do the following:
-    let mut i = n;
-    while i >= (t + 1) {
-        // 3.1. if x_i = y_t, then set q_(i-t-1) <- b - 1; otherwise set
-        //      q_(i-t-1) <- floor((x_i * b + x_(i-1)) / y_t).
-        if x[i] == y[t] {
-            q[i-t-1] = 0xFFFFFFFFFFFFFFFF;
-        } else {
-            let top = ((x[i] as u128) << 64) + (x[i-1] as u128);
-            let bot = y[t] as u128;
-            let solution = top / bot;
-            q[i-t-1] = solution as u64;
-        }
-        // 3.2. While (q_(i-t-1)(y_t * b + y_(t-1)) > x_i(b2) + x_(i-1)b +
-        //      x_(i-2)) do:
-        //        q_(i - t - 1) <- q_(i - t 1) - 1.
-        loop {
-            let mut left = U512::from_u64(q[i-t-1]);
-            left *= U512{ contents: [y[t-1], y[t], 0, 0, 0, 0, 0, 0] };
-            let right = U512{ contents: [x[i-2], x[i-1], x[i], 0, 0, 0, 0, 0] };
-
-            if left <= right {
-                break;
-            }
-
-            q[i - t - 1] -= 1;
-        }
-        // 3.3. x <- x - q_(i - t - 1) * y * b^(i-t-1)
-        let xprime = U512{ contents: x[1..9] };
-        let mut bit1 = U512::zero();
-        bit1.contents[i - t - 1] = 1;
-        let subside = U512::from_u64(q[i - t -1]) * iny * bit1;
-        let wentnegative = xprime < subside;
-        xprime -= subside;
-        // 3.4. if x < 0 then set x <- x + yb^(i-t-1) and
-        //      q_(i-t-1) <- q_(i-t-1) - 1
-        if wentnegative {
-            let mut ybit1 = iny << (64 * (i - t - 1));
-            xprime += ybit1;
-            q[i - t - 1] -= 1;
-        }
-    }
-    // 4. r <- x
-    let rval = U512::zero();
-    for i in 0..8 {
-        rval.contents[i] = x[i];
-    }
-    // 5. return (q,r)
-    let qval = U512::zero();
-    for i in 0..8 {
-        qval.contents[i] = q[i];
-    }
-    //
-    (qval, rval)
-}
+// fn divmod(inx: U512, y: U512) -> (U512, U512) {
+//     let mut x = inx.clone();
+// 
+//     // This algorithm is from the Handbook of Applied Cryptography, Chapter 14,
+//     // algorithm 14.20.
+// 
+//     // 0. Compute 'n' and 't'
+//     let n = 8;
+//     let mut t = 8;
+//     while (t > 0) && (y.contents[t] == 0) { t -= 1 }
+//     assert!(y[t] != 0); // this is where division by zero will fire
+// 
+//     // 1. For j from 0 to (n - 1) do: q_j <- 0
+//     let mut q = [0; 9];
+//     // 2. While (x >= yb^(n-t)) do the following:
+//     //       q_(n-t) <- q_(n-t) + 1
+//     //       x       <- x - yb^(n-t)
+//     let mut ybnt = iny << (64 * (n - t));
+//     while x >= ybnt {
+//         q[n-t] = q[n-t] + 1;
+//         x      = x - ybnt;
+//     }
+//     // 3. For i from n down to (t + 1) do the following:
+//     let mut i = n;
+//     while i >= (t + 1) {
+//         // 3.1. if x_i = y_t, then set q_(i-t-1) <- b - 1; otherwise set
+//         //      q_(i-t-1) <- floor((x_i * b + x_(i-1)) / y_t).
+//         if x[i] == y[t] {
+//             q[i-t-1] = 0xFFFFFFFFFFFFFFFF;
+//         } else {
+//             let top = ((x[i] as u128) << 64) + (x[i-1] as u128);
+//             let bot = y[t] as u128;
+//             let solution = top / bot;
+//             q[i-t-1] = solution as u64;
+//         }
+//         // 3.2. While (q_(i-t-1)(y_t * b + y_(t-1)) > x_i(b2) + x_(i-1)b +
+//         //      x_(i-2)) do:
+//         //        q_(i - t - 1) <- q_(i - t 1) - 1.
+//         loop {
+//             let mut left = U512::from_u64(q[i-t-1]);
+//             left *= U512{ contents: [y[t-1], y[t], 0, 0, 0, 0, 0, 0] };
+//             let right = U512{ contents: [x[i-2], x[i-1], x[i], 0, 0, 0, 0, 0] };
+// 
+//             if left <= right {
+//                 break;
+//             }
+// 
+//             q[i - t - 1] -= 1;
+//         }
+//         // 3.3. x <- x - q_(i - t - 1) * y * b^(i-t-1)
+//         let xprime = U512{ contents: x[1..9] };
+//         let mut bit1 = U512::zero();
+//         bit1.contents[i - t - 1] = 1;
+//         let subside = U512::from_u64(q[i - t -1]) * iny * bit1;
+//         let wentnegative = xprime < subside;
+//         xprime -= subside;
+//         // 3.4. if x < 0 then set x <- x + yb^(i-t-1) and
+//         //      q_(i-t-1) <- q_(i-t-1) - 1
+//         if wentnegative {
+//             let mut ybit1 = iny << (64 * (i - t - 1));
+//             xprime += ybit1;
+//             q[i - t - 1] -= 1;
+//         }
+//     }
+//     // 4. r <- x
+//     let rval = U512::zero();
+//     for i in 0..8 {
+//         rval.contents[i] = x[i];
+//     }
+//     // 5. return (q,r)
+//     let qval = U512::zero();
+//     for i in 0..8 {
+//         qval.contents[i] = q[i];
+//     }
+//     //
+//     (qval, rval)
+// }
 
 //------------------------------------------------------------------------------
 
