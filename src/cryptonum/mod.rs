@@ -5,8 +5,10 @@
 //! of course, but that's its origin.
 
 mod core;
+mod traits;
 
-use self::core::{generic_cmp};
+use self::core::*;
+use self::traits::*;
 use std::cmp::Ordering;
 use std::ops::*;
 
@@ -111,13 +113,7 @@ impl BitOrAssign for U512 {
 
 impl<'a> BitOrAssign<&'a U512> for U512 {
     fn bitor_assign(&mut self, other: &U512) {
-        let mut oback = other.contents.iter();
-        for x in self.contents.iter_mut() {
-            match oback.next() {
-                None => panic!("Internal error in cryptonum (|=)."),
-                Some(v) => *x = *x | *v
-            }
-        }
+        generic_bitor(&mut self.contents, &other.contents)
     }
 }
 
@@ -176,10 +172,7 @@ impl<'a> Not for &'a U512 {
 
     fn not(self) -> U512 {
         let mut output = self.clone();
-
-        for x in output.contents.iter_mut() {
-            *x = !*x;
-        }
+        generic_not(&mut output.contents);
         output
     }
 }
@@ -194,13 +187,7 @@ impl BitAndAssign for U512 {
 
 impl<'a> BitAndAssign<&'a U512> for U512 {
     fn bitand_assign(&mut self, other: &U512) {
-        let mut oback = other.contents.iter();
-        for x in self.contents.iter_mut() {
-            match oback.next() {
-                None => panic!("Internal error in cryptonum (&=)."),
-                Some(v) => *x = *x & *v
-            }
-        }
+        generic_bitand(&mut self.contents, &other.contents)
     }
 }
 
@@ -254,13 +241,7 @@ impl BitXorAssign for U512 {
 
 impl<'a> BitXorAssign<&'a U512> for U512 {
     fn bitxor_assign(&mut self, other: &U512) {
-        let mut oback = other.contents.iter();
-        for x in self.contents.iter_mut() {
-            match oback.next() {
-                None => panic!("Internal error in cryptonum (&=)."),
-                Some(v) => *x = *x ^ *v
-            }
-        }
+        generic_bitxor(&mut self.contents, &other.contents);
     }
 }
 
@@ -308,21 +289,8 @@ impl<'a> BitXor<&'a U512> for &'a U512 {
 
 impl ShlAssign<usize> for U512 {
     fn shl_assign(&mut self, amount: usize) {
-        let digits = amount / 64;
-        let bits   = amount % 64;
-        let orig   = self.contents.clone();
-
-        for i in 0..8 {
-            if i < digits {
-                self.contents[i] = 0;
-            } else {
-                let origidx = i - digits;
-                let prev = if origidx == 0 { 0 } else { orig[origidx - 1] };
-                let (carry,_) = if bits == 0 { (0, false) }
-                                else { prev.overflowing_shr(64 - bits as u32) };
-                self.contents[i] = (orig[origidx] << bits) | carry;
-            }
-        }
+        let copy = self.contents.clone();
+        generic_shl(&mut self.contents, &copy, amount);
     }
 }
 
@@ -350,18 +318,8 @@ impl<'a> Shl<usize> for &'a U512 {
 
 impl ShrAssign<usize> for U512 {
     fn shr_assign(&mut self, amount: usize) {
-        let digits = amount / 64;
-        let bits   = amount % 64;
-        let orig   = self.contents.clone();
-
-        for i in 0..8 {
-            let oldidx = i + digits;
-            let caridx = i + digits + 1;
-            let old    = if oldidx > 7 { 0 } else { orig[oldidx] };
-            let carry  = if caridx > 7 { 0 } else { orig[caridx] };
-            let cb     = if bits == 0  { 0 } else { carry << (64 - bits) };
-            self.contents[i] = (old >> bits) | cb;
-        }
+        let copy = self.contents.clone();
+        generic_shr(&mut self.contents, &copy, amount);
     }
 }
 
@@ -395,15 +353,7 @@ impl AddAssign<U512> for U512 {
 
 impl<'a> AddAssign<&'a U512> for U512 {
     fn add_assign(&mut self, rhs: &U512) {
-        let mut carry = 0;
-
-        for i in 0..8 {
-            let a = self.contents[i] as u128;
-            let b = rhs.contents[i] as u128;
-            let total = a + b + carry;
-            self.contents[i] = total as u64;
-            carry = total >> 64;
-        }
+        generic_add(&mut self.contents, &rhs.contents);
     }
 }
 
@@ -457,9 +407,7 @@ impl SubAssign<U512> for U512 {
 
 impl<'a> SubAssign<&'a U512> for U512 {
     fn sub_assign(&mut self, rhs: &U512) {
-        let negated_rhs = !rhs;
-        let inverse_rhs = negated_rhs + U512::from_u64(1);
-        self.add_assign(inverse_rhs);
+        generic_sub(&mut self.contents, &rhs.contents);
     }
 }
 
@@ -513,49 +461,8 @@ impl MulAssign<U512> for U512 {
 
 impl<'a> MulAssign<&'a U512> for U512 {
     fn mul_assign(&mut self, rhs: &U512) {
-        let orig      = self.contents.clone();
-        let mut table = [[0 as u128; 8]; 8];
-        // This uses "simple" grade school techniques to work things out. But,
-        // for reference, consider two 4 digit numbers:
-        //
-        //     l0c3        l0c2        l0c1        l0c0    [orig]
-        //  x  l1c3        l1c2        l1c1        l1c0    [rhs.contents]
-        //  ------------------------------------------------------------
-        //     (l0c3*l1c0) (l0c2*l1c0) (l0c1*l1c0) (l0c0*l1c0)
-        //     (l0c2*l1c1) (l0c1*l1c1) (l0c0*l1c1)
-        //     (l0c1*l1c2) (l0c0*l1c2)
-        //     (l0c0*l1c3)
-        //  ------------------------------------------------------------
-        //     AAAAA       BBBBB       CCCCC       DDDDD
-        for line in 0..8 {
-            let maxcol = 8 - line;
-            for col in 0..maxcol {
-                let left  = orig[col] as u128;
-                let right = rhs.contents[line] as u128;
-                table[line][col + line] = left * right;
-            }
-        }
-        // ripple the carry across each line, ensuring that each entry in the
-        // table is 64-bits
-        for line in 0..8 {
-            let mut carry = 0;
-            for col in 0..8 {
-                table[line][col] = table[line][col] + carry;
-                carry = table[line][col] >> 64;
-                table[line][col] &= 0xFFFFFFFFFFFFFFFF;
-            }
-        }
-        // now do the final addition across the lines, rippling the carry as
-        // normal
-        let mut carry = 0;
-        for col in 0..8 {
-            let mut total = carry;
-            for line in 0..8 {
-                total += table[line][col];
-            }
-            self.contents[col] = total as u64;
-            carry = total >> 64;
-        }
+        let copy = self.contents.clone();
+        generic_mul(&mut self.contents, &copy, &rhs.contents);
     }
 }
 
@@ -601,83 +508,124 @@ impl<'a,'b> Mul<&'a U512> for &'b U512 {
 
 //------------------------------------------------------------------------------
 
-// fn divmod(inx: U512, y: U512) -> (U512, U512) {
-//     let mut x = inx.clone();
-// 
-//     // This algorithm is from the Handbook of Applied Cryptography, Chapter 14,
-//     // algorithm 14.20.
-// 
-//     // 0. Compute 'n' and 't'
-//     let n = 8;
-//     let mut t = 8;
-//     while (t > 0) && (y.contents[t] == 0) { t -= 1 }
-//     assert!(y[t] != 0); // this is where division by zero will fire
-// 
-//     // 1. For j from 0 to (n - 1) do: q_j <- 0
-//     let mut q = [0; 9];
-//     // 2. While (x >= yb^(n-t)) do the following:
-//     //       q_(n-t) <- q_(n-t) + 1
-//     //       x       <- x - yb^(n-t)
-//     let mut ybnt = iny << (64 * (n - t));
-//     while x >= ybnt {
-//         q[n-t] = q[n-t] + 1;
-//         x      = x - ybnt;
-//     }
-//     // 3. For i from n down to (t + 1) do the following:
-//     let mut i = n;
-//     while i >= (t + 1) {
-//         // 3.1. if x_i = y_t, then set q_(i-t-1) <- b - 1; otherwise set
-//         //      q_(i-t-1) <- floor((x_i * b + x_(i-1)) / y_t).
-//         if x[i] == y[t] {
-//             q[i-t-1] = 0xFFFFFFFFFFFFFFFF;
-//         } else {
-//             let top = ((x[i] as u128) << 64) + (x[i-1] as u128);
-//             let bot = y[t] as u128;
-//             let solution = top / bot;
-//             q[i-t-1] = solution as u64;
-//         }
-//         // 3.2. While (q_(i-t-1)(y_t * b + y_(t-1)) > x_i(b2) + x_(i-1)b +
-//         //      x_(i-2)) do:
-//         //        q_(i - t - 1) <- q_(i - t 1) - 1.
-//         loop {
-//             let mut left = U512::from_u64(q[i-t-1]);
-//             left *= U512{ contents: [y[t-1], y[t], 0, 0, 0, 0, 0, 0] };
-//             let right = U512{ contents: [x[i-2], x[i-1], x[i], 0, 0, 0, 0, 0] };
-// 
-//             if left <= right {
-//                 break;
-//             }
-// 
-//             q[i - t - 1] -= 1;
-//         }
-//         // 3.3. x <- x - q_(i - t - 1) * y * b^(i-t-1)
-//         let xprime = U512{ contents: x[1..9] };
-//         let mut bit1 = U512::zero();
-//         bit1.contents[i - t - 1] = 1;
-//         let subside = U512::from_u64(q[i - t -1]) * iny * bit1;
-//         let wentnegative = xprime < subside;
-//         xprime -= subside;
-//         // 3.4. if x < 0 then set x <- x + yb^(i-t-1) and
-//         //      q_(i-t-1) <- q_(i-t-1) - 1
-//         if wentnegative {
-//             let mut ybit1 = iny << (64 * (i - t - 1));
-//             xprime += ybit1;
-//             q[i - t - 1] -= 1;
-//         }
-//     }
-//     // 4. r <- x
-//     let rval = U512::zero();
-//     for i in 0..8 {
-//         rval.contents[i] = x[i];
-//     }
-//     // 5. return (q,r)
-//     let qval = U512::zero();
-//     for i in 0..8 {
-//         qval.contents[i] = q[i];
-//     }
-//     //
-//     (qval, rval)
-// }
+impl CryptoNum for U512 {
+    fn divmod(&self, a: &U512, q: &mut U512, r: &mut U512) {
+        generic_div(&self.contents,  &a.contents,
+                    &mut q.contents, &mut r.contents);
+    }
+}
+
+//------------------------------------------------------------------------------
+
+impl DivAssign<U512> for U512 {
+    fn div_assign(&mut self, rhs: U512) {
+        self.div_assign(&rhs);
+    }
+}
+
+impl<'a> DivAssign<&'a U512> for U512 {
+    fn div_assign(&mut self, rhs: &U512) {
+        let     copy = self.contents.clone();
+        let mut dead = [0; 8];
+        generic_div(&copy, &rhs.contents, &mut self.contents, &mut dead);
+    }
+}
+
+impl Div<U512> for U512 {
+    type Output = U512;
+
+    fn div(self, rhs: U512) -> U512 {
+        let mut res = self.clone();
+        res.div_assign(rhs);
+        res
+    }
+}
+
+impl<'a> Div<U512> for &'a U512 {
+    type Output = U512;
+
+    fn div(self, rhs: U512) -> U512 {
+        let mut res = self.clone();
+        res.div_assign(rhs);
+        res
+    }
+}
+
+impl<'a> Div<&'a U512> for U512 {
+    type Output = U512;
+
+    fn div(self, rhs: &U512) -> U512 {
+        let mut res = self.clone();
+        res.div_assign(rhs);
+        res
+    }
+}
+
+impl<'a,'b> Div<&'a U512> for &'b U512 {
+    type Output = U512;
+
+    fn div(self, rhs: &U512) -> U512 {
+        let mut res = self.clone();
+        res.div_assign(rhs);
+        res
+    }
+}
+
+//------------------------------------------------------------------------------
+
+impl RemAssign<U512> for U512 {
+    fn rem_assign(&mut self, rhs: U512) {
+        self.rem_assign(&rhs);
+    }
+}
+
+impl<'a> RemAssign<&'a U512> for U512 {
+    fn rem_assign(&mut self, rhs: &U512) {
+        let     copy = self.contents.clone();
+        let mut dead = [0; 8];
+        generic_div(&copy, &rhs.contents, &mut dead, &mut self.contents);
+    }
+}
+
+impl Rem<U512> for U512 {
+    type Output = U512;
+
+    fn rem(self, rhs: U512) -> U512 {
+        let mut res = self.clone();
+        res.rem_assign(rhs);
+        res
+    }
+}
+
+impl<'a> Rem<U512> for &'a U512 {
+    type Output = U512;
+
+    fn rem(self, rhs: U512) -> U512 {
+        let mut res = self.clone();
+        res.rem_assign(rhs);
+        res
+    }
+}
+
+impl<'a> Rem<&'a U512> for U512 {
+    type Output = U512;
+
+    fn rem(self, rhs: &U512) -> U512 {
+        let mut res = self.clone();
+        res.rem_assign(rhs);
+        res
+    }
+}
+
+impl<'a,'b> Rem<&'a U512> for &'b U512 {
+    type Output = U512;
+
+    fn rem(self, rhs: &U512) -> U512 {
+        let mut res = self.clone();
+        res.rem_assign(rhs);
+        res
+    }
+}
 
 //------------------------------------------------------------------------------
 
@@ -1006,6 +954,76 @@ mod test {
         }
         fn mul16shift4_equiv(a: U512) -> bool {
             (&a << 4) == (&a * U512::from_u64(16))
+        }
+    }
+
+    #[test]
+    fn div_tests() {
+        assert_eq!(U512{ contents: [2,0,0,0,0,0,0,0] } /
+                   U512{ contents: [2,0,0,0,0,0,0,0] },
+                   U512{ contents: [1,0,0,0,0,0,0,0] });
+        assert_eq!(U512{ contents: [2,0,0,0,0,0,0,0] } /
+                   U512{ contents: [1,0,0,0,0,0,0,0] },
+                   U512{ contents: [2,0,0,0,0,0,0,0] });
+        assert_eq!(U512{ contents: [4,0,0,0,0,0,0,0] } /
+                   U512{ contents: [3,0,0,0,0,0,0,0] },
+                   U512{ contents: [1,0,0,0,0,0,0,0] });
+        assert_eq!(U512{ contents: [4,0,0,0,0,0,0,0] } /
+                   U512{ contents: [5,0,0,0,0,0,0,0] },
+                   U512{ contents: [0,0,0,0,0,0,0,0] });
+        assert_eq!(U512{ contents: [4,0,0,0,0,0,0,0] } /
+                   U512{ contents: [4,0,0,0,0,0,0,0] },
+                   U512{ contents: [1,0,0,0,0,0,0,0] });
+        assert_eq!(U512{ contents: [0,0,0,0,0,0,0,4] } /
+                   U512{ contents: [0,0,0,0,0,0,0,4] },
+                   U512{ contents: [1,0,0,0,0,0,0,0] });
+        assert_eq!(U512{ contents: [0,0,0,0,0,0,0,4] } /
+                   U512{ contents: [1,0,0,0,0,0,0,0] },
+                   U512{ contents: [0,0,0,0,0,0,0,4] });
+        assert_eq!(U512{ contents: [0,0,0,0,0,0,0,0xFFFFFFFFFFFFFFFF] } /
+                   U512{ contents: [1,0,0,0,0,0,0,0] },
+                   U512{ contents: [0,0,0,0,0,0,0,0xFFFFFFFFFFFFFFFF] });
+    }
+
+    #[test]
+    fn mod_tests() {
+        assert_eq!(U512{ contents: [4,0,0,0,0,0,0,0] } %
+                   U512{ contents: [5,0,0,0,0,0,0,0] },
+                   U512{ contents: [4,0,0,0,0,0,0,0] });
+        assert_eq!(U512{ contents: [5,0,0,0,0,0,0,0] } %
+                   U512{ contents: [4,0,0,0,0,0,0,0] },
+                   U512{ contents: [1,0,0,0,0,0,0,0] });
+        assert_eq!(U512{ contents: [5,5,5,5,5,5,5,5] } %
+                   U512{ contents: [4,4,4,4,4,4,4,4] },
+                   U512{ contents: [1,1,1,1,1,1,1,1] });
+    }
+
+    #[test]
+    fn divmod_tests() {
+        let     a = U512::from_u64(4);
+        let     b = U512::from_u64(3);
+        let mut q = U512::zero();
+        let mut r = U512::zero();
+        a.divmod(&b, &mut q, &mut r);
+        assert_eq!(q, U512{ contents: [1,0,0,0,0,0,0,0] });
+        assert_eq!(r, U512{ contents: [1,0,0,0,0,0,0,0] });
+    }
+
+    quickcheck! {
+        fn div_identity(a: U512) -> bool {
+            &a / U512::from_u64(1) == a
+        }
+        fn div_self_is_one(a: U512) -> bool {
+            if a == U512::zero() {
+                return true;
+            }
+            &a / &a == U512::from_u64(1)
+        }
+        fn euclid_is_alive(a: U512, b: U512) -> bool {
+            let mut q = U512::zero();
+            let mut r = U512::zero();
+            a.divmod(&b, &mut q, &mut r);
+            a == ((b * q) + r)
         }
     }
 }
