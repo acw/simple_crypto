@@ -1,6 +1,6 @@
 use std::cmp::Ordering;
 
-#[inline]
+#[inline(always)]
 pub fn generic_cmp(a: &[u64], b: &[u64]) -> Ordering {
     let mut i = a.len() - 1;
 
@@ -25,7 +25,7 @@ fn ge(a: &[u64], b: &[u64]) -> bool {
     generic_cmp(a, b) != Ordering::Less
 }
 
-#[inline]
+#[inline(always)]
 pub fn generic_bitand(a: &mut [u64], b: &[u64]) {
     let mut i = 0;
 
@@ -36,7 +36,7 @@ pub fn generic_bitand(a: &mut [u64], b: &[u64]) {
     }
 }
 
-#[inline]
+#[inline(always)]
 pub fn generic_bitor(a: &mut [u64], b: &[u64]) {
     let mut i = 0;
 
@@ -47,7 +47,7 @@ pub fn generic_bitor(a: &mut [u64], b: &[u64]) {
     }
 }
 
-#[inline]
+#[inline(always)]
 pub fn generic_bitxor(a: &mut [u64], b: &[u64]) {
     let mut i = 0;
 
@@ -58,14 +58,14 @@ pub fn generic_bitxor(a: &mut [u64], b: &[u64]) {
     }
 }
 
-#[inline]
+#[inline(always)]
 pub fn generic_not(a: &mut [u64]) {
     for x in a.iter_mut() {
         *x = !*x;
     }
 }
 
-#[inline]
+#[inline(always)]
 pub fn generic_shl(a: &mut [u64], orig: &[u64], amount: usize) {
     let digits = amount / 64;
     let bits   = amount % 64;
@@ -84,7 +84,7 @@ pub fn generic_shl(a: &mut [u64], orig: &[u64], amount: usize) {
     }
 }
 
-#[inline]
+#[inline(always)]
 pub fn generic_shr(a: &mut [u64], orig: &[u64], amount: usize) {
     let digits = amount / 64;
     let bits   = amount % 64;
@@ -100,7 +100,7 @@ pub fn generic_shr(a: &mut [u64], orig: &[u64], amount: usize) {
     }
 }
 
-#[inline]
+#[inline(always)]
 pub fn generic_add(a: &mut [u64], b: &[u64]) {
     let mut carry = 0;
 
@@ -114,7 +114,7 @@ pub fn generic_add(a: &mut [u64], b: &[u64]) {
     }
 }
 
-#[inline]
+#[inline(always)]
 pub fn generic_sub(a: &mut [u64], b: &[u64]) {
     let mut negated_rhs = b.to_vec();
     generic_not(&mut negated_rhs);
@@ -125,7 +125,7 @@ pub fn generic_sub(a: &mut [u64], b: &[u64]) {
     generic_add(a, &negated_rhs);
 }
 
-#[inline]
+#[inline(always)]
 pub fn generic_mul(a: &mut [u64], orig: &[u64], b: &[u64]) {
     assert!(a.len() == orig.len());
     assert!(a.len() == b.len());
@@ -183,7 +183,7 @@ pub fn generic_mul(a: &mut [u64], orig: &[u64], b: &[u64]) {
     }
 }
 
-#[inline]
+#[inline(always)]
 pub fn generic_div(inx: &[u64], iny: &[u64],
                    outq: &mut [u64], outr: &mut [u64])
 {
