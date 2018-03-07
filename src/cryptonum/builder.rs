@@ -620,6 +620,7 @@ macro_rules! construct_unsigned {
             }
 
             quickcheck! {
+                #[ignore]
                 fn div_identity(a: $type) -> bool {
                     &a / $type::from_u64(1) == a
                 }
