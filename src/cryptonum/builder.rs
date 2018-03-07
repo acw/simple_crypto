@@ -230,6 +230,42 @@ macro_rules! construct_unsigned {
                 generic_div(&self.contents, &a.contents,
                             &mut q.contents, &mut r.contents);
             }
+
+            fn to_bytes(&self) -> Vec<u8> {
+                let mut res = Vec::with_capacity($count * 8);
+                for x in self.contents.iter() {
+                    res.push( (x >> 56) as u8 );
+                    res.push( (x >> 48) as u8 );
+                    res.push( (x >> 40) as u8 );
+                    res.push( (x >> 32) as u8 );
+                    res.push( (x >> 24) as u8 );
+                    res.push( (x >> 16) as u8 );
+                    res.push( (x >>  8) as u8 );
+                    res.push( (x >>  0) as u8 );
+                }
+                res
+            }
+
+            fn from_bytes(x: &[u8]) -> $type {
+                let mut res = $type::zero();
+                let mut i = 0;
+
+                assert!(x.len() >= ($count * 8));
+                for chunk in x.chunks(8) {
+                    assert!(chunk.len() == 8);
+                    res.contents[i] = ((chunk[0] as u64) << 56) |
+                                      ((chunk[1] as u64) << 48) |
+                                      ((chunk[2] as u64) << 40) |
+                                      ((chunk[3] as u64) << 32) |
+                                      ((chunk[4] as u64) << 24) |
+                                      ((chunk[5] as u64) << 16) |
+                                      ((chunk[6] as u64) <<  8) |
+                                      ((chunk[7] as u64) <<  0);
+                    i += 1;
+                }
+                assert!(i == $count);
+                res
+            }
         }
 
         #[cfg(test)]
@@ -638,6 +674,13 @@ macro_rules! construct_unsigned {
                 }
             }
 
+            quickcheck! {
+                fn serialization_inverts(a: $type) -> bool {
+                    let bytes = a.to_bytes();
+                    let b = $type::from_bytes(&bytes);
+                    a == b
+                }
+            }
         }
     };
 }
