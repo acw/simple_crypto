@@ -778,19 +778,6 @@ macro_rules! construct_unsigned {
                 assert_eq!(fives % fours, ones);
             }
 
-            #[test]
-            fn divmod_tests() {
-                let     a = $type::from_u64(4);
-                let     b = $type::from_u64(3);
-                let mut q = $type::zero();
-                let mut r = $type::zero();
-                a.divmod(&b, &mut q, &mut r);
-                let mut x = [0; $count];
-                x[0] = 1;
-                assert_eq!(q, $type{ contents: x });
-                assert_eq!(r, $type{ contents: x });
-            }
-
             quickcheck! {
                 #[ignore]
                 fn div_identity(a: $type) -> bool {
@@ -803,9 +790,8 @@ macro_rules! construct_unsigned {
                     &a / &a == $type::from_u64(1)
                 }
                 fn euclid_is_alive(a: $type, b: $type) -> bool {
-                    let mut q = $type::zero();
-                    let mut r = $type::zero();
-                    a.divmod(&b, &mut q, &mut r);
+                    let q = &a / &b;
+                    let r = &a % &b;
                     a == ((b * q) + r)
                 }
             }
