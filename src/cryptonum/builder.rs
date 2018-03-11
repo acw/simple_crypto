@@ -259,6 +259,14 @@ macro_rules! construct_unsigned {
 
 
         impl CryptoNumSerialization for $type {
+            fn bit_size(&self) -> usize {
+                $count * 64
+            }
+
+            fn byte_size(&self) -> usize {
+                $count * 8
+            }
+
             fn to_bytes(&self) -> Vec<u8> {
                 let mut res = Vec::with_capacity($count * 8);
                 for x in self.contents.iter() {

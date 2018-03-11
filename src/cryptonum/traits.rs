@@ -32,6 +32,10 @@ pub trait CryptoNumBase {
 }
 
 pub trait CryptoNumSerialization {
+    /// The number of bits used when this number is serialized.
+    fn bit_size(&self) -> usize;
+    /// The number of bytes used when this number is serialized.
+    fn byte_size(&self) -> usize;
     /// Convert a number to a series of bytes, in standard order (most to
     /// least significant)
     fn to_bytes(&self) -> Vec<u8>;
