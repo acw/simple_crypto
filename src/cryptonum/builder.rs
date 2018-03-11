@@ -992,3 +992,75 @@ macro_rules! opers3 {
         }
     }
 }
+
+macro_rules! math_operator {
+    ($cl: ident, $fn: ident, $asn: ident) => {
+        impl<T> $cl for Signed<T>
+          where
+            T: Clone + Ord,
+            T: AddAssign + SubAssign + MulAssign + DivAssign,
+        {
+            type Output = Signed<T>;
+
+            fn $fn(self, rhs: Signed<T>) -> Signed<T>
+            {
+                let mut res = self.clone();
+                res.$asn(rhs);
+                res
+            }
+        }
+
+        impl<'a,T> $cl<&'a Signed<T>> for Signed<T>
+          where
+            T: Clone + Ord,
+            T: AddAssign + SubAssign + MulAssign + DivAssign,
+            T: AddAssign<&'a T> + SubAssign<&'a T>,
+            T: MulAssign<&'a T> + DivAssign<&'a T>
+        {
+            type Output = Signed<T>;
+
+            fn $fn(self, rhs: &'a Signed<T>) -> Signed<T>
+            {
+                let mut res = self.clone();
+                res.$asn(rhs);
+                res
+            }
+        }
+
+        impl<'a,T> $cl for &'a Signed<T>
+          where
+            T: Clone + Ord,
+            T: AddAssign + SubAssign + MulAssign + DivAssign,
+            T: AddAssign<&'a T> + SubAssign<&'a T>,
+            T: MulAssign<&'a T> + DivAssign<&'a T>
+        {
+            type Output = Signed<T>;
+
+            fn $fn(self, rhs: &'a Signed<T>) -> Signed<T>
+            {
+                let mut res = self.clone();
+                res.$asn(rhs);
+                res
+            }
+        }
+
+        impl<'a,T> $cl<Signed<T>> for &'a Signed<T>
+          where
+            T: Clone + Ord,
+            T: AddAssign + SubAssign + MulAssign + DivAssign,
+            T: AddAssign<&'a T> + SubAssign<&'a T>,
+            T: MulAssign<&'a T> + DivAssign<&'a T>
+        {
+            type Output = Signed<T>;
+
+            fn $fn(self, rhs: Signed<T>) -> Signed<T>
+            {
+                let mut res = self.clone();
+                res.$asn(rhs);
+                res
+            }
+        }
+    }
+}
+
+
