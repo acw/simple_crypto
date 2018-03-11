@@ -6,6 +6,8 @@
 mod core;
 #[macro_use]
 mod builder;
+//mod extended_math;
+// mod primes;
 mod traits;
 
 use self::core::*;

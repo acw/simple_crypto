@@ -14,6 +14,7 @@
 #[cfg(test)]
 #[macro_use]
 extern crate quickcheck;
+extern crate rand;
 
 /// The cryptonum module provides support for large numbers at fixed,
 /// cryptographically-relevant sizes.
