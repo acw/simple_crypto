@@ -21,7 +21,7 @@ fn le(a: &[u64], b: &[u64]) -> bool {
     generic_cmp(a, b) != Ordering::Greater
 }
 
-fn ge(a: &[u64], b: &[u64]) -> bool {
+pub fn ge(a: &[u64], b: &[u64]) -> bool {
     generic_cmp(a, b) != Ordering::Less
 }
 
@@ -181,6 +181,32 @@ pub fn generic_mul(a: &mut [u64], orig: &[u64], b: &[u64]) {
         a[col] = total as u64;
         carry = total >> 64;
     }
+}
+
+#[inline(always)]
+pub fn expanding_mul(a: &[u64], b: &[u64]) -> Vec<u64> {
+    assert!(a.len() == b.len());
+    // The maximum size of an n x n digit multiplication is 2n digits, so
+    // here's our output array.
+    let mut result = Vec::with_capacity(a.len() * 2);
+    result.resize(a.len() * 2, 0);
+
+    for (base_idx, digit) in b.iter().enumerate() {
+        let mut myrow = Vec::with_capacity(a.len() * 2);
+        let mut carry = 0;
+
+        myrow.resize(a.len() * 2, 0);
+        for (col_idx, digit2) in a.iter().enumerate() {
+            let left  = *digit2 as u128;
+            let right = *digit  as u128;
+            let combo = (left * right) + carry;
+
+            myrow[base_idx + col_idx] = combo as u64;
+            carry = combo >> 64;
+        }
+        generic_add(&mut result, &myrow);
+    }
+    result
 }
 
 #[inline(always)]

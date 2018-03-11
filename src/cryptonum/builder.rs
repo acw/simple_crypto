@@ -1,8 +1,14 @@
 macro_rules! construct_unsigned {
-    ($type: ident, $modname: ident, $count: expr) => {
+    ($type: ident, $barrett: ident, $modname: ident, $count: expr) => {
         #[derive(Clone)]
         pub struct $type {
             contents: [u64; $count]
+        }
+
+        pub struct $barrett {
+            k: usize,
+            progenitor: $type,
+            contents: [u64; $count + 1]
         }
 
         impl PartialEq for $type {
@@ -26,21 +32,15 @@ macro_rules! construct_unsigned {
             }
         }
 
-        impl $type {
-            /// 0!
-            pub fn zero() -> $type {
-                $type { contents: [0; $count] }
+        impl Debug for $barrett {
+            fn fmt(&self, f: &mut Formatter) -> Result<(),Error> {
+                f.write_str("BarrettMu{{ ")?;
+                f.write_fmt(format_args!("k = {}, ", self.k))?;
+                f.write_fmt(format_args!("progen = {:?}, ",self.progenitor))?;
+                f.write_str("contents: ")?;
+                f.debug_list().entries(self.contents.iter()).finish()?;
+                f.write_str(" }}")
             }
-
-            /// The maximum possible value we can hold.
-            pub fn max() -> $type {
-                $type { contents: [0xFFFFFFFFFFFFFFFF; $count] }
-            }
-
-            from_to!($type, $count, u8,  from_u8,  to_u8);
-            from_to!($type, $count, u16, from_u16, to_u16);
-            from_to!($type, $count, u32, from_u32, to_u32);
-            from_to!($type, $count, u64, from_u64, to_u64);
         }
 
         impl PartialOrd for $type {
@@ -226,6 +226,38 @@ macro_rules! construct_unsigned {
         }
 
         impl CryptoNum for $type {
+            type BarrettMu = $barrett;
+
+            fn zero() -> $type {
+                $type { contents: [0; $count] }
+            }
+
+            fn max_value() -> $type {
+                $type { contents: [0xFFFFFFFFFFFFFFFF; $count] }
+            }
+
+            fn is_zero(&self) -> bool {
+                for x in self.contents.iter() {
+                    if *x != 0 {
+                        return false;
+                    }
+                }
+                true
+            }
+
+            fn is_odd(&self) -> bool {
+                (self.contents[0] & 1) == 1
+            }
+
+            fn is_even(&self) -> bool {
+                (self.contents[0] & 1) == 0
+            }
+
+            from_to!($type, $count, u8,  from_u8,  to_u8);
+            from_to!($type, $count, u16, from_u16, to_u16);
+            from_to!($type, $count, u32, from_u32, to_u32);
+            from_to!($type, $count, u64, from_u64, to_u64);
+
             fn divmod(&self, a: &$type, q: &mut $type, r: &mut $type) {
                 generic_div(&self.contents, &a.contents,
                             &mut q.contents, &mut r.contents);
@@ -265,6 +297,109 @@ macro_rules! construct_unsigned {
                 }
                 assert!(i == $count);
                 res
+            }
+
+            fn barrett_mu(&self) -> Option<$barrett> {
+                // Step #0: Don't divide by 0.
+                if self.is_zero() {
+                    return None
+                }
+                // Step #1: Compute k.
+                let mut k = $count;
+                while self.contents[k - 1] == 0 { k -= 1 };
+                // Step #2: The algorithm below only works if x has at most 2k
+                // digits, so if k*2 < count, abort this whole process.
+                if (k * 2) < $count {
+                    return None
+                }
+                // Step #2: Compute floor(b^2k / m), where m is this value.
+                let mut widebody_b2k  = [0; ($count * 2) + 1];
+                let mut widebody_self = [0; ($count * 2) + 1];
+                let mut quotient      = [0; ($count * 2) + 1];
+                let mut remainder     = [0; ($count * 2) + 1];
+                widebody_b2k[$count * 2] = 1;
+                for i in 0..k {
+                    widebody_self[i] = self.contents[i];
+                }
+                generic_div(&widebody_b2k, &widebody_self,
+                            &mut quotient, &mut remainder);
+                let mut result        = [0; $count + 1];
+                for (idx, val) in quotient.iter().enumerate() {
+                    if idx < ($count + 1) {
+                        result[idx] = *val;
+                    } else {
+                        if quotient[idx] != 0 {
+                            return None;
+                        }
+                    }
+                }
+                Some($barrett{k: k, progenitor: self.clone(), contents: result})
+            }
+
+            fn fastmod(&self, mu: &$barrett) -> $type {
+                // This algorithm is from our friends at the Handbook of
+                // Applied Cryptography, Chapter 14, Algorithm 14.42.
+                // Step #0:
+                //    Expand x so that it has the same size as the Barrett
+                //    value.
+                let mut x = [0; $count + 1];
+                for i in 0..$count {
+                    x[i] = self.contents[i];
+                }
+                // Step #1:
+                //    q1 <- floor(x / b^(k-1))
+                let mut q1 = x.clone();
+                generic_shr(&mut q1, &x, 64 * (mu.k - 1));
+                //    q2 <- q1 * mu
+                let q2 = expanding_mul(&q1, &mu.contents);
+                //    q3 <- floor(q2 / b^(k+1))
+                let mut q3big = q2.clone();
+                generic_shr(&mut q3big, &q2, 64 * (mu.k + 1));
+                let mut q3 = [0; $count + 1];
+                for (idx, val) in q3big.iter().enumerate() {
+                    if idx <= $count {
+                        q3[idx] = *val;
+                    } else {
+                        assert_eq!(*val, 0);
+                    }
+                }
+                // Step #2:
+                //    r1 <- x mod b^(k+1)
+                let mut r1 = x.clone();
+                for i in mu.k..($count+1) {
+                    r1[i] = 0;
+                }
+                //    r2 <- q3 * m mod b^(k+1)
+                let mut moddedm = [0; $count + 1];
+                for i in 0..mu.k {
+                    moddedm[i] = mu.progenitor.contents[i];
+                }
+                let mut r2 = q3.clone();
+                generic_mul(&mut r2, &q3, &moddedm);
+                //    r  <- r1 - r2
+                let mut r = r1.clone();
+                generic_sub(&mut r, &r2);
+                let is_negative = !ge(&r1, &r2);
+                // Step #3:
+                //    if r < 0 then r <- r + b^(k + 1)
+                if is_negative {
+                    let mut bk1 = [0; $count + 1];
+                    bk1[mu.k] = 1;
+                    generic_add(&mut r, &bk1);
+                }
+                // Step #4:
+                //    while r >= m do: r <- r - m.
+                while ge(&r, &moddedm) {
+                    generic_sub(&mut r, &moddedm);
+                }
+                // Step #5:
+                //    return r
+                let mut retval = [0; $count];
+                for i in 0..$count {
+                    retval[i] = r[i];
+                }
+                assert_eq!(r[$count], 0);
+                $type{ contents: retval }
             }
         }
 
@@ -306,8 +441,8 @@ macro_rules! construct_unsigned {
             fn test_max() {
                 assert_eq!($type::from_u64(u64::max_value()).to_u64(),
                            u64::max_value());
-                assert_eq!($type::max().to_u64(), u64::max_value());
-                assert_eq!($type::max() + $type::from_u8(1), $type::zero());
+                assert_eq!($type::max_value().to_u64(), u64::max_value());
+                assert_eq!($type::max_value() + $type::from_u8(1), $type::zero());
             }
 
             quickcheck! {
@@ -352,10 +487,10 @@ macro_rules! construct_unsigned {
                     (x & $type::zero()) == $type::zero()
                 }
                 fn or_annulment(x: $type) -> bool {
-                    (x | $type::max()) == $type::max()
+                    (x | $type::max_value()) == $type::max_value()
                 }
                 fn and_identity(x: $type) -> bool {
-                    (&x & $type::max()) == x
+                    (&x & $type::max_value()) == x
                 }
                 fn or_identity(x: $type) -> bool {
                     (&x | $type::zero()) == x
@@ -370,7 +505,7 @@ macro_rules! construct_unsigned {
                     (&x & &x) == x
                 }
                 fn or_complement(x: $type) -> bool {
-                    (&x | !&x) == $type::max()
+                    (&x | !&x) == $type::max_value()
                 }
                 fn and_commutative(x: $type, y: $type) -> bool {
                     (&x & &y) == (&y & &x)
@@ -484,14 +619,14 @@ macro_rules! construct_unsigned {
             quickcheck! {
                 fn shift_mask_equivr(x: $type, in_shift: usize) -> bool {
                     let shift       = in_shift % ($count * 64);
-                    let mask        = $type::max() << shift;
+                    let mask        = $type::max_value() << shift;
                     let masked_x    = &x & mask;
                     let shift_maskr = (x >> shift) << shift;
                     shift_maskr == masked_x
                 }
                 fn shift_mask_equivl(x: $type, in_shift: usize) -> bool {
                     let shift       = in_shift % ($count * 64);
-                    let mask        = $type::max() >> shift;
+                    let mask        = $type::max_value() >> shift;
                     let masked_x    = &x & mask;
                     let shift_maskl = (x << shift) >> shift;
                     shift_maskl == masked_x
@@ -537,9 +672,10 @@ macro_rules! construct_unsigned {
                            $type::from_u64(0));
                 let mut buffer = [0; $count];
                 buffer[1] = 1;
-                assert_eq!($type{ contents: buffer.clone() } - $type::from_u64(1),
+                assert_eq!($type{contents:buffer.clone()} - $type::from_u64(1),
                            $type::from_u64(0xFFFFFFFFFFFFFFFF));
-                assert_eq!($type::zero() - $type::from_u8(1), $type::max());
+                assert_eq!($type::zero() - $type::from_u8(1),
+                           $type::max_value());
             }
 
             quickcheck! {
@@ -681,23 +817,32 @@ macro_rules! construct_unsigned {
                     a == b
                 }
             }
+
+            quickcheck! {
+                fn fastmod_works(a: $type, b: $type) -> bool {
+                    assert!(b != $type::zero());
+                    match b.barrett_mu() {
+                        None =>
+                            true,
+                        Some(barrett) => {
+                            a.fastmod(&barrett) == (&a % &b)
+                        }
+                    }
+                }
+            }
         }
     };
 }
 
 macro_rules! from_to {
     ($type: ident, $count: expr, $base: ty, $from: ident, $to: ident) => {
-        /// Convert the given base type into this type. This is always safe.
-        pub fn $from(x: $base) -> $type {
+        fn $from(x: $base) -> $type {
             let mut res = $type { contents: [0; $count] };
             res.contents[0] = x as u64;
             res
         }
 
-        /// Convert this back into a base type. This is the equivalent of
-        /// masking off the relevant number of bits, and should work just
-        /// like the `as` keyword with normal word types.
-        pub fn $to(&self) -> $base {
+        fn $to(&self) -> $base {
             self.contents[0] as $base
         }
     };
