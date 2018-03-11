@@ -1,8 +1,4 @@
-pub trait CryptoNum {
-    /// A related type that can hold the constant required for Barrett
-    /// reduction.
-    type BarrettMu;
-
+pub trait CryptoNumBase {
     /// Generate the zero value for this type.
     fn zero() -> Self;
     /// Generate the maximum possible value for this type.
@@ -33,9 +29,9 @@ pub trait CryptoNum {
     /// Convert this back into a `u64`. This is the equivalent of masking off
     /// the lowest 64 bits and then casting to a `u64`.
     fn to_u64(&self) -> u64;
-    /// Simultaneously compute the quotient and remainder of this number and
-    /// the given divisor.
-    fn divmod(&self, a: &Self, q: &mut Self, r: &mut Self);
+}
+
+pub trait CryptoNumSerialization {
     /// Convert a number to a series of bytes, in standard order (most to
     /// least significant)
     fn to_bytes(&self) -> Vec<u8>;
@@ -43,6 +39,13 @@ pub trait CryptoNum {
     /// must be greater than or equal to the size of the number, and must be
     /// a multiple of 8 bytes long. Unused bytes should be ignored.
     fn from_bytes(&[u8]) -> Self;
+}
+
+pub trait CryptoNumFastMod {
+    /// A related type that can hold the constant required for Barrett
+    /// reduction.
+    type BarrettMu;
+
     /// Compute the Barett constant mu, using this as a modulus, which we can
     /// use later to perform faster mod operations.
     fn barrett_mu(&self) -> Option<Self::BarrettMu>;

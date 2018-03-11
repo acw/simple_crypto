@@ -225,9 +225,7 @@ macro_rules! construct_unsigned {
             }
         }
 
-        impl CryptoNum for $type {
-            type BarrettMu = $barrett;
-
+        impl CryptoNumBase for $type {
             fn zero() -> $type {
                 $type { contents: [0; $count] }
             }
@@ -257,12 +255,10 @@ macro_rules! construct_unsigned {
             from_to!($type, $count, u16, from_u16, to_u16);
             from_to!($type, $count, u32, from_u32, to_u32);
             from_to!($type, $count, u64, from_u64, to_u64);
+        }
 
-            fn divmod(&self, a: &$type, q: &mut $type, r: &mut $type) {
-                generic_div(&self.contents, &a.contents,
-                            &mut q.contents, &mut r.contents);
-            }
 
+        impl CryptoNumSerialization for $type {
             fn to_bytes(&self) -> Vec<u8> {
                 let mut res = Vec::with_capacity($count * 8);
                 for x in self.contents.iter() {
@@ -298,6 +294,10 @@ macro_rules! construct_unsigned {
                 assert!(i == $count);
                 res
             }
+        }
+
+        impl CryptoNumFastMod for $type {
+            type BarrettMu = $barrett;
 
             fn barrett_mu(&self) -> Option<$barrett> {
                 // Step #0: Don't divide by 0.
