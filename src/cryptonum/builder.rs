@@ -1,3 +1,293 @@
+macro_rules! construct_signed {
+    ($type: ident, $base: ident, $modname: ident) => {
+        pub struct $type {
+            negative: bool,
+            value: $base
+        }
+
+        impl Clone for $type {
+            fn clone(&self) -> $type {
+                $type{ negative: self.negative, value: self.value.clone() }
+            }
+        }
+
+        impl<'a> PartialEq<&'a $type> for $type {
+            fn eq(&self, other: &&$type) -> bool {
+                (self.negative == other.negative) &&
+                (self.value    == other.value)
+            }
+        }
+
+        impl PartialEq for $type {
+            fn eq(&self, other: &$type) -> bool {
+                (self.negative == other.negative) &&
+                (self.value    == other.value)
+            }
+        }
+
+        impl Eq for $type {}
+
+        impl Debug for $type {
+            fn fmt(&self, f: &mut Formatter) -> Result<(),Error> {
+                if self.negative {
+                    f.write_str("-")?;
+                } else {
+                    f.write_str("+")?;
+                }
+                self.value.fmt(f)
+            }
+        }
+
+        impl PartialOrd for $type {
+            fn partial_cmp(&self, other: &$type) -> Option<Ordering> {
+                Some(self.cmp(other))
+            }
+        }
+
+        impl Ord for $type {
+            fn cmp(&self, other: &$type) -> Ordering {
+                match (self.negative, other.negative) {
+                    (true,  true)  =>
+                        self.value.cmp(&other.value).reverse(),
+                    (true,  false) => Ordering::Greater,
+                    (false, true)  => Ordering::Less,
+                    (false, false) =>
+                        self.value.cmp(&other.value)
+                }
+            }
+        }
+
+        impl CryptoNumBase for $type {
+            fn zero() -> $type {
+                $type{ negative: false, value: $base::zero() }
+            }
+            fn max_value() -> $type {
+                $type{ negative: false, value: $base::max_value() }
+            }
+            fn is_zero(&self) -> bool {
+                self.value.is_zero()
+            }
+            fn is_odd(&self) -> bool {
+                self.value.is_odd()
+            }
+            fn is_even(&self) -> bool {
+                self.value.is_even()
+            }
+            fn from_u8(x: u8) -> $type {
+                $type{ negative: false, value: $base::from_u8(x) }
+            }
+            fn to_u8(&self) -> u8 {
+                self.value.to_u8()
+            }
+            fn from_u16(x: u16) -> $type {
+                $type{ negative: false, value: $base::from_u16(x) }
+            }
+            fn to_u16(&self) -> u16 {
+                self.value.to_u16()
+            }
+            fn from_u32(x: u32) -> $type {
+                $type{ negative: false, value: $base::from_u32(x) }
+            }
+            fn to_u32(&self) -> u32 {
+                self.value.to_u32()
+            }
+            fn from_u64(x: u64) -> $type {
+                $type{ negative: false, value: $base::from_u64(x) }
+            }
+            fn to_u64(&self) -> u64 {
+                self.value.to_u64()
+            }
+        }
+
+        impl CryptoNumFastMod for $type {
+            type BarrettMu = <$base as CryptoNumFastMod>::BarrettMu;
+
+            fn barrett_mu(&self) -> Option<Self::BarrettMu> {
+                if self.negative {
+                    None
+                } else {
+                    self.value.barrett_mu()
+                }
+            }
+
+            fn fastmod(&self, mu: &Self::BarrettMu) -> $type {
+                let res = self.value.fastmod(mu);
+                $type{ negative: self.negative, value: res }
+            }
+        }
+
+        impl CryptoNumSigned for $type {
+            type Unsigned = $base;
+
+            fn new(v: $base) -> $type {
+                $type{ negative: false, value: v.clone() }
+            }
+            fn abs(&self) -> $base {
+                self.value.clone()
+            }
+            fn is_positive(&self) -> bool {
+                !self.negative
+            }
+            fn is_negative(&self) -> bool {
+                self.negative
+            }
+        }
+
+        impl Neg for $type {
+            type Output = $type;
+
+            fn neg(self) -> $type {
+                (&self).neg()
+            }
+        }
+
+        impl<'a> Neg for &'a $type {
+            type Output = $type;
+
+            fn neg(self) -> $type {
+                if self.value.is_zero() {
+                    $type{ negative: false, value: self.value.clone() }
+                } else {
+                    $type{ negative: !self.negative, value: self.value.clone() }
+                }
+            }
+        }
+
+        impl<'a> AddAssign<&'a $type> for $type {
+            fn add_assign(&mut self, other: &$type) {
+                let signs_match = self.negative == other.negative;
+                let ordering    = self.value.cmp(&other.value);
+
+                match (signs_match, ordering) {
+                    (true, _) =>
+                        // if the signs are the same, we maintain the sign and
+                        // just increase the magnitude
+                        self.value.add_assign(&other.value),
+                    (false, Ordering::Equal) => {
+                        // if the signs are different and the numbers are equal,
+                        // we just set this to zero. However, we actually do the
+                        // subtraction to make the timing roughly similar.
+                        self.negative = false;
+                        self.value.sub_assign(&other.value)
+                    }
+                    (false, Ordering::Less) => {
+                        // if the signs are different and the first one is less
+                        // than the second, then we flip the sign and subtract.
+                        self.negative = !self.negative;
+                        let mut other_copy = other.value.clone();
+                        other_copy.sub_assign(&self.value);
+                        self.value = other_copy;
+                    }
+                    (false, Ordering::Greater) => {
+                        // if the signs are different and the first one is
+                        // greater than the second, then we leave the sign and
+                        // subtract.
+                        self.value.sub_assign(&other.value)
+                    }
+                }
+            }
+        }
+
+        impl<'a> SubAssign<&'a $type> for $type {
+            fn sub_assign(&mut self, other: &$type) {
+                // this is a bit inefficient, but a heck of a lot easier.
+                let mut other2 = other.clone();
+                other2.negative = !other2.negative;
+                self.add_assign(&other2)
+            }
+        }
+
+        impl<'a> MulAssign<&'a $type> for $type {
+            fn mul_assign(&mut self, other: &$type) {
+                self.negative = self.negative ^ other.negative;
+                self.value.mul_assign(&other.value);
+            }
+        }
+
+        impl<'a> DivAssign<&'a $type> for $type {
+            fn div_assign(&mut self, other: &$type) {
+                self.negative = self.negative ^ other.negative;
+                self.value.div_assign(&other.value);
+            }
+        }
+
+        impl<'a> RemAssign<&'a $type> for $type {
+            fn rem_assign(&mut self, other: &$type) {
+                self.value.rem_assign(&other.value);
+            }
+        }
+
+        derive_operators!($type,Add,add,AddAssign,add_assign);
+        derive_operators!($type,Sub,sub,SubAssign,sub_assign);
+        derive_operators!($type,Mul,mul,MulAssign,mul_assign);
+        derive_operators!($type,Div,div,DivAssign,div_assign);
+        derive_operators!($type,Rem,rem,RemAssign,rem_assign);
+
+        #[cfg(test)]
+        mod $modname {
+            use quickcheck::{Arbitrary,Gen};
+            use super::*;
+
+            impl Arbitrary for $type {
+                fn arbitrary<G: Gen>(g: &mut G) -> $type {
+                    let value = $base::arbitrary(g);
+                    if value.is_zero() {
+                        $type{ negative: false, value: value }
+                    } else {
+                        $type{ negative: g.gen_weighted_bool(2), value: value }
+                    }
+                }
+            }
+
+            quickcheck! {
+                fn double_negation(x: $type) -> bool {
+                    (- (- &x)) == &x
+                }
+                fn add_identity(x: $type) -> bool {
+                    (&x + $type::zero()) == &x
+                }
+                fn add_commutivity(x: $type, y: $type) -> bool {
+                    (&x + &y) == (&y + &x)
+                }
+                fn add_associativity(a: $type, b: $type, c: $type) -> bool {
+                    // we shift these to get away from rollover
+                    let x = $type{ negative: a.negative, value: a.value >> 2 };
+                    let y = $type{ negative: b.negative, value: b.value >> 2 };
+                    let z = $type{ negative: c.negative, value: c.value >> 2 };
+                    (&x + (&y + &z)) == ((&x + &y) + &z)
+                }
+                fn sub_is_add_negation(x: $type, y: $type) -> bool {
+                    (&x - &y) == (&x + (- &y))
+                }
+                fn sub_destroys(x: $type) -> bool {
+                    (&x - &x) == $type::zero()
+                }
+                fn mul_identity(x: $type) -> bool {
+                    (&x * $type::from_u8(1)) == &x
+                }
+                fn mul_commutivity(x: $type, y: $type) -> bool {
+                    (&x * &y) == (&y * &x)
+                }
+                fn mul_associativity(a: $type, b: $type, c: $type) -> bool {
+                    // we shift these to get away from rollover
+                    let s = (a.value.bit_size() / 2) - 2;
+                    let x = $type{ negative: a.negative, value: a.value >> s };
+                    let y = $type{ negative: b.negative, value: b.value >> s };
+                    let z = $type{ negative: c.negative, value: c.value >> s };
+                    (&x * (&y * &z)) == ((&x * &y) * &z)
+                }
+                #[ignore]
+                fn div_identity(a: $type) -> bool {
+                    &a / $type::from_u64(1) == a
+                }
+                fn div_self_is_one(a: $type) -> bool {
+                    (&a / &a) == $type::from_u64(1)
+                }
+            }
+        }
+    }
+}
+
 macro_rules! construct_unsigned {
     ($type: ident, $barrett: ident, $modname: ident, $count: expr) => {
         #[derive(Clone)]
@@ -75,9 +365,12 @@ macro_rules! construct_unsigned {
             }
         }
 
-        opers2!($type,BitOrAssign,bitor_assign,BitOr,bitor,generic_bitor);
-        opers2!($type,BitAndAssign,bitand_assign,BitAnd,bitand,generic_bitand);
-        opers2!($type,BitXorAssign,bitxor_assign,BitXor,bitxor,generic_bitxor);
+        generic_2arg!($type, BitOrAssign,  bitor_assign,  generic_bitor);
+        generic_2arg!($type, BitAndAssign, bitand_assign, generic_bitand);
+        generic_2arg!($type, BitXorAssign, bitxor_assign, generic_bitxor);
+        generic_2arg!($type, AddAssign,    add_assign,    generic_add);
+        generic_2arg!($type, SubAssign,    sub_assign,    generic_sub);
+        generic_3arg!($type, MulAssign,    mul_assign,    generic_mul);
 
         shifts!($type, usize);
         shifts!($type, u64);
@@ -89,82 +382,12 @@ macro_rules! construct_unsigned {
         shifts!($type, u8);
         shifts!($type, i8);
 
-        opers2!($type,AddAssign,add_assign,Add,add,generic_add);
-        opers2!($type,SubAssign,sub_assign,Sub,sub,generic_sub);
-        opers3!($type,MulAssign,mul_assign,Mul,mul,generic_mul);
-
-        impl DivAssign<$type> for $type {
-            fn div_assign(&mut self, rhs: $type) {
-                let mut dead = [0; $count];
-                let     copy = self.contents.clone();
-                generic_div(&copy, &rhs.contents,
-                            &mut self.contents, &mut dead);
-            }
-        }
-
         impl<'a> DivAssign<&'a $type> for $type {
             fn div_assign(&mut self, rhs: &$type) {
                 let mut dead = [0; $count];
                 let     copy = self.contents.clone();
                 generic_div(&copy, &rhs.contents,
                             &mut self.contents, &mut dead);
-            }
-        }
-
-        impl Div<$type> for $type {
-            type Output = $type;
-
-            fn div(self, rhs: $type) -> $type {
-                let mut res = $type::zero();
-                let mut dead = [0; $count];
-                generic_div(&self.contents, &rhs.contents,
-                            &mut res.contents, &mut dead);
-                res
-            }
-        }
-
-        impl<'a> Div<$type> for &'a $type {
-            type Output = $type;
-
-            fn div(self, rhs: $type) -> $type {
-                let mut res = $type::zero();
-                let mut dead = [0; $count];
-                generic_div(&self.contents, &rhs.contents,
-                            &mut res.contents, &mut dead);
-                res
-            }
-        }
-
-        impl<'a> Div<&'a $type> for $type {
-            type Output = $type;
-
-            fn div(self, rhs: &$type) -> $type {
-                let mut res = $type::zero();
-                let mut dead = [0; $count];
-                generic_div(&self.contents, &rhs.contents,
-                            &mut res.contents, &mut dead);
-                res
-            }
-        }
-
-        impl<'a,'b> Div<&'a $type> for &'b $type {
-            type Output = $type;
-
-            fn div(self, rhs: &$type) -> $type {
-                let mut res = $type::zero();
-                let mut dead = [0; $count];
-                generic_div(&self.contents, &rhs.contents,
-                            &mut res.contents, &mut dead);
-                res
-            }
-        }
-
-        impl RemAssign<$type> for $type {
-            fn rem_assign(&mut self, rhs: $type) {
-                let mut dead = [0; $count];
-                let     copy = self.contents.clone();
-                generic_div(&copy, &rhs.contents,
-                            &mut dead, &mut self.contents);
             }
         }
 
@@ -177,53 +400,14 @@ macro_rules! construct_unsigned {
             }
         }
 
-        impl Rem<$type> for $type {
-            type Output = $type;
-
-            fn rem(self, rhs: $type) -> $type {
-                let mut res = $type::zero();
-                let mut dead = [0; $count];
-                generic_div(&self.contents, &rhs.contents,
-                            &mut dead, &mut res.contents);
-                res
-            }
-        }
-
-        impl<'a> Rem<$type> for &'a $type {
-            type Output = $type;
-
-            fn rem(self, rhs: $type) -> $type {
-                let mut res = $type::zero();
-                let mut dead = [0; $count];
-                generic_div(&self.contents, &rhs.contents,
-                            &mut dead, &mut res.contents);
-                res
-            }
-        }
-
-        impl<'a> Rem<&'a $type> for $type {
-            type Output = $type;
-
-            fn rem(self, rhs: &$type) -> $type {
-                let mut res = $type::zero();
-                let mut dead = [0; $count];
-                generic_div(&self.contents, &rhs.contents,
-                            &mut dead, &mut res.contents);
-                res
-            }
-        }
-
-        impl<'a,'b> Rem<&'a $type> for &'b $type {
-            type Output = $type;
-
-            fn rem(self, rhs: &$type) -> $type {
-                let mut res = $type::zero();
-                let mut dead = [0; $count];
-                generic_div(&self.contents, &rhs.contents,
-                            &mut dead, &mut res.contents);
-                res
-            }
-        }
+        derive_operators!($type, BitOr,  bitor,  BitOrAssign,  bitor_assign);
+        derive_operators!($type, BitAnd, bitand, BitAndAssign, bitand_assign);
+        derive_operators!($type, BitXor, bitxor, BitXorAssign, bitxor_assign);
+        derive_operators!($type, Add,    add,    AddAssign,    add_assign);
+        derive_operators!($type, Sub,    sub,    SubAssign,    sub_assign);
+        derive_operators!($type, Mul,    mul,    MulAssign,    mul_assign);
+        derive_operators!($type, Div,    div,    DivAssign,    div_assign);
+        derive_operators!($type, Rem,    rem,    RemAssign,    rem_assign);
 
         impl CryptoNumBase for $type {
             fn zero() -> $type {
@@ -879,188 +1063,74 @@ macro_rules! shifts {
     }
 }
 
-macro_rules! opers2 {
-    ($type:ident,$asncl:ident,$asnfn:ident,$cl:ident,$fn:ident,$impl:ident) => {
-        impl $asncl for $type {
-            fn $asnfn(&mut self, other: $type) {
-                $impl(&mut self.contents, &other.contents);
-            }
-        }
-
+macro_rules! generic_2arg {
+    ($type: ident, $asncl: ident, $asnfn: ident, $impl: ident) => {
         impl<'a> $asncl<&'a $type> for $type {
             fn $asnfn(&mut self, other: &$type) {
                 $impl(&mut self.contents, &other.contents);
             }
         }
-
-        impl $cl for $type {
-            type Output = $type;
-
-            fn $fn(self, rhs: $type) -> $type {
-                let mut copy = self.clone();
-                $impl(&mut copy.contents, &rhs.contents);
-                copy
-            }
-        }
-
-        impl<'a> $cl<&'a $type> for $type {
-            type Output = $type;
-
-            fn $fn(self, rhs: &$type) -> $type {
-                let mut copy = self.clone();
-                $impl(&mut copy.contents, &rhs.contents);
-                copy
-            }
-        }
-
-        impl<'a> $cl<$type> for &'a $type {
-            type Output = $type;
-
-            fn $fn(self, rhs: $type) -> $type {
-                let mut copy = self.clone();
-                $impl(&mut copy.contents, &rhs.contents);
-                copy
-            }
-        }
-
-        impl<'a,'b> $cl<&'a $type> for &'b $type {
-            type Output = $type;
-
-            fn $fn(self, rhs: &$type) -> $type {
-                let mut copy = self.clone();
-                $impl(&mut copy.contents, &rhs.contents);
-                copy
-            }
-        }
     }
 }
 
-macro_rules! opers3 {
-    ($type:ident,$asncl:ident,$asnfn:ident,$cl:ident,$fn:ident,$impl:ident) => {
-        impl $asncl for $type {
-            fn $asnfn(&mut self, other: $type) {
-                let copy = self.contents.clone();
-                $impl(&mut self.contents, &copy, &other.contents);
-            }
-        }
-
+macro_rules! generic_3arg {
+    ($type: ident, $asncl: ident, $asnfn: ident, $impl: ident) => {
         impl<'a> $asncl<&'a $type> for $type {
             fn $asnfn(&mut self, other: &$type) {
                 let copy = self.contents.clone();
                 $impl(&mut self.contents, &copy, &other.contents);
             }
         }
+    }
+}
+
+macro_rules! derive_operators
+{
+    ($type: ident, $cl: ident, $fn: ident, $asncl: ident, $asnfn: ident) => {
+        impl $asncl for $type {
+            fn $asnfn(&mut self, other: $type) {
+                self.$asnfn(&other)
+            }
+        }
 
         impl $cl for $type {
             type Output = $type;
 
-            fn $fn(self, rhs: $type) -> $type {
-                let mut copy = self.clone();
-                $impl(&mut copy.contents, &self.contents, &rhs.contents);
-                copy
+            fn $fn(self, other: $type) -> $type {
+                let mut res = self.clone();
+                res.$asnfn(&other);
+                res
             }
         }
 
         impl<'a> $cl<&'a $type> for $type {
             type Output = $type;
 
-            fn $fn(self, rhs: &$type) -> $type {
-                let mut copy = self.clone();
-                $impl(&mut copy.contents, &self.contents, &rhs.contents);
-                copy
+            fn $fn(self, other: &$type) -> $type {
+                let mut res = self.clone();
+                res.$asnfn(other);
+                res
             }
         }
 
         impl<'a> $cl<$type> for &'a $type {
             type Output = $type;
 
-            fn $fn(self, rhs: $type) -> $type {
-                let mut copy = self.clone();
-                $impl(&mut copy.contents, &self.contents, &rhs.contents);
-                copy
+            fn $fn(self, other: $type) -> $type {
+                let mut res = self.clone();
+                res.$asnfn(&other);
+                res
             }
         }
 
         impl<'a,'b> $cl<&'a $type> for &'b $type {
             type Output = $type;
 
-            fn $fn(self, rhs: &$type) -> $type {
-                let mut copy = self.clone();
-                $impl(&mut copy.contents, &self.contents, &rhs.contents);
-                copy
-            }
-        }
-    }
-}
-
-macro_rules! math_operator {
-    ($cl: ident, $fn: ident, $asn: ident) => {
-        impl<T> $cl for Signed<T>
-          where
-            T: Clone + Ord,
-            T: AddAssign + SubAssign + MulAssign + DivAssign,
-        {
-            type Output = Signed<T>;
-
-            fn $fn(self, rhs: Signed<T>) -> Signed<T>
-            {
+            fn $fn(self, other: &$type) -> $type {
                 let mut res = self.clone();
-                res.$asn(rhs);
-                res
-            }
-        }
-
-        impl<'a,T> $cl<&'a Signed<T>> for Signed<T>
-          where
-            T: Clone + Ord,
-            T: AddAssign + SubAssign + MulAssign + DivAssign,
-            T: AddAssign<&'a T> + SubAssign<&'a T>,
-            T: MulAssign<&'a T> + DivAssign<&'a T>
-        {
-            type Output = Signed<T>;
-
-            fn $fn(self, rhs: &'a Signed<T>) -> Signed<T>
-            {
-                let mut res = self.clone();
-                res.$asn(rhs);
-                res
-            }
-        }
-
-        impl<'a,T> $cl for &'a Signed<T>
-          where
-            T: Clone + Ord,
-            T: AddAssign + SubAssign + MulAssign + DivAssign,
-            T: AddAssign<&'a T> + SubAssign<&'a T>,
-            T: MulAssign<&'a T> + DivAssign<&'a T>
-        {
-            type Output = Signed<T>;
-
-            fn $fn(self, rhs: &'a Signed<T>) -> Signed<T>
-            {
-                let mut res = self.clone();
-                res.$asn(rhs);
-                res
-            }
-        }
-
-        impl<'a,T> $cl<Signed<T>> for &'a Signed<T>
-          where
-            T: Clone + Ord,
-            T: AddAssign + SubAssign + MulAssign + DivAssign,
-            T: AddAssign<&'a T> + SubAssign<&'a T>,
-            T: MulAssign<&'a T> + DivAssign<&'a T>
-        {
-            type Output = Signed<T>;
-
-            fn $fn(self, rhs: Signed<T>) -> Signed<T>
-            {
-                let mut res = self.clone();
-                res.$asn(rhs);
+                res.$asnfn(other);
                 res
             }
         }
     }
 }
-
-
