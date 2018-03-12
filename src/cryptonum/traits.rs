@@ -56,3 +56,18 @@ pub trait CryptoNumFastMod {
     /// Faster modulo through the use of the Barrett constant, above.
     fn fastmod(&self, &Self::BarrettMu) -> Self;
 }
+
+pub trait CryptoNumSigned {
+    /// The unsigned type that this type is related to.
+    type Unsigned;
+
+    /// Generate a new signed number based on the given unsigned number.
+    fn new(x: Self::Unsigned) -> Self;
+    /// Get the absolute value of the signed number, turning it back into an
+    /// unsigned number.
+    fn abs(&self) -> Self::Unsigned;
+    /// Test if the number is negative.
+    fn is_negative(&self) -> bool;
+    /// Test if the number is positive.
+    fn is_positive(&self) -> bool;
+}

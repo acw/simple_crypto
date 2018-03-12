@@ -14,5 +14,5 @@ mod unsigned;
 
 // pub use self::extended_math::{modexp,modinv,extended_euclidean,egcd};
 // pub use self::primes::{probably_prime};
-pub use self::signed::{Signed};
+pub use self::signed::{I512};
 pub use self::unsigned::{U512,U1024,U2048,U3072,U4096,U7680,U8192,U15360};
