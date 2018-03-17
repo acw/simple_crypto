@@ -1,5 +1,7 @@
 use cryptonum::core::*;
 use cryptonum::traits::*;
+use num::{BigUint,BigInt};
+use rand::Rng;
 use std::cmp::Ordering;
 use std::fmt::{Debug,Error,Formatter};
 use std::ops::*;

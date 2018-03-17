@@ -1,3 +1,5 @@
+use rand::Rng;
+
 pub trait CryptoNumBase {
     /// Generate the zero value for this type.
     fn zero() -> Self;
@@ -70,4 +72,28 @@ pub trait CryptoNumSigned {
     fn is_negative(&self) -> bool;
     /// Test if the number is positive.
     fn is_positive(&self) -> bool;
+}
+
+pub trait CryptoNumModOps: Sized
+{
+    /// Compute the modular inverse of the number.
+    fn modinv(&self, b: &Self) -> Self;
+    /// Raise the number to the power of the first value, mod the second.
+    fn modexp(&self, a: &Self, b: &Self) -> Self;
+    /// Square the number, mod the given value.
+    fn modsq(&self, v: &Self) -> Self;
+}
+
+pub trait CryptoNumPrimes
+{
+    /// Determine if the given number is probably prime using a quick spot
+    /// check and Miller-Rabin, using the given random number generator
+    /// and number of iterations.
+    fn probably_prime<G: Rng>(g: &mut G, iters: usize) -> bool;
+    /// Generate a prime using the given random number generator, using
+    /// the given number of rounds to determine if the number is probably
+    /// prime. The other two numbers are a number for which the generator
+    /// should have a GCD of 1, and the minimum value for the number.
+    fn generate_prime<G: Rng>(g: &mut G, iters: usize, e: &Self, min: &Self)
+        -> Self;
 }

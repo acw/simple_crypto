@@ -1,18 +1,16 @@
 use cryptonum::traits::*;
 use std::ops::*;
 
-pub fn modinv<S,U>(e: &U, phi: &U) -> U
+pub fn modinv<S,U>(e: U, phi: U) -> U
   where
     S: Clone + CryptoNumBase + CryptoNumSigned<Unsigned=U>,
-    S: Div<Output=S> + Mul<Output=S> + Neg<Output=S> + Sub<Output=S>,
-    S: AddAssign,
+    S: CryptoNumExtended,
     U: Clone
 {
-    let (_, mut x, _): (S, S, S) = extended_euclidean(e, phi);
-    let int_phi: S = S::new(phi.clone());
+    let (_, mut x, _): (S, S, S) = extended_euclidean(e, phi.clone());
+    let int_phi: S = S::new(phi);
     while x.is_negative() {
-        // FIXME: Unnecessary clone
-        x += int_phi.clone();
+        x += &int_phi;
     }
     x.abs()
 }
@@ -22,15 +20,14 @@ pub fn modexp<T>(b: &T, e: &T, m: &T) -> T
     panic!("modexp")
 }
 
-pub fn extended_euclidean<U,S>(a: &U, b: &U) -> (S, S, S)
+pub fn extended_euclidean<U,S>(a: U, b: U) -> (S, S, S)
   where
     S: Clone + CryptoNumBase + CryptoNumSigned<Unsigned=U>,
-    S: Div<Output=S> + Mul<Output=S> + Neg<Output=S> + Sub<Output=S>,
-    U: Clone
+    S: CryptoNumExtended
 {
-    let posinta = S::new(a.clone());
-    let posintb = S::new(b.clone());
-    let (mut d, mut x, mut y) = egcd(&posinta, &posintb);
+    let posinta: S = S::new(a);
+    let posintb: S = S::new(b);
+    let (mut d, mut x, mut y) = egcd(posinta, posintb);
 
     if d.is_negative() {
         d = -d;

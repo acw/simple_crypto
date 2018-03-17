@@ -1,4 +1,3 @@
-use cryptonum::core::*;
 use cryptonum::traits::*;
 use cryptonum::unsigned::*;
 use std::cmp::Ordering;

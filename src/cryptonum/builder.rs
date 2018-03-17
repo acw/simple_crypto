@@ -441,7 +441,6 @@ macro_rules! construct_unsigned {
             from_to!($type, $count, u64, from_u64, to_u64);
         }
 
-
         impl CryptoNumSerialization for $type {
             fn bit_size(&self) -> usize {
                 $count * 64
@@ -592,6 +591,51 @@ macro_rules! construct_unsigned {
                 }
                 assert_eq!(r[$count], 0);
                 $type{ contents: retval }
+            }
+        }
+
+        impl CryptoNumModOps for $type {
+            fn modinv(&self, _b: &Self) -> Self {
+                panic!("modinv");
+            }
+            fn modexp(&self, _a: &Self, _b: &Self) -> Self {
+                panic!("modexp");
+            }
+            fn modsq(&self, _v: &Self) -> Self {
+                panic!("modsq");
+            }
+        }
+
+        impl CryptoNumPrimes for $type {
+            fn probably_prime<G: Rng>(_g: &mut G, _iters: usize) -> bool {
+                panic!("probably_prime");
+            }
+            fn generate_prime<G: Rng>(_g: &mut G, _iters: usize, _e: &Self, _min: &Self) -> Self {
+                panic!("generate_prime");
+            }
+        }
+
+        impl Into<BigInt> for $type {
+            fn into(self) -> BigInt {
+                panic!("into bigint")
+            }
+        }
+
+        impl Into<BigUint> for $type {
+            fn into(self) -> BigUint {
+                panic!("into big uint")
+            }
+        }
+
+        impl From<BigInt> for $type {
+            fn from(_x: BigInt) -> Self {
+                panic!("from bigint")
+            }
+        }
+
+        impl From<BigUint> for $type {
+            fn from(_x: BigUint) -> Self {
+                panic!("from biguint")
             }
         }
 
