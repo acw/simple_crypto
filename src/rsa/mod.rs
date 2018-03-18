@@ -38,7 +38,7 @@ pub struct RSAKeyPair<Size>
 
 impl<T> RSAKeyPair<T>
  where
-  T: Clone + Sized + PartialOrd,
+  T: Clone + Sized + PartialOrd + From<u64>,
   T: CryptoNumBase + CryptoNumModOps + CryptoNumPrimes + CryptoNumSerialization,
   T: Sub<Output=T> + Mul<Output=T> + Shl<usize,Output=T>
 {
@@ -67,14 +67,14 @@ impl<T> RSAKeyPair<T>
     pub fn generate_w_rng<G: Rng>(rng: &mut G)
         -> Result<RSAKeyPair<T>,RSAKeyGenError>
     {
-        let e = T::from_u32(65537);
+        let e = T::from(65537);
         let len_bits = e.bit_size();
         match generate_pq(rng, &e) {
             None =>
                 return Err(RSAKeyGenError::InvalidKeySize(len_bits)),
             Some((p, q)) => {
                 let n = p.clone() * q.clone();
-                let phi = (p - T::from_u64(1)) * (q - T::from_u64(1));
+                let phi = (p - T::from(1)) * (q - T::from(1));
                 let d = e.modinv(&phi);
                 let public_key  = RSAPublicKey::new(n.clone(), e);
                 let private_key = RSAPrivateKey::new(n, d);
@@ -87,12 +87,12 @@ impl<T> RSAKeyPair<T>
 pub fn generate_pq<'a,G,T>(rng: &mut G, e: &T) -> Option<(T,T)>
  where
   G: Rng,
-  T: Clone + PartialOrd + Shl<usize,Output=T> + Sub<Output=T>,
+  T: Clone + PartialOrd + Shl<usize,Output=T> + Sub<Output=T> + From<u64>,
   T: CryptoNumBase + CryptoNumPrimes + CryptoNumSerialization
 {
     let bitlen = T::zero().bit_size();
-    let mindiff = T::from_u8(1) << ((bitlen/2)-101);
-    let minval  = T::from_u64(6074001000) << ((mindiff.bit_size()/2) - 33);
+    let mindiff = T::from(1) << ((bitlen/2)-101);
+    let minval  = T::from(6074001000) << ((mindiff.bit_size()/2) - 33);
     let p = T::generate_prime(rng, 7, e, &minval);
 
     loop {
@@ -179,7 +179,7 @@ mod tests {
 
     impl<T> Arbitrary for KeyPairAndSigHash<T>
       where
-        T: Clone + Sized + PartialOrd,
+        T: Clone + Sized + PartialOrd + From<u64>,
         T: CryptoNumBase + CryptoNumModOps,
         T: CryptoNumPrimes + CryptoNumSerialization,
         T: Sub<Output=T> + Mul<Output=T> + Shl<usize,Output=T>,

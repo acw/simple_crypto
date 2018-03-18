@@ -159,7 +159,7 @@ impl<T> FromASN1 for RSAPublicKey<T>
                 }
                 rsa_size /= 8;
 
-                if rsa_size != (T::from_u8(0)).bit_size() {
+                if rsa_size != (T::zero()).bit_size() {
                     return Err(RSAError::KeySizeMismatch);
                 }
 

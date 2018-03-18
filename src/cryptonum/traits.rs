@@ -11,26 +11,6 @@ pub trait CryptoNumBase {
     fn is_odd(&self) -> bool;
     /// Test if the number is even (a.k.a., the low bit is clear)
     fn is_even(&self) -> bool;
-    /// Translate a `u8` to this type. This must be safe.
-    fn from_u8(x: u8) -> Self;
-    /// Convert this back into a `u8`. This is the equivalent of masking off
-    /// the lowest 8 bits and then casting to a `u8`.
-    fn to_u8(&self) -> u8;
-    /// Translate a `u16` to this type. This must be safe.
-    fn from_u16(x: u16) -> Self;
-    /// Convert this back into a `u16`. This is the equivalent of masking off
-    /// the lowest 16 bits and then casting to a `u16`.
-    fn to_u16(&self) -> u16;
-    /// Translate a `u32` to this type. This must be safe.
-    fn from_u32(x: u32) -> Self;
-    /// Convert this back into a `u32`. This is the equivalent of masking off
-    /// the lowest 32 bits and then casting to a `u32`.
-    fn to_u32(&self) -> u32;
-    /// Translate a `u64` to this type. This must be safe.
-    fn from_u64(x: u64) -> Self;
-    /// Convert this back into a `u64`. This is the equivalent of masking off
-    /// the lowest 64 bits and then casting to a `u64`.
-    fn to_u64(&self) -> u64;
 }
 
 pub trait CryptoNumSerialization {
