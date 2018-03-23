@@ -41,6 +41,7 @@ use std::cmp::Ordering;
 use std::fmt::{Debug,Error,Formatter};
 use std::ops::*;
 pub use self::traits::*;
+use self::primes::SMALL_PRIMES;
 
 construct_unsigned!(U512,   BarretMu512,   u512,     8);
 construct_unsigned!(U1024,  BarretMu1024,  u1024,   16);

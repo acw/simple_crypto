@@ -69,7 +69,7 @@ pub trait CryptoNumPrimes
     /// Determine if the given number is probably prime using a quick spot
     /// check and Miller-Rabin, using the given random number generator
     /// and number of iterations.
-    fn probably_prime<G: Rng>(g: &mut G, iters: usize) -> bool;
+    fn probably_prime<G: Rng>(&self, g: &mut G, iters: usize) -> bool;
     /// Generate a prime using the given random number generator, using
     /// the given number of rounds to determine if the number is probably
     /// prime. The other two numbers are a number for which the generator

@@ -194,7 +194,7 @@ macro_rules! construct_unsigned {
 
         derive_barrett!($type, $barrett, $count);
         derive_modulo_operations!($type);
-        derive_prime_operations!($type);
+        derive_prime_operations!($type, $count);
 
         impl Into<BigInt> for $type {
             fn into(self) -> BigInt {
