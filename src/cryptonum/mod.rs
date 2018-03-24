@@ -11,7 +11,7 @@ pub struct UCN {
 }
 
 impl UCN {
-    fn shrink(&mut self) {
+    fn clean(&mut self) {
         loop {
             match self.contents.pop() {
                 None =>
@@ -122,21 +122,21 @@ mod test {
     use super::*;
 
     #[test]
-    fn test_shrink() {
+    fn test_clean() {
         let mut val1 = UCN{ contents: vec![1,0,0] };
-        val1.shrink();
+        val1.clean();
         assert_eq!(val1, UCN{ contents: vec![1] });
         //
         let mut val2 = UCN{ contents: vec![0,0,0] };
-        val2.shrink();
+        val2.clean();
         assert_eq!(val2, UCN{ contents: vec![] });
         //
         let mut val3 = UCN{ contents: vec![1,0,1] };
-        val3.shrink();
+        val3.clean();
         assert_eq!(val3, UCN{ contents: vec![1,0,1] });
         //
         let mut val4 = UCN{ contents: vec![] };
-        val4.shrink();
+        val4.clean();
         assert_eq!(val4, UCN{ contents: vec![] });
     }
 
