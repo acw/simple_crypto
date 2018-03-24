@@ -3,6 +3,7 @@ mod conversions;
 
 use num::{BigUint,ToPrimitive,Zero};
 use std::cmp::Ordering;
+use std::ops::*;
 
 /// In case you were wondering, it stands for "Unsigned Crypto Num".
 #[derive(Clone,Debug,PartialEq,Eq)]
@@ -109,6 +110,27 @@ impl Ord for UCN {
     }
 }
 
+//------------------------------------------------------------------------------
+//
+//  Bit Operations
+//
+//------------------------------------------------------------------------------
+
+impl Not for UCN {
+    type Output = UCN;
+
+    fn not(self) -> UCN {
+        let mut contents = self.contents;
+
+        for x in contents.iter_mut() {
+            *x = !*x;
+        }
+
+        let mut res = UCN{ contents: contents };
+        res.clean();
+        res
+    }
+}
 
 //------------------------------------------------------------------------------
 //
@@ -205,6 +227,37 @@ mod test {
             let copy = val.clone();
 
             (&val == &copy) && (val.cmp(&copy) == Ordering::Equal)
+        }
+    }
+
+    impl Arbitrary for UCN {
+        fn arbitrary<G: Gen>(g: &mut G) -> UCN {
+            let lenopts = [4,8,16,32,48,64,112,128,240];
+            let mut len = *g.choose(&lenopts).unwrap();
+            let mut contents = Vec::with_capacity(len);
+
+            while len > 0 {
+                contents.push(g.gen());
+                len -= 1;
+            }
+            UCN{ contents: contents }
+        }
+    }
+
+    fn expand_to_match(a: &mut UCN, b: &UCN) {
+        assert!(a.contents.len() <= b.contents.len());
+        while a.contents.len() < b.contents.len() {
+            a.contents.push(0);
+        }
+    }
+
+    quickcheck! {
+        fn double_negation(x: UCN) -> bool {
+            let mut x2 = x.clone().not();
+            expand_to_match(&mut x2, &x);
+            let mut x3 = x2.not();
+            expand_to_match(&mut x3, &x);
+            x3 == x
         }
     }
 }
