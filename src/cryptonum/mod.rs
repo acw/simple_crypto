@@ -10,6 +10,23 @@ pub struct UCN {
     contents: Vec<u64>
 }
 
+impl UCN {
+    fn shrink(&mut self) {
+        loop {
+            match self.contents.pop() {
+                None =>
+                    break,
+                Some(0) =>
+                    continue,
+                Some(x) => {
+                    self.contents.push(x);
+                    break
+                }
+            }
+        }
+    }
+}
+
 //------------------------------------------------------------------------------
 //
 //  Conversions to/from crypto nums.
@@ -103,6 +120,25 @@ impl Ord for UCN {
 mod test {
     use quickcheck::{Arbitrary,Gen};
     use super::*;
+
+    #[test]
+    fn test_shrink() {
+        let mut val1 = UCN{ contents: vec![1,0,0] };
+        val1.shrink();
+        assert_eq!(val1, UCN{ contents: vec![1] });
+        //
+        let mut val2 = UCN{ contents: vec![0,0,0] };
+        val2.shrink();
+        assert_eq!(val2, UCN{ contents: vec![] });
+        //
+        let mut val3 = UCN{ contents: vec![1,0,1] };
+        val3.shrink();
+        assert_eq!(val3, UCN{ contents: vec![1,0,1] });
+        //
+        let mut val4 = UCN{ contents: vec![] };
+        val4.shrink();
+        assert_eq!(val4, UCN{ contents: vec![] });
+    }
 
     #[test]
     #[allow(overflowing_literals)]
