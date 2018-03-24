@@ -11,13 +11,14 @@
 //! when they should use it, and examples. For now, it mostly just fowards
 //! off to more detailed modules. Help requested!
 
+extern crate num;
 #[cfg(test)]
 #[macro_use]
 extern crate quickcheck;
 extern crate rand;
 
-/// The cryptonum module provides support for large numbers at fixed,
-/// cryptographically-relevant sizes.
+/// The cryptonum module provides support for large numbers for use in various
+/// cryptographically-relevant algorithms.
 pub mod cryptonum;
 
 #[cfg(test)]

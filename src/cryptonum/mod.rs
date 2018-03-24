@@ -71,20 +71,23 @@ impl PartialOrd for UCN {
 
 impl Ord for UCN {
     fn cmp(&self, other: &UCN) -> Ordering {
-        let mut iter_left  = self.contents.iter();
-        let mut iter_right = other.contents.iter();
+        match self.contents.len().cmp(&other.contents.len()) {
+            Ordering::Equal => {
+                let mut me   = self.contents.iter().rev();
+                let mut them = other.contents.iter().rev();
 
-        loop {
-            match (iter_left.next(), iter_right.next()) {
-                (None,    None)    => return Ordering::Equal,
-                (Some(_), None)    => return Ordering::Greater,
-                (None,    Some(_)) => return Ordering::Less,
-                (Some(x), Some(y)) =>
-                    match x.cmp(y) {
-                        Ordering::Equal => continue,
-                        result          => return result
+                for (m, t) in me.zip(them) {
+                    match m.cmp(t) {
+                        Ordering::Equal =>
+                            continue,
+                        res =>
+                            return res
                     }
+                }
+
+                Ordering::Equal
             }
+            x => x
         }
     }
 }
@@ -160,6 +163,12 @@ mod test {
                 let ucny = UCN::from(y);
                 ucnx.cmp(&ucny) == Ordering::Greater
             }
+        }
+        fn self_is_equal(x: Vec<u64>) -> bool {
+            let val = UCN{ contents: x };
+            let copy = val.clone();
+
+            (&val == &copy) && (val.cmp(&copy) == Ordering::Equal)
         }
     }
 }
