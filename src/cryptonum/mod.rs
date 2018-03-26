@@ -84,6 +84,52 @@ fn tochar_upper(x: u64) -> char {
     }
 }
 
+impl fmt::LowerHex for UCN {
+    fn fmt(&self, fmt: &mut fmt::Formatter) -> Result<(),fmt::Error> {
+        for x in self.contents.iter().rev() {
+            fmt.write_char(tochar_lower(x >> 60))?;
+            fmt.write_char(tochar_lower(x >> 56))?;
+            fmt.write_char(tochar_lower(x >> 52))?;
+            fmt.write_char(tochar_lower(x >> 48))?;
+            fmt.write_char(tochar_lower(x >> 44))?;
+            fmt.write_char(tochar_lower(x >> 40))?;
+            fmt.write_char(tochar_lower(x >> 36))?;
+            fmt.write_char(tochar_lower(x >> 32))?;
+            fmt.write_char(tochar_lower(x >> 28))?;
+            fmt.write_char(tochar_lower(x >> 24))?;
+            fmt.write_char(tochar_lower(x >> 20))?;
+            fmt.write_char(tochar_lower(x >> 16))?;
+            fmt.write_char(tochar_lower(x >> 12))?;
+            fmt.write_char(tochar_lower(x >>  8))?;
+            fmt.write_char(tochar_lower(x >>  4))?;
+            fmt.write_char(tochar_lower(x >>  0))?;
+        }
+        Ok(())
+    }
+}
+
+fn tochar_lower(x: u64) -> char {
+    match (x as u8) & (0xF as u8) {
+        0x0 => '0',
+        0x1 => '1',
+        0x2 => '2',
+        0x3 => '3',
+        0x4 => '4',
+        0x5 => '5',
+        0x6 => '6',
+        0x7 => '7',
+        0x8 => '8',
+        0x9 => '9',
+        0xA => 'a',
+        0xB => 'b',
+        0xC => 'c',
+        0xD => 'd',
+        0xE => 'e',
+        0xF => 'f',
+        _   => panic!("the world is broken")
+    }
+}
+
 //------------------------------------------------------------------------------
 //
 //  Conversions to/from crypto nums.
