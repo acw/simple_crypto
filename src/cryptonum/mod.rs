@@ -378,7 +378,9 @@ impl ShrAssign<u64> for UCN {
             *x = base | carry;
             carry = new_carry;
         }
-        // in this case, we just junk the extra carry bits
+        // in this case, we just junk the extra carry bits, but we do need to
+        // cleanup possible zeros at the end.
+        self.clean();
     }
 }
 
@@ -589,7 +591,9 @@ mod test {
             (&a & &zero) == zero
         }
         fn shl_shr_annihilate(a: UCN, b: u8) -> bool {
-            ((&a << b) >> b) == a
+            let left = &a << b;
+            let right = &left >> b;
+            right == a
         }
         fn xor_inverse(a: UCN, b: UCN) -> bool {
             ((&a ^ &b) ^ &b) == a
