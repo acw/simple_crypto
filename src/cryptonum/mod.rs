@@ -407,6 +407,115 @@ derive_signed_shift_operators!(UCN, u8,    i8);
 
 //------------------------------------------------------------------------------
 //
+//  Addition and Subtraction
+//
+//------------------------------------------------------------------------------
+
+impl<'a> AddAssign<&'a UCN> for UCN {
+    fn add_assign(&mut self, rhs: &UCN) {
+        let mut iter_tm = rhs.contents.iter();
+        let mut stolen  = None;
+        let mut carry   = 0;
+
+        // loop through every element on the left hand side, breaking early
+        // on if we right the end of the left hand side.
+        {
+            let mut iter_me = self.contents.iter_mut();
+            loop {
+                match(iter_me.next(), iter_tm.next()) {
+                    (None, None) =>
+                        break,
+                    (Some(dest), None) => {
+                        let dest128 = *dest as u128;
+                        let newdest = dest128 + carry;
+                        *dest = newdest as u64;
+                        carry = newdest >> 64;
+                    }
+                    (None, Some(x)) => {
+                        stolen = Some(*x);
+                        break;
+                    }
+                    (Some(dest), Some(r)) => {
+                        let newdest = (*dest as u128) + (*r as u128) + carry;
+                        *dest = newdest as u64;
+                        carry = newdest >> 64;
+                    }
+                }
+            }
+        }
+        // if we accidentally stole something form the right iterator,
+        // push it back on.
+        if let Some(x) = stolen {
+            let stolen128 = (x as u128) + carry;
+            self.contents.push(stolen128 as u64);
+            carry = stolen128 >> 64;
+        }
+        // now loop through any remaining items on the right hand side,
+        // pushing them onto the result.
+        for x in iter_tm {
+            let x128 = (*x as u128) + carry;
+            self.contents.push(x128 as u64);
+            carry = x128 >> 64;
+        }
+        // finally, if there's still a carry, push it on the end.
+        if carry > 0 {
+            self.contents.push(carry as u64);
+        }
+    }
+}
+
+impl<'a> SubAssign<&'a UCN> for UCN {
+    fn sub_assign(&mut self, rhs: &UCN) {
+        {
+        let mut borrow = 0;
+        let mut iter_me = self.contents.iter_mut();
+        let mut iter_tm = rhs.contents.iter();
+
+        loop {
+            assert!( (borrow == 0) | (borrow == 1) );
+            match (iter_me.next(), iter_tm.next()) {
+                (None, None) if borrow == 0 =>
+                    break,
+                (None, None) =>
+                    panic!("Generated negative UCN in subtraction (1)."),
+                (Some(x), None) => {
+                    if borrow == 0 {
+                        break;
+                    }
+                    if *x == 0 {
+                        *x = 0xFFFFFFFFFFFFFFFF;
+                        borrow = 1;
+                    } else {
+                        *x = *x - borrow;
+                        break;
+                    }
+                }
+                (None, Some(_)) => {
+                    panic!("Generated negative UCN in subtraction (2).");
+                }
+                (Some(x), Some(y)) => {
+                    if (*x - borrow) >= *y {
+                        *x = (*x - borrow) - *y;
+                        borrow = 0;
+                    } else {
+                        let x128 = (*x as u128) + 0x10000000000000000;
+                        let res = x128 - (*y as u128);
+                        *x = res as u64;
+                        borrow = 1;
+                    }
+                }
+            }
+        }
+        }
+        self.clean();
+    }
+}
+
+derive_arithmetic_operators!(UCN, Add, add, AddAssign, add_assign);
+derive_arithmetic_operators!(UCN, Sub, sub, SubAssign, sub_assign);
+
+//------------------------------------------------------------------------------
+//
 //  Tests!
 //
 //------------------------------------------------------------------------------
@@ -544,6 +653,9 @@ mod test {
         fn and_associative(a: UCN, b: UCN, c: UCN) -> bool {
             ((&a & &b) & &c) == (&a & (&b & &c))
         }
+        fn add_associative(a: UCN, b: UCN, c: UCN) -> bool {
+            ((&a + &b) + &c) == (&a + (&b + &c))
+        }
     }
 
     quickcheck! {
@@ -555,6 +667,11 @@ mod test {
         }
         fn and_commutative(a: UCN, b: UCN) -> bool {
             (&a & &b) == (&b & &a)
+        }
+        fn add_commutative(a: UCN, b: UCN) -> bool {
+            let ab = &a + &b;
+            let ba = &b + &a;
+            (ab == ba)
         }
     }
 
@@ -577,6 +694,12 @@ mod test {
         fn shr_identity(a: UCN) -> bool {
             (&a << 0) == a
         }
+        fn add_identity(a: UCN) -> bool {
+            (&a + &UCN{ contents: vec![] }) == a
+        }
+        fn sub_identity(a: UCN) -> bool {
+            (&a - &UCN{ contents: vec![] }) == a
+        }
     }
 
     quickcheck! {
@@ -594,6 +717,9 @@ mod test {
             let left = &a << b;
             let right = &left >> b;
             right == a
+        }
+        fn sub_annihilation(a: UCN) -> bool {
+            (&a - &a) == UCN{ contents: vec![] }
         }
         fn xor_inverse(a: UCN, b: UCN) -> bool {
             ((&a ^ &b) ^ &b) == a
