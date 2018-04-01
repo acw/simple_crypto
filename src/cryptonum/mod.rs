@@ -407,7 +407,7 @@ derive_signed_shift_operators!(UCN, u8,    i8);
 
 //------------------------------------------------------------------------------
 //
-//  Addition and Subtraction
+//  Addition, Subtraction and Multiplication
 //
 //------------------------------------------------------------------------------
 
@@ -511,8 +511,34 @@ impl<'a> SubAssign<&'a UCN> for UCN {
     }
 }
 
+impl<'a> MulAssign<&'a UCN> for UCN {
+    fn mul_assign(&mut self, rhs: &UCN) {
+        let x = self.contents.clone();
+        let y = rhs.contents.clone();
+        let outlen = x.len() + y.len();
+        let n = y.len() - 1;
+
+        // this algorithm is 14.12 from "Handbook of Applied Cryptography"
+        self.contents.resize(0, 0);
+        self.contents.resize(outlen, 0);
+        for (i,xi) in x.iter().enumerate() {
+            let mut c = 0;
+            for (j,yj) in y.iter().enumerate() {
+                let wij = self.contents[i+j] as u128;
+                let xjyi = (*xi as u128) * (*yj as u128);
+                let uv = wij + xjyi + c;
+                self.contents[i+j] = uv as u64;
+                c = uv >> 64;
+            }
+            self.contents[i+n+1] = c as u64;
+        }
+        self.clean();
+    }
+}
+
 derive_arithmetic_operators!(UCN, Add, add, AddAssign, add_assign);
 derive_arithmetic_operators!(UCN, Sub, sub, SubAssign, sub_assign);
+derive_arithmetic_operators!(UCN, Mul, mul, MulAssign, mul_assign);
 
 //------------------------------------------------------------------------------
 //
@@ -614,7 +640,7 @@ mod test {
 
     impl Arbitrary for UCN {
         fn arbitrary<G: Gen>(g: &mut G) -> UCN {
-            let lenopts = [4,8]; //,8,16,32,48,64,112,128,240];
+            let lenopts = [4,8,16,32,48,64,112,128,240];
             let mut len = *g.choose(&lenopts).unwrap();
             let mut contents = Vec::with_capacity(len);
 
@@ -656,6 +682,9 @@ mod test {
         fn add_associative(a: UCN, b: UCN, c: UCN) -> bool {
             ((&a + &b) + &c) == (&a + (&b + &c))
         }
+        fn mul_associative(a: UCN, b: UCN, c: UCN) -> bool {
+            ((&a * &b) * &c) == (&a * (&b * &c))
+        }
     }
 
     quickcheck! {
@@ -671,6 +700,11 @@ mod test {
         fn add_commutative(a: UCN, b: UCN) -> bool {
             let ab = &a + &b;
             let ba = &b + &a;
+            (ab == ba)
+        }
+        fn mul_commutative(a: UCN, b: UCN) -> bool {
+            let ab = &a * &b;
+            let ba = &b * &a;
             (ab == ba)
         }
     }
@@ -699,6 +733,10 @@ mod test {
         }
         fn sub_identity(a: UCN) -> bool {
             (&a - &UCN{ contents: vec![] }) == a
+        }
+        fn mul_identity(a: UCN) -> bool {
+            let one = UCN{ contents: vec![1] };
+            (&a * &one) == a
         }
     }
 
@@ -752,6 +790,11 @@ mod test {
                                                            else {a.clone()};
             expand_to_match(&mut a2, &b2);
             (!(&a2 | &b2)) == (!a2 & !b2)
+        }
+        fn shift_multiply_equiv(a: UCN, b: u8) -> bool {
+            let one = UCN{ contents: vec![1] };
+            let pow2 = one << b;
+            (&a << b) == (&a * pow2)
         }
     }
 
