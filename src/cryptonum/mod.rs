@@ -499,7 +499,7 @@ impl<'a> SubAssign<&'a UCN> for UCN {
                         borrow = 0;
                     } else {
                         let x128 = (*x as u128) + 0x10000000000000000;
-                        let res = x128 - (*y as u128);
+                        let res = x128 - (*y as u128) - (borrow as u128);
                         *x = res as u64;
                         borrow = 1;
                     }
