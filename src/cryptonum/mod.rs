@@ -513,6 +513,16 @@ impl<'a> SubAssign<&'a UCN> for UCN {
 
 impl<'a> MulAssign<&'a UCN> for UCN {
     fn mul_assign(&mut self, rhs: &UCN) {
+        // Handle the quick and easy multiplication by zero cases first.
+        if self.contents.len() == 0 {
+            return;
+        }
+        if rhs.contents.len() == 0 {
+            self.contents.resize(0,0);
+            return;
+        }
+
+        // OK, do some real multiplication
         let x = self.contents.clone();
         let y = rhs.contents.clone();
         let outlen = x.len() + y.len();
@@ -759,6 +769,13 @@ mod test {
         fn sub_annihilation(a: UCN) -> bool {
             (&a - &a) == UCN{ contents: vec![] }
         }
+        fn mul_annihilation(a: UCN) -> bool {
+            let zero = UCN{ contents: vec![] };
+            (&a * &zero) == zero
+        }
+    }
+
+    quickcheck! {
         fn xor_inverse(a: UCN, b: UCN) -> bool {
             ((&a ^ &b) ^ &b) == a
         }
