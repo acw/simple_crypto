@@ -546,9 +546,134 @@ impl<'a> MulAssign<&'a UCN> for UCN {
     }
 }
 
+fn divmod(quotient: &mut Vec<u64>, remainder: &mut Vec<u64>,
+          inx: &Vec<u64>, iny: &Vec<u64>)
+{
+    quotient.resize(0,0);
+    remainder.resize(0,0);
+    // This algorithm is 14.20 from "Handbook of Applied Cryptography"
+    //
+    // It requires that y[t] is not zero, which it isn't due to our invariant
+    // that we don't have unnecessary zeros at the end of the array. We note
+    // that it's also very convienent if the top bit of y[t] is set, as well,
+    // so we shift everything left so that things work out.
+    let mut xbuffer = Vec::with_capacity(inx.len() + 2);
+    let mut ybuffer = Vec::with_capacity(iny.len() + 2);
+    xbuffer.extend_from_slice(&inx);
+    ybuffer.extend_from_slice(&iny);
+    let mut x = UCN{ contents: xbuffer };
+    let mut y = UCN{ contents: ybuffer };
+    let additional_shift = iny[iny.len() - 1].leading_zeros() as usize;
+    x <<= additional_shift;
+    y <<= additional_shift;
+    // Once we've done this, we should be good to go with our mostly-correct
+    // x and y. The only trick is that the algorithm requires that n >= t. If
+    // this is not true, then the answer is zero, because the divisor is greater
+    // than the dividend.
+    let n = x.contents.len();
+    let t = y.contents.len();
+    if n < t {
+        remainder.append(&mut x.contents);
+        return;
+    }
+    // Also, it's real convient for n and t to be greater than one, which we
+    // achieve by pushing a zero into the low digit. Because we do this, we
+    // don't have to do a lot of testing against negative indices later.
+    x.contents.insert(0,0);
+    y.contents.insert(0,0);
+    // 1. For j from 0 to (n-t) do: qj <- 0.
+    let mut q = Vec::with_capacity(n - t + 1);
+    q.resize(n - t + 1, 0);
+    // 2. While (x >= yb^(n-t)) do the following:
+    //      q_(n-t) <- q_(n-t) + 1
+    //      x       <- x - yb^(n-t)
+    let ybnt = &y << (64 * (n - t));
+    while &x >= &ybnt {
+        q[n-t] = q[n-t] + 1;
+        x -= &ybnt;
+    }
+    // 3. For i from n down to (t + 1) do the following:
+    let mut i = n;
+    while i >= (t + 1) {
+        // 3.1. if xi = yt, then set q_(i-t-1) <- b - 1; otherwise set
+        //      q_(i-t-1) <- floor((x_i * b + x_(i-1)) /y_t).
+        if x.contents[i] == y.contents[t] {
+            q[i-t-1] = 0xFFFFFFFFFFFFFFFF;
+        } else {
+            let top = ((x.contents[i] as u128)<<64) + (x.contents[i-1] as u128);
+            let bot = y.contents[t] as u128;
+            let solution = top / bot;
+            q[i-t-1] = solution as u64;
+        }
+        // 3.2. While (q_(i-t-1)(y_t * b + y_(t-1)) > x_i(b2) + x_(i-1)b +
+        //      x_(i-2)) do:
+        //        q_(i - t - 1) <- q_(i - t 1) - 1.
+        loop {
+            let qit1 = UCN{ contents: vec![q[i - t - 1]] };
+            let ytbyt1 = UCN{ contents: vec![y.contents[t-1], y.contents[t]] };
+            let left = qit1 * ytbyt1;
+            let right = UCN{ contents: vec![x.contents[i-2],
+                                            x.contents[i-1],
+                                            x.contents[i]] };
+
+            if left <= right {
+                break
+            }
+
+            q[i - t - 1] -= 1;
+        }
+        // 3.3. x <- x - q_(i - t - 1) * y * b^(i-t-1)
+        let qit1 = UCN{ contents: vec![q[i - t - 1]] };
+        let ybit1 = &y << (64 * (i - t - 1));
+        let subbit = &qit1 * &ybit1;
+        if subbit <= x {
+            x -= subbit;
+        } else {
+            // 3.4. if x < 0 then set z <- x + yb^(i-t-1) and
+            //                        q_(i-t-1) <- q(i-t-1) - 1
+            x -= subbit - ybit1;
+            q[i - t - 1] -= 1;
+        }
+        i -= 1;
+    }
+    // 4. r <- x
+    x >>= additional_shift;
+    if x.contents.len() > 0 {
+        // remember, we added a zero to the front of
+        // everything earlier; this removes it.
+        x.contents.remove(0);
+    }
+    remainder.append(&mut x.contents);
+    // 5. return (q,r)
+    while (q.len() > 0) && (q[q.len() - 1] == 0) {
+        q.pop();
+    }
+    quotient.append(&mut q);
+    println!("quotient: {:?}", quotient);
+    println!("remainder: {:?}", remainder);
+}
+
+impl<'a> DivAssign<&'a UCN> for UCN {
+    fn div_assign(&mut self, rhs: &UCN) {
+        let copy = self.contents.clone();
+        let mut dead = Vec::new();
+        divmod(&mut self.contents, &mut dead, &copy, &rhs.contents);
+    }
+}
+
+impl<'a> RemAssign<&'a UCN> for UCN {
+    fn rem_assign(&mut self, rhs: &UCN) {
+        let copy = self.contents.clone();
+        let mut dead = Vec::new();
+        divmod(&mut dead, &mut self.contents, &copy, &rhs.contents);
+    }
+}
+
 derive_arithmetic_operators!(UCN, Add, add, AddAssign, add_assign);
 derive_arithmetic_operators!(UCN, Sub, sub, SubAssign, sub_assign);
 derive_arithmetic_operators!(UCN, Mul, mul, MulAssign, mul_assign);
+derive_arithmetic_operators!(UCN, Div, div, DivAssign, div_assign);
+derive_arithmetic_operators!(UCN, Rem, rem, RemAssign, rem_assign);
 
 //------------------------------------------------------------------------------
 //
@@ -650,7 +775,7 @@ mod test {
 
     impl Arbitrary for UCN {
         fn arbitrary<G: Gen>(g: &mut G) -> UCN {
-            let lenopts = [4,8,16,32,48,64,112,128,240];
+            let lenopts = [4,8]; // ,16,32,48,64,112,128,240];
             let mut len = *g.choose(&lenopts).unwrap();
             let mut contents = Vec::with_capacity(len);
 
@@ -748,6 +873,10 @@ mod test {
             let one = UCN{ contents: vec![1] };
             (&a * &one) == a
         }
+        fn div_identity(a: UCN) -> bool {
+            let one = UCN{ contents: vec![1] };
+            (&a / &one) == a
+        }
     }
 
     quickcheck! {
@@ -791,6 +920,42 @@ mod test {
         fn orand_absorbtion(a: UCN, b: UCN) -> bool {
             (&a | (&a & &b)) == a
         }
+    }
+
+    quickcheck! {
+        fn mod_plus1_identity(a: UCN) -> bool {
+            let one = UCN{ contents: vec![1] };
+            let ap1 = &a + &one;
+            (&a % ap1) == a
+        }
+        fn mod_min1_is_one(a: UCN) -> bool {
+            let one = UCN{ contents: vec![1] };
+            let am1 = &a - &one;
+            (&a % am1) == one
+        }
+        #[should_panic]
+        fn div0_fails(a: UCN) -> bool {
+            (&a / &UCN{ contents: vec![] }) == a
+        }
+        fn euclid_is_alive(a: UCN, b: UCN) -> bool {
+            let zero = UCN{ contents: vec![] };
+            if &b == &zero {
+                return true;
+            }
+            println!("");
+            println!("a: {:?}", a);
+            println!("b: {:?}", b);
+            let q = &a / &b;
+            let r = &a % &b;
+            println!("q: {:?}", q);
+            println!("r: {:?}", r);
+            let res = (b * q) + r;
+            println!("v: {:?}", res);
+            a == res
+        }
+    }
+
+    quickcheck! {
         fn and_over_or_distribution(a: UCN, b: UCN, c: UCN) -> bool {
             (&a & (&b | &c)) == ((&a & &b) | (&a & &c))
         }
