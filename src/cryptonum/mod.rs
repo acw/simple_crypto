@@ -573,7 +573,7 @@ fn divmod(quotient: &mut Vec<u64>, remainder: &mut Vec<u64>,
     let n = x.contents.len();
     let t = y.contents.len();
     if n < t {
-        remainder.append(&mut x.contents);
+        remainder.extend_from_slice(&inx);
         return;
     }
     // Also, it's real convient for n and t to be greater than one, which we
