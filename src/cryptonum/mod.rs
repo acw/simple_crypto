@@ -676,8 +676,6 @@ fn divmod(quotient: &mut Vec<u64>, remainder: &mut Vec<u64>,
         q.pop();
     }
     quotient.append(&mut q);
-    println!("quotient: {:?}", quotient);
-    println!("remainder: {:?}", remainder);
 }
 
 impl<'a> DivAssign<&'a UCN> for UCN {
@@ -804,7 +802,7 @@ mod test {
 
     impl Arbitrary for UCN {
         fn arbitrary<G: Gen>(g: &mut G) -> UCN {
-            let lenopts = [4,8]; // ,16,32,48,64,112,128,240];
+            let lenopts = [4,8,16,32,48,64,112,128,240];
             let mut len = *g.choose(&lenopts).unwrap();
             let mut contents = Vec::with_capacity(len);
 
@@ -971,15 +969,9 @@ mod test {
             if &b == &zero {
                 return true;
             }
-            println!("");
-            println!("a: {:?}", a);
-            println!("b: {:?}", b);
             let q = &a / &b;
             let r = &a % &b;
-            println!("q: {:?}", q);
-            println!("r: {:?}", r);
             let res = (b * q) + r;
-            println!("v: {:?}", res);
             a == res
         }
     }
