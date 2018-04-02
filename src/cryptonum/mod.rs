@@ -36,7 +36,34 @@ impl UCN {
             self.contents.push(0);
         }
     }
+
+    pub fn from_str(x: &str) -> UCN {
+        let mut outvec = Vec::new();
+        let mut worker = 0;
+        let mut shift  = 0;
+
+        for c in x.chars().rev() {
+            match c.to_digit(16) {
+                None =>
+                    panic!("Bad character in string!"),
+                Some(v) => {
+                    worker = worker + ((v as u64) << shift);
+                    shift += 4;
+                }
+            }
+            if shift == 64 {
+                outvec.push(worker);
+                worker = 0;
+                shift = 0;
+            }
+        }
+        outvec.push(worker);
+        let mut res = UCN{ contents: outvec };
+        res.clean();
+        res
+    }
 }
+
 
 impl fmt::UpperHex for UCN {
     fn fmt(&self, fmt: &mut fmt::Formatter) -> Result<(),fmt::Error> {
@@ -684,6 +711,8 @@ derive_arithmetic_operators!(UCN, Rem, rem, RemAssign, rem_assign);
 #[cfg(test)]
 mod test {
     use quickcheck::{Arbitrary,Gen};
+    use std::fs::File;
+    use std::io::Read;
     use super::*;
 
     #[test]
@@ -953,6 +982,54 @@ mod test {
             println!("v: {:?}", res);
             a == res
         }
+    }
+
+    fn gold_test<F>(name: &str, f: F)
+     where
+      F: Fn(UCN,UCN) -> UCN
+    {
+        let mut file = File::open(name).unwrap();
+        let mut contents = String::new();
+        file.read_to_string(&mut contents).unwrap();
+        let mut iter = contents.lines();
+
+        while let Some(xstr) = iter.next() {
+            let ystr = iter.next().unwrap();
+            let zstr = iter.next().unwrap();
+
+            assert!(xstr.starts_with("x: "));
+            assert!(ystr.starts_with("y: "));
+            assert!(zstr.starts_with("z: "));
+            let x = UCN::from_str(&xstr[3..]);
+            let y = UCN::from_str(&ystr[3..]);
+            let z = UCN::from_str(&zstr[3..]);
+            assert_eq!(f(x,y), z);
+        }
+    }
+
+    #[test]
+    fn add_tests() {
+        gold_test("tests/add_tests.txt", |x,y| x + y);
+    }
+
+    #[test]
+    fn sub_tests() {
+        gold_test("tests/sub_tests.txt", |x,y| x - y);
+    }
+
+    #[test]
+    fn mul_tests() {
+        gold_test("tests/mul_tests.txt", |x,y| x * y);
+    }
+
+    #[test]
+    fn div_tests() {
+        gold_test("tests/div_tests.txt", |x,y| x / y);
+    }
+
+    #[test]
+    fn mod_tests() {
+        gold_test("tests/mod_tests.txt", |x,y| x % y);
     }
 
     quickcheck! {
