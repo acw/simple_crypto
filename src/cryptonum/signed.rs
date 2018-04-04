@@ -188,6 +188,7 @@ derive_arithmetic_operators!(SCN, Rem, rem, RemAssign, rem_assign);
 
 #[cfg(test)]
 mod test {
+    use quickcheck::{Arbitrary,Gen};
     use std::fs::File;
     use std::io::Read;
     use super::*;
@@ -238,5 +239,82 @@ mod test {
     #[test]
     fn mod_tests() {
         gold_test("tests/mod_tests_signed.txt", |x,y| x % y);
+    }
+
+    impl Arbitrary for SCN {
+        fn arbitrary<G: Gen>(g: &mut G) -> SCN {
+            let neg = (g.next_u32() & 1) == 1;
+            SCN{ negative: neg, value: UCN::arbitrary(g) }
+        }
+    }
+
+    fn one() -> SCN {
+        SCN{ negative: false, value: UCN::from(1 as u8) }
+    }
+
+    quickcheck! {
+        fn additive_identity(x: SCN) -> bool {
+            (&x + &SCN::zero()) == x
+        }
+        fn subtractive_identity(x: SCN) -> bool {
+            (&x - &SCN::zero()) == x
+        }
+        fn multiplicative_identity(x: SCN) -> bool {
+            (&x * &one()) == x
+        }
+        fn division_identity(x: SCN) -> bool {
+            let result = &x / &one();
+            println!("\nx: {:?}", x);
+            println!("result: {:?}", result);
+            result == x
+        }
+
+        fn additive_destructor(x: SCN) -> bool {
+            (&x + (- &x)) == SCN::zero()
+        }
+        fn subtractive_destructor(x: SCN) -> bool {
+            (&x - &x) == SCN::zero()
+        }
+        fn multiplicative_destructor(x: SCN) -> bool {
+            (x * SCN::zero()) == SCN::zero()
+        }
+        fn division_deastructor(x: SCN) -> bool {
+            (&x / &x) == one()
+        }
+        fn remainder_destructor(x: SCN) -> bool {
+            (&x % &x) == SCN::zero()
+        }
+
+        fn addition_commutes(a: SCN, b: SCN) -> bool {
+            (&a + &b) == (&b + &a)
+        }
+        fn multiplication_commutes(a: SCN, b: SCN) -> bool {
+            (&a * &b) == (&b * &a)
+        }
+        fn addition_associates(a: SCN, b: SCN, c: SCN) -> bool {
+            ((&a + &b) + &c) == (&a + (&b + &c))
+        }
+        fn multiplication_associates(a: SCN, b: SCN, c: SCN) -> bool {
+            ((&a * &b) * &c) == (&a * (&b * &c))
+        }
+        fn distribution_works(a: SCN, b: SCN, c: SCN) -> bool {
+            (&a * (&b + &c)) == ((&a * &b) + (&a * &c))
+        }
+
+        fn negation_works(a: SCN) -> bool {
+            (- &a) == (&a * &SCN{ negative: true, value: UCN::from(1 as u8) })
+        }
+        fn double_negation_works(a: SCN) -> bool {
+            (- (- &a)) == a
+        }
+        fn negation_commutes(a: SCN, b: SCN) -> bool {
+            ((- &a) * &b) == (&a * (- &b))
+        }
+        fn negation_cancels(a: SCN, b: SCN) -> bool {
+            ((- &a) * (- &b)) == (&a * &b)
+        }
+        fn negation_distributes(a: SCN, b: SCN) -> bool {
+            (- (&a + &b)) == ((- &a) + (- &b))
+        }
     }
 }
