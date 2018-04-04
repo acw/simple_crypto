@@ -152,7 +152,7 @@ impl<'a> DivAssign<&'a SCN> for SCN {
         let copy = self.value.contents.clone();
         divmod(&mut self.value.contents, &mut remainder,
                &copy, &rhs.value.contents);
-        if self.negative {
+        if self.negative && !remainder.is_empty() {
             let one = UCN{ contents: vec![1] };
             self.sub_assign(SCN{ negative: false, value: one});
         }
