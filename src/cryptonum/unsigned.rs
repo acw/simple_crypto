@@ -11,6 +11,14 @@ pub struct UCN {
 }
 
 impl UCN {
+    pub fn zero() -> UCN {
+        UCN{ contents: vec![] }
+    }
+
+    pub fn is_zero(&self) -> bool {
+        self.contents.len() == 0
+    }
+
     fn clean(&mut self) {
         loop {
             match self.contents.pop() {

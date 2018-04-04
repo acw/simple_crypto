@@ -12,11 +12,25 @@ pub struct SCN {
 }
 
 impl SCN {
+    pub fn zero() -> SCN {
+        SCN{ negative: false, value: UCN::zero() }
+    }
+
+    pub fn is_zero(&self) -> bool {
+        self.value.is_zero()
+    }
+
     pub fn from_str(x: &str) -> SCN {
         if x.get(0..1) == Some("-") {
             SCN{ negative: true, value: UCN::from_str(&x[1..]) }
         } else {
             SCN{ negative: false, value: UCN::from_str(x) }
+        }
+    }
+
+    fn cleanup(&mut self) {
+        if self.value.is_zero() {
+            self.negative = false;
         }
     }
 }
@@ -86,6 +100,7 @@ impl<'a> AddAssign<&'a SCN> for SCN {
                 self.value = &rhs.value - &self.value;
             }
         }
+        self.cleanup();
     }
 }
 
@@ -93,6 +108,7 @@ impl<'a> SubAssign<&'a SCN> for SCN {
     fn sub_assign(&mut self, rhs: &SCN) {
         let flipped = SCN{ negative: !rhs.negative, value: rhs.value.clone() };
         self.add_assign(&flipped);
+        self.cleanup();
     }
 }
 
@@ -100,6 +116,7 @@ impl<'a> MulAssign<&'a SCN> for SCN {
     fn mul_assign(&mut self, rhs: &SCN) {
         self.negative ^= rhs.negative;
         self.value.mul_assign(&rhs.value);
+        self.cleanup();
     }
 }
 
@@ -115,6 +132,7 @@ impl<'a> DivAssign<&'a SCN> for SCN {
             let one = UCN{ contents: vec![1] };
             self.sub_assign(SCN{ negative: false, value: one});
         }
+        self.cleanup();
     }
 }
 
@@ -128,6 +146,7 @@ impl<'a> RemAssign<&'a SCN> for SCN {
             self.negative = rhs.negative;
             self.value = &rhs.value - &base;
         }
+        self.cleanup();
     }
 }
 
