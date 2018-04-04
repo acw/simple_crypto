@@ -20,6 +20,10 @@ impl SCN {
         self.value.is_zero()
     }
 
+    pub fn is_negative(&self) -> bool {
+        self.negative
+    }
+
     pub fn from_str(x: &str) -> SCN {
         if x.get(0..1) == Some("-") {
             SCN{ negative: true, value: UCN::from_str(&x[1..]) }
@@ -58,6 +62,18 @@ define_signed_into!(SCN, i8,  u8);
 define_signed_into!(SCN, i16, u16);
 define_signed_into!(SCN, i32, u32);
 define_signed_into!(SCN, i64, u64);
+
+impl From<UCN> for SCN {
+    fn from(x: UCN) -> SCN {
+        SCN{ negative: false, value: x }
+    }
+}
+
+impl Into<UCN> for SCN {
+    fn into(self) -> UCN {
+        self.value
+    }
+}
 
 //------------------------------------------------------------------------------
 //
