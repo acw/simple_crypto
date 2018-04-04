@@ -88,6 +88,30 @@ impl Ord for SCN {
 //
 //------------------------------------------------------------------------------
 
+impl Neg for SCN {
+    type Output = SCN;
+
+    fn neg(self) -> SCN {
+        if self.is_zero() {
+            self
+        } else {
+            SCN{ negative: !self.negative, value: self.value }
+        }
+    }
+}
+
+impl<'a> Neg for &'a SCN {
+    type Output = SCN;
+
+    fn neg(self) -> SCN {
+        if self.is_zero() {
+            self.clone()
+        } else {
+            SCN{ negative: !self.negative, value: self.value.clone() }
+        }
+    }
+}
+
 impl<'a> AddAssign<&'a SCN> for SCN {
     fn add_assign(&mut self, rhs: &SCN) {
         if self.negative == rhs.negative {
