@@ -37,6 +37,33 @@ impl SCN {
             self.negative = false;
         }
     }
+
+    pub fn egcd(self, b: SCN) -> (SCN, SCN, SCN) {
+        let mut s     = SCN::zero();
+        let mut old_s = SCN::from(1 as u8);
+        let mut t     = SCN::from(1 as u8);
+        let mut old_t = SCN::zero();
+        let mut r     = b;
+        let mut old_r = self;
+
+        while !r.is_zero() {
+            let quotient = old_r.clone() / r.clone();
+
+            let prov_r = r.clone();
+            let prov_s = s.clone();
+            let prov_t = t.clone();
+
+            r = old_r - (r * &quotient);
+            s = old_s - (s * &quotient);
+            t = old_t - (t * &quotient);
+
+            old_r = prov_r;
+            old_s = prov_s;
+            old_t = prov_t;
+        }
+
+        (old_r, old_s, old_t)
+    }
 }
 
 impl fmt::UpperHex for SCN {
@@ -280,8 +307,6 @@ mod test {
         }
         fn division_identity(x: SCN) -> bool {
             let result = &x / &one();
-            println!("\nx: {:?}", x);
-            println!("result: {:?}", result);
             result == x
         }
 
