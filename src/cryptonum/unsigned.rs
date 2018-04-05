@@ -890,7 +890,7 @@ mod test {
             (&a << 0) == a
         }
         fn shr_identity(a: UCN) -> bool {
-            (&a << 0) == a
+            (&a >> 0) == a
         }
         fn add_identity(a: UCN) -> bool {
             (&a + &UCN{ contents: vec![] }) == a
@@ -1049,6 +1049,17 @@ mod test {
             let pow2 = one << b;
             (&a << b) == (&a * pow2)
         }
+        fn shl_mul_equiv(a: UCN) -> bool {
+            (&a << 1) == (&a * UCN::from(2 as u64)) &&
+            (&a << 3) == (&a * UCN::from(8 as u64)) &&
+            (&a << 4) == (&a * UCN::from(16 as u64)) &&
+            (&a << 43) == (&a * UCN::from(8796093022208 as u64))
+        }
+        fn shr_div_equiv(a: UCN) -> bool {
+            (&a >> 1) == (&a / UCN::from(2 as u64)) &&
+            (&a >> 3) == (&a / UCN::from(8 as u64)) &&
+            (&a >> 4) == (&a / UCN::from(16 as u64)) &&
+            (&a >> 43) == (&a / UCN::from(8796093022208 as u64))
+        }
     }
-
 }

@@ -78,7 +78,7 @@ macro_rules! derive_shifts_from_shift_assign
 
             fn $fn(self, rhs: $base) -> $type {
                 let mut copy = self.clone();
-                copy.$asnfn(rhs);
+                copy.$asnfn(rhs as u64);
                 copy
             }
         }
@@ -88,7 +88,7 @@ macro_rules! derive_shifts_from_shift_assign
 
             fn $fn(self, rhs: $base) -> $type {
                 let mut copy = self.clone();
-                copy.$asnfn(rhs);
+                copy.$asnfn(rhs as u64);
                 copy
             }
         }
@@ -113,7 +113,7 @@ macro_rules! derive_signed_shift_operators
                 if rhs < 0 {
                     self.shl_assign(-rhs);
                 } else {
-                    self.shr_assign(rhs);
+                    self.shr_assign(rhs as $base);
                 }
             }
         }
