@@ -12,6 +12,12 @@ pub struct UCN {
     pub(crate) contents: Vec<u64>
 }
 
+pub struct BarrettUCN {
+    u: UCN,
+    k: usize,
+    m: UCN
+}
+
 static SMALL_PRIMES: [u32; 310] = [
       2,     3,     5,     7,    11,    13,    17,    19,    23,    29,
      31,    37,    41,    43,    47,    53,    59,    61,    67,    71,
@@ -177,6 +183,57 @@ impl UCN {
             }
         }
         miller_rabin(g, &self, iters)
+    }
+
+    pub fn barrett_u(&self) -> BarrettUCN {
+        let k = self.contents.len();
+        let b = UCN::from(1 as u8) << (64 * 2 * k);
+        println!("");
+        println!("b: {:X}", b);
+        println!("s: {:X}", self);
+        let u = b / self;
+        println!("u: {:X}", u);
+        BarrettUCN{ u: u, k: k, m: self.clone() }
+    }
+
+    pub fn reduce(&self, u: &BarrettUCN) -> UCN {
+        println!("------");
+        println!("u.m: {:X}", u.m);
+        println!("u.u: {:X}", u.u);
+        println!("u.k: {}", u.k);
+        println!("self: {:X}", self);
+        // 1. q1←⌊x/bk−1⌋, q2←q1 · μ, q3←⌊q2/bk+1⌋.
+        let q1 = self >> (64 * (u.k - 1));
+        println!("q1: {:X}", q1);
+        let q2 = q1 * &u.u;
+        println!("q2: {:X}", q2);
+        let q3 = q2 >> (64 * (u.k + 1));
+        println!("q3: {:X}", q3);
+        // 2. r1←x mod bk+1, r2←q3 · m mod bk+1, r←r1 − r2.
+        // 3. If r<0 then r←r+bk+1.
+        let mut r1 = self.clone();
+        r1.contents.resize(u.k + 1, 0);
+        println!("r1: {:X}", r1);
+        let mut mlimited = u.m.clone();
+        mlimited.contents.resize(u.k + 1, 0);
+        let r2 = q3 * &mlimited;
+        println!("r2: {:X}", r2);
+        let mut r = if r1 >= r2 {
+                        r1 - r2
+                    } else {
+                        let mut bk1cont = Vec::with_capacity(u.k + 1);
+                        bk1cont.resize(u.k, 0);
+                        bk1cont.push(1);
+                        (r1 + UCN{ contents: bk1cont }) - r2
+                    };
+        println!("r: {:?}", r);
+        // 4. Whiler≥mdo:r←r−m.
+        while &r >= &u.m {
+            r -= &u.m;
+        }
+        println!("r: {:?}", r);
+        // 5. Return(r).
+        r
     }
 
     pub fn modexp(&self, e: &UCN, m: &UCN) -> UCN {
@@ -589,7 +646,7 @@ impl ShrAssign<u64> for UCN {
         let bits = rhs % 64;
 
         // remove the appropriate digits on the low side
-        while digits > 0 {
+        while (digits > 0) && (self.contents.len() > 0) {
             self.contents.remove(0);
             digits -= 1;
         }
@@ -719,7 +776,7 @@ impl<'a> SubAssign<&'a UCN> for UCN {
                     panic!("Generated negative UCN in subtraction (2).");
                 }
                 (Some(x), Some(y)) => {
-                    if (*x - borrow) >= *y {
+                    if (*x >= borrow) && ((*x - borrow) >= *y) {
                         *x = (*x - borrow) - *y;
                         borrow = 0;
                     } else {
@@ -791,6 +848,7 @@ pub fn divmod(quotient: &mut Vec<u64>, remainder: &mut Vec<u64>,
     let additional_shift = iny[iny.len() - 1].leading_zeros() as usize;
     x <<= additional_shift;
     y <<= additional_shift;
+    println!("additional_shift: {}", additional_shift);
     // Once we've done this, we should be good to go with our mostly-correct
     // x and y. The only trick is that the algorithm requires that n >= t. If
     // this is not true, then the answer is zero, because the divisor is greater
@@ -801,11 +859,13 @@ pub fn divmod(quotient: &mut Vec<u64>, remainder: &mut Vec<u64>,
         remainder.extend_from_slice(&inx);
         return;
     }
+    println!("n: {}   t: {}", n, t);
     // Also, it's real convient for n and t to be greater than one, which we
     // achieve by pushing a zero into the low digit. Because we do this, we
     // don't have to do a lot of testing against negative indices later.
     x.contents.insert(0,0);
     y.contents.insert(0,0);
+    println!("y[t] = {:x}", y.contents[t]);
     // 1. For j from 0 to (n-t) do: qj <- 0.
     let mut q = Vec::with_capacity(n - t + 1);
     q.resize(n - t + 1, 0);
@@ -817,6 +877,7 @@ pub fn divmod(quotient: &mut Vec<u64>, remainder: &mut Vec<u64>,
         q[n-t] = q[n-t] + 1;
         x -= &ybnt;
     }
+    println!("q: {:X}", UCN{ contents: q.clone() });
     // 3. For i from n down to (t + 1) do the following:
     let mut i = n;
     while i >= (t + 1) {
@@ -1000,7 +1061,7 @@ mod test {
 
     impl Arbitrary for UCN {
         fn arbitrary<G: Gen>(g: &mut G) -> UCN {
-            let lenopts = [4,8,16,32,48,64,112,128,240];
+            let lenopts = [4,8]; //,16,32,48,64,112,128,240];
             let mut len = *g.choose(&lenopts).unwrap();
             let mut contents = Vec::with_capacity(len);
 
@@ -1246,6 +1307,39 @@ mod test {
         }
     }
 
+    #[test]
+    fn barrett_tests() {
+        let mut file = File::open("tests/barrett_tests.txt").unwrap();
+        let mut contents = String::new();
+        file.read_to_string(&mut contents).unwrap();
+        let mut iter = contents.lines();
+
+        while let Some(mstr) = iter.next() {
+            let kstr = iter.next().unwrap();
+            let ustr = iter.next().unwrap();
+            let vstr = iter.next().unwrap();
+            let rstr = iter.next().unwrap();
+
+            assert!(mstr.starts_with("m: "));
+            assert!(kstr.starts_with("k: "));
+            assert!(ustr.starts_with("u: "));
+            assert!(vstr.starts_with("v: "));
+            assert!(rstr.starts_with("r: "));
+            let m = UCN::from_str(&mstr[3..]);
+            let k = usize::from_str_radix(&kstr[3..], 10).unwrap();
+            let u = UCN::from_str(&ustr[3..]);
+            let v = UCN::from_str(&vstr[3..]);
+            let r = UCN::from_str(&rstr[3..]);
+            let b = m.barrett_u();
+            assert_eq!(b.k, k);
+            println!("");
+            println!("b.u: {:X}", b.u);
+            println!("u:   {:X}", u);
+            assert_eq!(b.u, u);
+            assert_eq!(v.reduce(&b), r);
+        }
+    }
+
     quickcheck! {
         fn and_over_or_distribution(a: UCN, b: UCN, c: UCN) -> bool {
             (&a & (&b | &c)) == ((&a & &b) | (&a & &c))
@@ -1280,6 +1374,16 @@ mod test {
             (&a >> 3) == (&a / UCN::from(8 as u64)) &&
             (&a >> 4) == (&a / UCN::from(16 as u64)) &&
             (&a >> 43) == (&a / UCN::from(8796093022208 as u64))
+        }
+    }
+
+    quickcheck! {
+        fn barrett_check(a: UCN, b: UCN) -> bool {
+            let barrett = b.barrett_u();
+            println!("-----");
+            println!("a:   {:X}", a);
+            println!("b:   {:X}", b);
+            (&a % &b) == a.reduce(&barrett)
         }
     }
 }
