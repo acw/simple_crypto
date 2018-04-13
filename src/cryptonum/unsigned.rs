@@ -418,10 +418,12 @@ define_from!(UCN, u8);
 define_from!(UCN, u16);
 define_from!(UCN, u32);
 define_from!(UCN, u64);
+define_from!(UCN, usize);
 define_into!(UCN, u8);
 define_into!(UCN, u16);
 define_into!(UCN, u32);
 define_into!(UCN, u64);
+define_into!(UCN, usize);
 
 impl From<BigUint> for UCN {
     fn from(mut x: BigUint) -> UCN {

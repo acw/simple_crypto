@@ -35,13 +35,19 @@ macro_rules! define_signed_from
 macro_rules! define_into
 {
     ($type: ident, $base: ident) => {
-        impl Into<$base> for $type {
-            fn into(self) -> $base {
-                if self.contents.is_empty() {
+        impl<'a> From<&'a $type> for $base {
+            fn from(x: &$type) -> $base {
+                if x.contents.is_empty() {
                     0
                 } else {
-                    self.contents[0] as $base
+                   x.contents[0] as $base
                 }
+            }
+        }
+
+        impl From<$type> for $base {
+            fn from(x: $type) -> $base {
+                $base::from(&x)
             }
         }
     }
@@ -50,17 +56,29 @@ macro_rules! define_into
 macro_rules! define_signed_into
 {
     ($type: ident, $base: ident, $uns: ident) => {
-        impl Into<$uns> for $type {
-            fn into(self) -> $uns {
-                let res: $uns = self.value.into();
-                if self.negative { 0-res } else { res }
+        impl<'a> From<&'a $type> for $uns {
+            fn from(x: &$type) -> $uns {
+                let res: $uns = $uns::from(&x.value);
+                if x.negative { 0-res } else { res }
             }
         }
 
-        impl Into<$base> for $type {
-            fn into(self) -> $base {
-                let res: $uns = self.value.into();
-                if self.negative { (0-res) as $base } else { res as $base }
+        impl<'a> From<&'a $type> for $base {
+            fn from(x: &$type) -> $base {
+                let res: $uns = $uns::from(&x.value);
+                if x.negative { (0-res) as $base } else { res as $base }
+            }
+        }
+
+        impl From<$type> for $uns {
+            fn from(x: $type) -> $uns {
+                $uns::from(&x)
+            }
+        }
+
+        impl From<$type> for $base {
+            fn from(x: $type) -> $base {
+                $base::from(&x)
             }
         }
     }
