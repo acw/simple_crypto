@@ -237,6 +237,25 @@ impl UCN {
             eprime >>= 1;
         }
     }
+
+    pub fn fastmodexp(&self, e: &UCN, mu: &BarrettUCN) -> UCN {
+        let mut b = self.reduce(&mu);
+        let mut eprime = e.clone();
+        let mut result = UCN::from(1 as u8);
+
+        loop {
+            if eprime.is_zero() {
+                return result;
+            }
+
+            if eprime.is_odd() {
+                result = (result * &b).reduce(&mu);
+            }
+
+            b = (&b * &b).reduce(&mu);
+            eprime >>= 1;
+        }
+    }
 }
 
 fn miller_rabin<G: Rng>(g: &mut G, n: &UCN, iters: usize) -> bool {
@@ -1255,6 +1274,22 @@ mod test {
         fn barrett_check(a: UCN, b: UCN) -> bool {
             let barrett = b.barrett_u();
             (&a % &b) == a.reduce(&barrett)
+        }
+        fn fastmodexp(ina: UCN, b: UCN, c: UCN) -> bool {
+            let mut a = ina.clone();
+
+            if c.contents.len() == 0 {
+                return true;
+            }
+
+            if a.contents.len() > c.contents.len() {
+                a.contents.resize(c.contents.len(), 0);
+            }
+
+            let cu = c.barrett_u();
+            let slow = a.modexp(&b, &c);
+            let fast = a.fastmodexp(&b, &cu);
+            slow == fast
         }
     }
 }

@@ -3,7 +3,7 @@ use std::fs::File;
 use std::io::Read;
 use std::str::Lines;
 
-use cryptonum::unsigned::UCN;
+use cryptonum::unsigned::{UCN,BarrettUCN};
 use cryptonum::signed::SCN;
 
 fn next_value_set(line: &str) -> (String, SCN)
@@ -181,6 +181,23 @@ fn modular_exponentiation_test()
         let m     = case.get("m").unwrap();
         let z     = case.get("z").unwrap();
         assert_eq!(a.modexp(&b, &m), *z);
+    });
+}
+
+#[test]
+fn fast_modular_exponentiation_test()
+{
+    run_test("tests/math/fastmodexp.tests", 6, |scase| {
+        let case  = make_unsigned(scase);
+        let a     = case.get("a").unwrap();
+        let b     = case.get("b").unwrap();
+        let kbig  = case.get("k").unwrap();
+        let k     = usize::from(kbig);
+        let m     = case.get("m").unwrap();
+        let u     = case.get("u").unwrap();
+        let z     = case.get("z").unwrap();
+        let mu    = BarrettUCN{ k: k, u: u.clone(), m: m.clone() };
+        assert_eq!(a.fastmodexp(&b, &mu), *z);
     });
 }
 

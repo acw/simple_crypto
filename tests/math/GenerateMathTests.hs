@@ -151,7 +151,19 @@ main =
                         in if me /= standard
                               then error "Barrett broken"
                               else (Just res, (), g'')
-
+     _  <- runGenerator g9 "fastmodexp" () $ \ g () ->
+             let (a, g')   = randomVal (>= 0) g
+                 (b, g'')  = randomVal (>= 0) g'
+                 (m, g''') = randomVal (>= 0) g'
+                 z         = powModInteger a b m
+                 barrett   = barrett_u m
+                 ak        = computeK a
+             in if ak > bk barrett
+                   then (Nothing, (), g''')
+                   else let res = [("a", a), ("b", b), ("z", z),
+                                   ("m", m), ("u", bu barrett),
+                                   ("k", fromIntegral (bk barrett))]
+                        in (Just res, (), g''')
      return ()
 
 -- Implement Barrett reduction using incredibly simplistic implementations, to
@@ -198,47 +210,3 @@ minimize :: Integer -> Integer -> Integer
 minimize r m | r < 0     = error "BLECH"
              | r >= m    = minimize (r - m) m
              | otherwise = r
-
--- runOperation :: Handle -> IO ()
--- runOperation hndl =
---   do m <- randomVal =<< randomRIO (1,size)
---      v <- randomVal =<< randomRIO (1,size)
---      let barrett = barrett_u m
---      let vk = computeK v
---      if vk > (2 * (bk barrett))
---         then runOperation hndl
---         else do hPutStrLn hndl ("m: " ++ showHex m "")
---                 hPutStrLn hndl ("k: " ++ show (bk barrett))
---                 hPutStrLn hndl ("u: " ++ show (bu barrett))
---                 let me = reduce v barrett
---                     standard = v `mod` m
---                 unless (me == standard) $
---                    fail "Barrett messed up."
---                 hPutStrLn hndl ("v: " ++ showHex v "")
---                 hPutStrLn hndl ("r: " ++ showHex me "")
---                 hFlush hndl
--- 
--- generateFile :: String ->
---                 IO ()
--- generateFile file =
---   withFile (file ++ "_tests.txt") WriteMode $ \ hndl ->
---     forM_ [0..2000] $ \ _ ->
---       runOperation hndl
--- 
--- main :: IO ()
--- main =
---   do generateFile "add" $ \ x y ->
---        (x, y, x + y)
---      generateFile "sub" $ \ x y ->
---        let x' = max x y
---            y' = min x y
---        in (x', y', x' - y')
---      generateFile "mul" $ \ x y ->
---        (x, y, x * y)
---      generateFile "div" $ \ x y ->
---        let y' = if y == 0 then 1 else y
---        in (x, y', x / y')
---      generateFile "mod" $ \ x y ->
---        let y' = if y == 0 then 1 else y
---        in (x, y', x / y')
---      generateFile "barrett"
