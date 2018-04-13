@@ -214,10 +214,8 @@ impl UCN {
         let mut r1 = self.clone();
         r1.contents.resize(u.k + 1, 0);
         println!("r1: {:X}", r1);
-        let mut mlimited = u.m.clone();
-        mlimited.contents.resize(u.k + 1, 0);
-        let r2 = q3 * &mlimited;
-        println!("r2: {:X}", r2);
+        let mut r2 = q3 * &u.m;
+        r2.contents.resize(u.k + 1, 0);
         let mut r = if r1 >= r2 {
                         r1 - r2
                     } else {
@@ -226,12 +224,10 @@ impl UCN {
                         bk1cont.push(1);
                         (r1 + UCN{ contents: bk1cont }) - r2
                     };
-        println!("r: {:?}", r);
         // 4. Whiler≥mdo:r←r−m.
         while &r >= &u.m {
             r -= &u.m;
         }
-        println!("r: {:?}", r);
         // 5. Return(r).
         r
     }
