@@ -11,3 +11,7 @@ Cargo.lock
 
 # And these are just annoying
 .DS_Store
+
+# And some Haskell stuff, because I can't shake it!
+tests/math/cabal.sandbox.config
+tests/math/.cabal-sandbox

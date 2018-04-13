@@ -13,9 +13,9 @@ pub struct UCN {
 }
 
 pub struct BarrettUCN {
-    u: UCN,
-    k: usize,
-    m: UCN
+    pub(crate) u: UCN,
+    pub(crate) k: usize,
+    pub(crate) m: UCN
 }
 
 static SMALL_PRIMES: [u32; 310] = [
@@ -968,8 +968,6 @@ derive_arithmetic_operators!(UCN, Rem, rem, RemAssign, rem_assign);
 #[cfg(test)]
 mod test {
     use quickcheck::{Arbitrary,Gen};
-    use std::fs::File;
-    use std::io::Read;
     use super::*;
 
     #[test]
@@ -1232,111 +1230,6 @@ mod test {
             let r = &a % &b;
             let res = (b * q) + r;
             a == res
-        }
-    }
-
-    fn gold_test<F>(name: &str, f: F)
-     where
-      F: Fn(UCN,UCN) -> UCN
-    {
-        let mut file = File::open(name).unwrap();
-        let mut contents = String::new();
-        file.read_to_string(&mut contents).unwrap();
-        let mut iter = contents.lines();
-
-        while let Some(xstr) = iter.next() {
-            let ystr = iter.next().unwrap();
-            let zstr = iter.next().unwrap();
-
-            assert!(xstr.starts_with("x: "));
-            assert!(ystr.starts_with("y: "));
-            assert!(zstr.starts_with("z: "));
-            let x = UCN::from_str(&xstr[3..]);
-            let y = UCN::from_str(&ystr[3..]);
-            let z = UCN::from_str(&zstr[3..]);
-            assert_eq!(f(x,y), z);
-        }
-    }
-
-    #[test]
-    fn add_tests() {
-        gold_test("tests/add_tests.txt", |x,y| x + y);
-    }
-
-    #[test]
-    fn sub_tests() {
-        gold_test("tests/sub_tests.txt", |x,y| x - y);
-    }
-
-    #[test]
-    fn mul_tests() {
-        gold_test("tests/mul_tests.txt", |x,y| x * y);
-    }
-
-    #[test]
-    fn div_tests() {
-        gold_test("tests/div_tests.txt", |x,y| x / y);
-    }
-
-    #[test]
-    fn mod_tests() {
-        gold_test("tests/mod_tests.txt", |x,y| x % y);
-    }
-
-    #[test]
-    fn modexp_tests() {
-        let mut file = File::open("tests/modpow_tests.txt").unwrap();
-        let mut contents = String::new();
-        file.read_to_string(&mut contents).unwrap();
-        let mut iter = contents.lines();
-
-        while let Some(xstr) = iter.next() {
-            let ystr = iter.next().unwrap();
-            let zstr = iter.next().unwrap();
-            let rstr = iter.next().unwrap();
-
-            assert!(xstr.starts_with("x: "));
-            assert!(ystr.starts_with("y: "));
-            assert!(zstr.starts_with("z: "));
-            assert!(rstr.starts_with("r: "));
-            let x = UCN::from_str(&xstr[3..]);
-            let y = UCN::from_str(&ystr[3..]);
-            let z = UCN::from_str(&zstr[3..]);
-            let r = UCN::from_str(&rstr[3..]);
-            assert_eq!(x.modexp(&y, &z), r);
-        }
-    }
-
-    #[test]
-    fn barrett_tests() {
-        let mut file = File::open("tests/barrett_tests.txt").unwrap();
-        let mut contents = String::new();
-        file.read_to_string(&mut contents).unwrap();
-        let mut iter = contents.lines();
-
-        while let Some(mstr) = iter.next() {
-            let kstr = iter.next().unwrap();
-            let ustr = iter.next().unwrap();
-            let vstr = iter.next().unwrap();
-            let rstr = iter.next().unwrap();
-
-            assert!(mstr.starts_with("m: "));
-            assert!(kstr.starts_with("k: "));
-            assert!(ustr.starts_with("u: "));
-            assert!(vstr.starts_with("v: "));
-            assert!(rstr.starts_with("r: "));
-            let m = UCN::from_str(&mstr[3..]);
-            let k = usize::from_str_radix(&kstr[3..], 10).unwrap();
-            let u = UCN::from_str(&ustr[3..]);
-            let v = UCN::from_str(&vstr[3..]);
-            let r = UCN::from_str(&rstr[3..]);
-            let b = m.barrett_u();
-            assert_eq!(b.k, k);
-            println!("");
-            println!("b.u: {:X}", b.u);
-            println!("u:   {:X}", u);
-            assert_eq!(b.u, u);
-            assert_eq!(v.reduce(&b), r);
         }
     }
 
