@@ -188,32 +188,19 @@ impl UCN {
     pub fn barrett_u(&self) -> BarrettUCN {
         let k = self.contents.len();
         let b = UCN::from(1 as u8) << (64 * 2 * k);
-        println!("");
-        println!("b: {:X}", b);
-        println!("s: {:X}", self);
         let u = b / self;
-        println!("u: {:X}", u);
         BarrettUCN{ u: u, k: k, m: self.clone() }
     }
 
     pub fn reduce(&self, u: &BarrettUCN) -> UCN {
-        println!("------");
-        println!("u.m: {:X}", u.m);
-        println!("u.u: {:X}", u.u);
-        println!("u.k: {}", u.k);
-        println!("self: {:X}", self);
         // 1. q1←⌊x/bk−1⌋, q2←q1 · μ, q3←⌊q2/bk+1⌋.
         let q1 = self >> (64 * (u.k - 1));
-        println!("q1: {:X}", q1);
         let q2 = q1 * &u.u;
-        println!("q2: {:X}", q2);
         let q3 = q2 >> (64 * (u.k + 1));
-        println!("q3: {:X}", q3);
         // 2. r1←x mod bk+1, r2←q3 · m mod bk+1, r←r1 − r2.
         // 3. If r<0 then r←r+bk+1.
         let mut r1 = self.clone();
         r1.contents.resize(u.k + 1, 0);
-        println!("r1: {:X}", r1);
         let mut r2 = q3 * &u.m;
         r2.contents.resize(u.k + 1, 0);
         let mut r = if r1 >= r2 {
@@ -846,7 +833,6 @@ pub fn divmod(quotient: &mut Vec<u64>, remainder: &mut Vec<u64>,
     let additional_shift = iny[iny.len() - 1].leading_zeros() as usize;
     x <<= additional_shift;
     y <<= additional_shift;
-    println!("additional_shift: {}", additional_shift);
     // Once we've done this, we should be good to go with our mostly-correct
     // x and y. The only trick is that the algorithm requires that n >= t. If
     // this is not true, then the answer is zero, because the divisor is greater
@@ -857,13 +843,11 @@ pub fn divmod(quotient: &mut Vec<u64>, remainder: &mut Vec<u64>,
         remainder.extend_from_slice(&inx);
         return;
     }
-    println!("n: {}   t: {}", n, t);
     // Also, it's real convient for n and t to be greater than one, which we
     // achieve by pushing a zero into the low digit. Because we do this, we
     // don't have to do a lot of testing against negative indices later.
     x.contents.insert(0,0);
     y.contents.insert(0,0);
-    println!("y[t] = {:x}", y.contents[t]);
     // 1. For j from 0 to (n-t) do: qj <- 0.
     let mut q = Vec::with_capacity(n - t + 1);
     q.resize(n - t + 1, 0);
@@ -875,7 +859,6 @@ pub fn divmod(quotient: &mut Vec<u64>, remainder: &mut Vec<u64>,
         q[n-t] = q[n-t] + 1;
         x -= &ybnt;
     }
-    println!("q: {:X}", UCN{ contents: q.clone() });
     // 3. For i from n down to (t + 1) do the following:
     let mut i = n;
     while i >= (t + 1) {
@@ -1271,9 +1254,6 @@ mod test {
     quickcheck! {
         fn barrett_check(a: UCN, b: UCN) -> bool {
             let barrett = b.barrett_u();
-            println!("-----");
-            println!("a:   {:X}", a);
-            println!("b:   {:X}", b);
             (&a % &b) == a.reduce(&barrett)
         }
     }
