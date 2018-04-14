@@ -180,6 +180,49 @@ impl UCN {
             eprime >>= 1;
         }
     }
+
+    pub fn to_bytes(&self, len: usize) -> Vec<u8> {
+        let mylen = self.contents.len() * 8;
+        let mut res = Vec::with_capacity(len);
+
+        println!("mylen: {}   len: {}", mylen, len);
+        assert!( (len   % 8) == 0   );
+        assert!(  mylen      <= len );
+        for _ in 0..(len - mylen) {
+            res.push(0);
+        }
+        for val in self.contents.iter().rev() {
+            res.push( ((*val >> 56) & 0xFF) as u8 );
+            res.push( ((*val >> 48) & 0xFF) as u8 );
+            res.push( ((*val >> 40) & 0xFF) as u8 );
+            res.push( ((*val >> 32) & 0xFF) as u8 );
+            res.push( ((*val >> 24) & 0xFF) as u8 );
+            res.push( ((*val >> 16) & 0xFF) as u8 );
+            res.push( ((*val >>  8) & 0xFF) as u8 );
+            res.push( ((*val >>  0) & 0xFF) as u8 );
+        }
+
+        res
+    }
+
+    pub fn from_bytes(x: &[u8]) -> UCN {
+        let mut res = Vec::with_capacity(x.len() / 8);
+        let mut item = 0;
+        let mut count = 0;
+
+        assert!( (x.len() % 8) == 0 );
+        for v in x.iter() {
+            item = (item << 8) | (*v as u64);
+            count += 1;
+            if count == 8 {
+                count = 0;
+                res.insert(0, item);
+                item = 0;
+            }
+        }
+
+        UCN{ contents: res }
+    }
 }
 
 impl fmt::UpperHex for UCN {
@@ -1157,6 +1200,20 @@ mod test {
         fn modinv(a: UCN, b: UCN) -> bool {
             let i = a.modinv(&b);
             i.is_zero() || ( ((a * i) % b) == UCN::from(1 as u64) )
+        }
+    }
+
+    quickcheck! {
+        fn serialization_works1(a: UCN) -> bool {
+            let bytelen = a.contents.len() * 8;
+            UCN::from_bytes(&a.to_bytes(bytelen)) == a
+        }
+        fn serialization_works2(inb: Vec<u8>) -> bool {
+            let mut b = inb.clone();
+            while (b.len() % 8) != 0 {
+                b.insert(0,0);
+            }
+            UCN::from_bytes(&b).to_bytes(b.len()) == b
         }
     }
 }
