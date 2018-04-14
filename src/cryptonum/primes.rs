@@ -53,24 +53,26 @@ impl UCN {
             let candidate = base | &one;
 
             if let Some(proposed) = check_value(candidate) {
-                if proposed.probably_prime(rng, iterations) {
+                if proposed.probably_prime(rng, bitlen, iterations) {
                     return proposed;
                 }
             }
         }
     }
 
-    pub fn probably_prime<G: Rng>(&self, g: &mut G, iters: usize) -> bool {
+    fn probably_prime<G: Rng>(&self, g: &mut G, size: usize, iters: usize)
+        -> bool
+    {
         for tester in SMALL_PRIMES.iter() {
             if (self % UCN::from(*tester)).is_zero() {
                 return false;
             }
         }
-        miller_rabin(g, &self, iters)
+        miller_rabin(g, &self, size, iters)
     }
 }
 
-fn miller_rabin<G: Rng>(g: &mut G, n: &UCN, iters: usize) -> bool {
+fn miller_rabin<G: Rng>(g: &mut G, n: &UCN, size: usize, iters: usize) -> bool {
     let one = UCN::from(1 as u8);
     let two = UCN::from(2 as u8);
     let nm1 = n - &one;
@@ -86,7 +88,7 @@ fn miller_rabin<G: Rng>(g: &mut G, n: &UCN, iters: usize) -> bool {
     // WitnessLoop: repeat k times
     'WitnessLoop: for _k in 0..iters {
         // pick a random integer a in the range [2, n - 2]
-        let a = random_in_range(g, &two, &nm1);
+        let a = random_in_range(g, size, &two, &nm1);
         // x <- a^d mod n
         let mut x = a.modexp(&d, &n);
         // if x = 1 or x = n - 1 then
@@ -116,8 +118,9 @@ fn miller_rabin<G: Rng>(g: &mut G, n: &UCN, iters: usize) -> bool {
     true
 }
 
-fn random_in_range<G: Rng>(rng: &mut G, min: &UCN, max: &UCN) -> UCN {
-    let bitlen = ((max.bits() + 63) / 64) * 64;
+fn random_in_range<G: Rng>(rng: &mut G, bitlen: usize, min: &UCN, max: &UCN)
+    -> UCN
+{
     loop {
         let candidate = random_number(rng, bitlen);
 

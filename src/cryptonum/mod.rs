@@ -9,5 +9,5 @@ mod unsigned;
 mod gold_tests;
 
 pub use self::signed::SCN;
-pub use self::unsigned::UCN;
+pub use self::unsigned::{BarrettUCN,UCN};
 pub use self::primes::*;

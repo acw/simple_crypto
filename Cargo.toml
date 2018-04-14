@@ -9,8 +9,11 @@ license-file = "LICENSE"
 repository = "https://github.com/acw/simple_crypto"
 
 [dependencies]
+digest      = "^0.7.1"
 num         = "^0.1.42"
 rand        = "^0.3"
+sha-1       = "^0.7.0"
+sha2        = "^0.7.0"
 
 [dev-dependencies]
 quickcheck = "^0.4.1"

@@ -11,6 +11,7 @@ pub struct UCN {
     pub(crate) contents: Vec<u64>
 }
 
+#[derive(Clone,Debug,PartialEq,Eq)]
 pub struct BarrettUCN {
     pub(crate) u: UCN,
     pub(crate) k: usize,
@@ -185,7 +186,6 @@ impl UCN {
         let mylen = self.contents.len() * 8;
         let mut res = Vec::with_capacity(len);
 
-        println!("mylen: {}   len: {}", mylen, len);
         assert!( (len   % 8) == 0   );
         assert!(  mylen      <= len );
         for _ in 0..(len - mylen) {
