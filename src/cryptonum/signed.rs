@@ -8,7 +8,7 @@ use std::ops::*;
 #[derive(Clone,Debug,PartialEq,Eq)]
 pub struct SCN {
     negative: bool,
-    value: UCN
+    pub(crate) value: UCN
 }
 
 impl SCN {
@@ -306,6 +306,13 @@ mod test {
         }
         fn negation_distributes(a: SCN, b: SCN) -> bool {
             (- (&a + &b)) == ((- &a) + (- &b))
+        }
+    }
+
+    quickcheck! {
+        fn egcd_works(a: SCN, b: SCN) -> bool {
+            let (d, x, y) = a.clone().egcd(b.clone());
+            ((a * x) + (b * y)) == d
         }
     }
 }
