@@ -342,6 +342,9 @@ impl fmt::UpperHex for UCN {
             fmt.write_char(tochar_upper(x >>  4))?;
             fmt.write_char(tochar_upper(x >>  0))?;
         }
+        if self.contents.len() == 0 {
+            fmt.write_char('0')?;
+        }
         Ok(())
     }
 }
