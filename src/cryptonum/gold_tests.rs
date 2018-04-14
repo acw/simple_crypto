@@ -220,3 +220,16 @@ fn barrett_reduction_test()
         assert_eq!(&result, r);
     });
 }
+
+#[test]
+fn modular_inverse_test()
+{
+    run_test("tests/math/modinv.tests", 3, |scase| {
+        let case     = make_unsigned(scase);
+        let a        = case.get("x").unwrap();
+        let m        = case.get("y").unwrap();
+        let r        = case.get("z").unwrap();
+        let result   = a.modinv(m);
+        assert_eq!(r, &result);
+    });
+}

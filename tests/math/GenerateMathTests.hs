@@ -137,7 +137,7 @@ main =
              in if m == 0
                    then (Nothing, (), g''')
                    else (Just res, (), g''')
-     _  <- runGenerator g9 "barrett" () $ \ g () ->
+     g10<- runGenerator g9 "barrett" () $ \ g () ->
              let (m, g')  = randomVal (>= 0) g
                  (v, g'') = randomVal (>= 0) g'
                  barrett  = barrett_u m
@@ -151,7 +151,7 @@ main =
                         in if me /= standard
                               then error "Barrett broken"
                               else (Just res, (), g'')
-     _  <- runGenerator g9 "fastmodexp" () $ \ g () ->
+     g11<- runGenerator g10 "fastmodexp" () $ \ g () ->
              let (a, g')   = randomVal (>= 0) g
                  (b, g'')  = randomVal (>= 0) g'
                  (m, g''') = randomVal (>= 0) g'
@@ -164,6 +164,10 @@ main =
                                    ("m", m), ("u", bu barrett),
                                    ("k", fromIntegral (bk barrett))]
                         in (Just res, (), g''')
+     _  <- runGenerator g11 "modinv" Map.empty $
+             buildBasicLimitingGenerator (>= 0) $ \ a b ->
+               let res == recipModInteger a b
+               if b == 0 then Nothing else Just (recipModInteger a b)
      return ()
 
 -- Implement Barrett reduction using incredibly simplistic implementations, to

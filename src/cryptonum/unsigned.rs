@@ -130,23 +130,18 @@ impl UCN {
     }
 
     pub fn modinv(&self, phi: &UCN) -> UCN {
-        let (_, mut x, _) = self.extended_euclidean(&phi);
-        let int_phi = SCN::from(phi.clone());
-        while x.is_negative() {
-            x = x + &int_phi;
-        }
-        x.into()
-    }
+        let x = SCN::from(self.clone());
+        let y = SCN::from(phi.clone());
+        let (d, a, _b) = x.egcd(y);
 
-    fn extended_euclidean(&self, b: &UCN) -> (SCN, SCN, SCN) {
-        let posinta = SCN::from(self.clone());
-        let posintb = SCN::from(b.clone());
-        let (d, x, y) = posinta.egcd(posintb);
-
-        if d.is_negative() {
-            (d.neg(), x.neg(), y.neg())
+        if d == SCN::from(1 as u8) {
+            if a.is_negative() {
+                (a + SCN::from(phi.clone())).value
+            } else {
+                a.value
+            }
         } else {
-            (d, x, y)
+            UCN::zero()
         }
     }
 
@@ -1293,6 +1288,10 @@ mod test {
             let slow = a.modexp(&b, &c);
             let fast = a.fastmodexp(&b, &cu);
             slow == fast
+        }
+        fn modinv(a: UCN, b: UCN) -> bool {
+            let i = a.modinv(&b);
+            i.is_zero() || ( ((a * i) % b) == UCN::from(1 as u64) )
         }
     }
 }
