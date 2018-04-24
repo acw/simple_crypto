@@ -28,5 +28,8 @@ pub mod cryptonum;
 pub mod rsa;
 
 #[cfg(test)]
+mod testing;
+
+#[cfg(test)]
 mod test {
 }
