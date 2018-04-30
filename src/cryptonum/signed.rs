@@ -7,7 +7,7 @@ use std::ops::*;
 /// In case you were wondering, it stands for "Signed Crypto Num".
 #[derive(Clone,Debug,PartialEq,Eq)]
 pub struct SCN {
-    negative: bool,
+    pub(crate) negative: bool,
     pub(crate) value: UCN
 }
 

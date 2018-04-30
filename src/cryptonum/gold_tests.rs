@@ -1,5 +1,5 @@
 use cryptonum::unsigned::BarrettUCN;
-use testing::{make_unsigned,run_test};
+use testing::{make_signed,make_unsigned,run_test};
 
 #[test]
 fn unsigned_sum_test()
@@ -9,14 +9,16 @@ fn unsigned_sum_test()
         let x     = case.get("x").unwrap();
         let y     = case.get("y").unwrap();
         let z     = case.get("z").unwrap();
-        assert_eq!(x + y, *z);
+        let res   = x + y;
+        assert_eq!(res, *z);
     });
 }
 
 #[test]
 fn signed_sum_test()
 {
-    run_test("tests/math/signed_add.tests", 3, |case| {
+    run_test("tests/math/signed_add.tests", 3, |bcase| {
+        let case  = make_signed(bcase);
         let x     = case.get("x").unwrap();
         let y     = case.get("y").unwrap();
         let z     = case.get("z").unwrap();
@@ -39,7 +41,8 @@ fn unsigned_sub_test()
 #[test]
 fn signed_sub_test()
 {
-    run_test("tests/math/signed_sub.tests", 3, |case| {
+    run_test("tests/math/signed_sub.tests", 3, |bcase| {
+        let case  = make_signed(bcase);
         let x     = case.get("x").unwrap();
         let y     = case.get("y").unwrap();
         let z     = case.get("z").unwrap();
@@ -62,7 +65,8 @@ fn unsigned_mul_test()
 #[test]
 fn signed_mul_test()
 {
-    run_test("tests/math/signed_mul.tests", 3, |case| {
+    run_test("tests/math/signed_mul.tests", 3, |bcase| {
+        let case  = make_signed(bcase);
         let x     = case.get("x").unwrap();
         let y     = case.get("y").unwrap();
         let z     = case.get("z").unwrap();
@@ -85,7 +89,8 @@ fn unsigned_div_test()
 #[test]
 fn signed_div_test()
 {
-    run_test("tests/math/signed_div.tests", 3, |case| {
+    run_test("tests/math/signed_div.tests", 3, |bcase| {
+        let case  = make_signed(bcase);
         let x     = case.get("x").unwrap();
         let y     = case.get("y").unwrap();
         let z     = case.get("z").unwrap();
@@ -108,7 +113,8 @@ fn unsigned_mod_test()
 #[test]
 fn signed_mod_test()
 {
-    run_test("tests/math/signed_mod.tests", 3, |case| {
+    run_test("tests/math/signed_mod.tests", 3, |bcase| {
+        let case  = make_signed(bcase);
         let x     = case.get("x").unwrap();
         let y     = case.get("y").unwrap();
         let z     = case.get("z").unwrap();
