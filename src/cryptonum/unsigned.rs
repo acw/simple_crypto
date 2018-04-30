@@ -184,13 +184,9 @@ impl UCN {
 
     pub fn to_bytes(&self, len: usize) -> Vec<u8> {
         let mylen = self.contents.len() * 8;
-        let mut res = Vec::with_capacity(len);
+        let mut res = Vec::with_capacity(mylen);
 
-        assert!( (len   % 8) == 0   );
-        assert!(  mylen      <= len );
-        for _ in 0..(len - mylen) {
-            res.push(0);
-        }
+        // generate the basic data, which may be too large or too small
         for val in self.contents.iter().rev() {
             res.push( ((*val >> 56) & 0xFF) as u8 );
             res.push( ((*val >> 48) & 0xFF) as u8 );
@@ -202,26 +198,40 @@ impl UCN {
             res.push( ((*val >>  0) & 0xFF) as u8 );
         }
 
+        // if this is too big, then we need to pull a bit off the top
+        while res.len() > len {
+            res.remove(0);
+        }
+
+        // if this is too small, then we need to add some bytes to the start
+        while res.len() < len {
+            res.insert(0,0);
+        }
+
         res
     }
 
     pub fn from_bytes(x: &[u8]) -> UCN {
-        let mut res = Vec::with_capacity(x.len() / 8);
+        let mut res = Vec::with_capacity( (x.len() + 7) / 8);
         let mut item = 0;
-        let mut count = 0;
+        let mut shift = 0;
 
-        assert!( (x.len() % 8) == 0 );
-        for v in x.iter() {
-            item = (item << 8) | (*v as u64);
-            count += 1;
-            if count == 8 {
-                count = 0;
-                res.insert(0, item);
+        for v in x.iter().rev() {
+            item |= (*v as u64) << shift;
+            shift += 8;
+            if shift == 64 {
+                shift = 0;
+                res.push(item);
                 item = 0;
             }
         }
+        if item != 0 {
+            res.push(item);
+        }
 
-        UCN{ contents: res }
+        let mut res = UCN{ contents: res };
+        res.clean();
+        res
     }
 }
 
@@ -1210,9 +1220,6 @@ mod test {
         }
         fn serialization_works2(inb: Vec<u8>) -> bool {
             let mut b = inb.clone();
-            while (b.len() % 8) != 0 {
-                b.insert(0,0);
-            }
             UCN::from_bytes(&b).to_bytes(b.len()) == b
         }
     }
