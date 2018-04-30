@@ -1,5 +1,7 @@
 mod core;
 mod errors;
+#[cfg(test)]
+mod gold_tests;
 mod public;
 mod private;
 mod signing_hashes;

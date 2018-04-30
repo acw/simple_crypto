@@ -50,7 +50,7 @@ impl RSAPrivate {
         let len = n.bits();
 
         for &(valid_bits, _) in ACCEPTABLE_KEY_SIZES.iter() {
-            if valid_bits > len {
+            if valid_bits >= len {
                 return RSAPrivate {
                     byte_len: valid_bits / 8,
                     n: n.clone(),
@@ -60,5 +60,15 @@ impl RSAPrivate {
             }
         }
         panic!("Invalid RSA key size in new()")
+    }
+
+    /// Sign a message using the given hash.
+    pub fn sign(&self, sighash: &SigningHash, msg: &[u8]) -> Vec<u8> {
+        let hash = (sighash.run)(msg);
+        let em   = pkcs1_pad(&sighash.ident, &hash, self.byte_len);
+        let m    = UCN::from_bytes(&em);
+        let s    = sp1(&self.nu, &self.d, &m);
+        let sig  = s.to_bytes(self.byte_len);
+        sig
     }
 }

@@ -13,5 +13,5 @@ Cargo.lock
 .DS_Store
 
 # And some Haskell stuff, because I can't shake it!
-tests/math/cabal.sandbox.config
-tests/math/.cabal-sandbox
+**/cabal.sandbox.config
+**/.cabal-sandbox
