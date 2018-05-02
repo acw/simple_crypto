@@ -1,5 +1,5 @@
 use rsa::*;
-use testing::{make_unsigned,run_test};
+use testing::run_test;
 
 fn get_signing_hash(s: usize) -> &'static SigningHash {
     match s {
@@ -13,17 +13,17 @@ fn get_signing_hash(s: usize) -> &'static SigningHash {
 }
 
 #[test]
-fn rsa_signature_tests()
+fn rsa_signing_tests()
 {
     run_test("tests/rsa/signature.test", 7, |case| {
         let (neg0, dbytes) = case.get("d").unwrap();
         let (neg1, nbytes) = case.get("n").unwrap();
         let (neg2, hbytes) = case.get("h").unwrap();
-        let (neg2, kbytes) = case.get("k").unwrap();
-        let (neg3, msg)    = case.get("m").unwrap();
-        let (neg4, sig)    = case.get("s").unwrap();
+        let (neg3, kbytes) = case.get("k").unwrap();
+        let (neg4, msg)    = case.get("m").unwrap();
+        let (neg5, sig)    = case.get("s").unwrap();
 
-        assert!(!neg0 & !neg1 & !neg2 & !neg3 & !neg4);
+        assert!(!neg0 & !neg1 & !neg2 & !neg3 & !neg4 & !neg5);
         let hash = get_signing_hash(usize::from(UCN::from_bytes(hbytes)));
         let size = usize::from(UCN::from_bytes(kbytes));
         let key  = RSAPrivate::new(UCN::from_bytes(nbytes),
@@ -33,5 +33,26 @@ fn rsa_signature_tests()
         assert_eq!(key.byte_len * 8, size);
         let sig2 = key.sign(hash, &msg);
         assert_eq!(*sig, sig2);
+    });
+}
+
+#[test]
+fn rsa_verification_tests()
+{
+    run_test("tests/rsa/signature.test", 7, |case| {
+        let (neg1, nbytes) = case.get("n").unwrap();
+        let (neg2, hbytes) = case.get("h").unwrap();
+        let (neg3, kbytes) = case.get("k").unwrap();
+        let (neg4, msg)    = case.get("m").unwrap();
+        let (neg5, sig)    = case.get("s").unwrap();
+
+        assert!(!neg1 & !neg2 & !neg3 & !neg4 & !neg5);
+        let hash = get_signing_hash(usize::from(UCN::from_bytes(hbytes)));
+        let size = usize::from(UCN::from_bytes(kbytes));
+        let key  = RSAPublic::new(UCN::from_bytes(nbytes),
+                                  UCN::from(65537u64));
+
+        assert_eq!(key.byte_len * 8, size);
+        assert!(key.verify(hash, &msg, sig));
     });
 }
