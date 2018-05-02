@@ -1219,7 +1219,7 @@ mod test {
             UCN::from_bytes(&a.to_bytes(bytelen)) == a
         }
         fn serialization_works2(inb: Vec<u8>) -> bool {
-            let mut b = inb.clone();
+            let b = inb.clone();
             UCN::from_bytes(&b).to_bytes(b.len()) == b
         }
     }
