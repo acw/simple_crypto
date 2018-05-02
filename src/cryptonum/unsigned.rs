@@ -165,21 +165,23 @@ impl UCN {
 
     pub fn fastmodexp(&self, e: &UCN, mu: &BarrettUCN) -> UCN {
         let mut b = self.reduce(&mu);
-        let mut eprime = e.clone();
         let mut result = UCN::from(1 as u8);
 
-        loop {
-            if eprime.is_zero() {
-                return result;
-            }
+        for digit in e.contents.iter() {
+            let mut work = *digit;
 
-            if eprime.is_odd() {
-                result = (result * &b).reduce(&mu);
-            }
+            for _ in 0..64 {
+                if (work & 0x1) == 1 {
+                    result = (result * &b).reduce(&mu);
+                }
 
-            b = (&b * &b).reduce(&mu);
-            eprime >>= 1;
+                b = (&b * &b).reduce(&mu);
+
+                work >>= 1;
+            }
         }
+
+        result
     }
 
     pub fn to_bytes(&self, len: usize) -> Vec<u8> {
