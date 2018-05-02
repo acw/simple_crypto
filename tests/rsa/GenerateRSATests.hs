@@ -91,14 +91,20 @@ runSignatureGenerator inputs outputs =
           Left _ ->
             go (Just keySize) g3
           Right sig ->
-            do writeChan outputs [("d", showHex (private_d private) ""),
-                                  ("n", showHex (public_n public) ""),
-                                  ("h", hashname),
-                                  ("k", showHex keySize ""),
-                                  ("l", showHex (BS.length message) ""),
-                                  ("m", showBinary message),
-                                  ("s", showBinary (BSL.toStrict sig))]
-               go Nothing g3
+            case rsassa_pkcs1_v1_5_verify hash public (BSL.fromStrict message) sig of
+              Left err ->
+                fail ("RSA Verification error: " ++ show err)
+              Right False ->
+                fail ("RSA verification failed?!")
+              Right True ->
+                do writeChan outputs [("d", showHex (private_d private) ""),
+                                      ("n", showHex (public_n public) ""),
+                                      ("h", hashname),
+                                      ("k", showHex keySize ""),
+                                      ("l", showHex (BS.length message) ""),
+                                      ("m", showBinary message),
+                                      ("s", showBinary (BSL.toStrict sig))]
+                   go Nothing g3
 
 writeData :: Chan [(String,String)] -> (Progress -> IO ()) -> Handle -> IO ()
 writeData outputChan progressBar hndl = go 0
