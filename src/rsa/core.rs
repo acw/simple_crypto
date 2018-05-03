@@ -132,6 +132,9 @@ pub fn pkcs1_pad(ident: &[u8], hash: &[u8], keylen: usize) -> Vec<u8> {
     result
 }
 
+pub fn xor_vecs(a: &Vec<u8>, b: &Vec<u8>) -> Vec<u8> {
+    a.iter().zip(b.iter()).map(|(a,b)| a^b).collect()
+}
 
 #[cfg(test)]
 mod tests {

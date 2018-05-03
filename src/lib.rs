@@ -18,6 +18,7 @@ extern crate quickcheck;
 extern crate rand;
 extern crate sha1;
 extern crate sha2;
+extern crate simple_asn1;
 
 /// The cryptonum module provides support for large numbers for use in various
 /// cryptographically-relevant algorithms.

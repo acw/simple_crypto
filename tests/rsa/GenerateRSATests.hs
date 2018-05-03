@@ -5,7 +5,9 @@ import Control.Concurrent
 import Crypto.Random.DRBG
 import Data.Bits
 import qualified Data.ByteString as BS
+import qualified Data.ByteString.Char8 as BSC
 import qualified Data.ByteString.Lazy as BSL
+import Data.Char
 import Data.List
 import qualified Data.Map.Strict as Map
 import GHC.Integer.GMP.Internals
@@ -38,6 +40,27 @@ randomByteString g =
       x                = (fromIntegral h `shiftL` 8) + (fromIntegral l)
       Right (res, g'') = genBytes (x `mod` 1024) g'
   in (res, g'')
+
+randomLabel :: CryptoRandomGen g => g -> (BS.ByteString, g)
+randomLabel g =
+  let Right (ls, g')  = genBytes 1 g
+      [l8]            = BS.unpack ls
+      (letters, g'')  = go g' (l8 `mod` 24)
+  in (BSC.pack letters, g'')
+ where
+  goodChars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ" ++
+              "abcdefghijklmnopqrstuvwxyz" ++
+              "0123456789 .,/?'\";:[{]}\\|-_=+" ++
+              "`~!@#$%^&*()"
+  lenGoods = fromIntegral (length goodChars)
+  --
+  go g 0 = ("", g)
+  go g x =
+    let Right (bs, g') = genBytes 1 g
+        [x]            = BS.unpack bs
+        idx            = fromIntegral (x `mod` lenGoods)
+        (rest, g'')    = go g' (x - 1)
+    in ((goodChars !! idx) : rest, g'')
 
 randomHash :: CryptoRandomGen g => g -> ((HashInfo, String), g)
 randomHash g =
@@ -106,6 +129,37 @@ runSignatureGenerator inputs outputs =
                                       ("s", showBinary (BSL.toStrict sig))]
                    go Nothing g3
 
+runEncryptionGenerator :: Chan Int -> Chan [(String,String)] -> IO ()
+runEncryptionGenerator inputs outputs =
+  do rng0 :: GenBuffered SystemRandom <- newGenIO
+     go Nothing rng0
+ where
+  go Nothing rng0 =
+    do keySize <- readChan inputs
+       go (Just keySize) rng0
+  go (Just keySize) g0 =
+    do unless (keySize `elem` keySizes) $
+         fail ("Bad key size: " ++ show keySize)
+       let Right (public, private, g1) = generateKeyPair g0 keySize
+       let (message, g2) = randomByteString g1
+       let (label, g3) = randomLabel g2
+       let ((hashinfo, hashname), g4) = randomHash g3
+       let hash = hashFunction hashinfo
+       let mgf1 = generateMGF1 hash
+       let msg = BSL.fromStrict message
+           lbl = BSL.fromStrict label
+       case encryptOAEP g4 hash mgf1 lbl public msg of
+         Left _ ->
+           go (Just keySize) g4
+         Right (c, g5) ->
+           do writeChan outputs [("d", showHex (private_d private) ""),
+                                 ("n", showHex (public_n public) ""),
+                                 ("h", hashname),
+                                 ("l", showBinary label),
+                                 ("m", showBinary message),
+                                 ("c", showBinary (BSL.toStrict c))]
+              go Nothing g5
+
 writeData :: Chan [(String,String)] -> (Progress -> IO ()) -> Handle -> IO ()
 writeData outputChan progressBar hndl = go 0
  where
@@ -122,15 +176,21 @@ main =
   do sizeChan <- newChan
      outputChan <- newChan
      --
-     replicateM_ numThreads $
-        void $ forkIO $ runSignatureGenerator sizeChan outputChan
-     --
      unless (all (`elem` keySizes) keyIterations) $
         fail "System setup failure."
-     writeList2Chan sizeChan keyIterations
      --
-     let bar = autoProgressBar (msg "Generating test material") percentage 60
+     sigthrs <- replicateM numThreads $
+                  forkIO $ runSignatureGenerator sizeChan outputChan
+     let bar = autoProgressBar (msg "Generating signature tests") percentage 60
+     writeList2Chan sizeChan keyIterations
      g1 <- withFile "signature.test" WriteMode (writeData outputChan bar)
+     mapM_ killThread sigthrs
+     --
+     replicateM_ numThreads $
+        void $ forkIO $ runEncryptionGenerator sizeChan outputChan
+     let bar = autoProgressBar (msg "Generating encryption tests") percentage 60
+     writeList2Chan sizeChan keyIterations
+     g2 <- withFile "encryption.test" WriteMode (writeData outputChan bar)
      return ()
 
 randomElement :: CryptoRandomGen g => g -> [a] -> (a, g)
