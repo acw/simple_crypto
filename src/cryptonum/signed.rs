@@ -1,4 +1,6 @@
 use cryptonum::unsigned::{UCN,divmod};
+use num::BigInt;
+use num::bigint::Sign;
 use std::fmt;
 use std::cmp::Ordering;
 use std::fmt::Write;
@@ -99,6 +101,15 @@ impl From<UCN> for SCN {
 impl Into<UCN> for SCN {
     fn into(self) -> UCN {
         self.value
+    }
+}
+
+impl From<SCN> for BigInt {
+    fn from(x: SCN) -> BigInt {
+        let sign = if x.is_negative() { Sign::Minus } else { Sign::Plus };
+        let numbytes = x.value.contents.len() * 8;
+        let bytes = x.value.to_bytes(numbytes);
+        BigInt::from_bytes_be(sign, &bytes)
     }
 }
 

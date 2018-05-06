@@ -350,7 +350,14 @@ define_into!(UCN, u64);
 define_into!(UCN, usize);
 
 impl From<BigUint> for UCN {
-    fn from(mut x: BigUint) -> UCN {
+    fn from(x: BigUint) -> UCN {
+        UCN::from(&x)
+    }
+}
+
+impl<'a> From<&'a BigUint> for UCN {
+    fn from(inval: &BigUint) -> UCN {
+        let mut x = inval.clone();
         let mut dest = Vec::new();
         let mask = BigUint::from(0xFFFFFFFFFFFFFFFF as u64);
 
@@ -368,16 +375,40 @@ impl From<BigUint> for UCN {
     }
 }
 
-impl Into<BigUint> for UCN {
-    fn into(self) -> BigUint {
+impl From<BigInt> for UCN {
+    fn from(x: BigInt) -> UCN {
+        UCN::from(&x)
+    }
+}
+
+impl<'a> From<&'a BigInt> for UCN {
+    fn from(x: &BigInt) -> UCN {
+        match x.to_biguint() {
+            None =>
+                panic!("Attempt to coerce negative BigInt into UCN"),
+            Some(x) =>
+                UCN::from(x)
+        }
+    }
+}
+
+impl From<UCN> for BigUint {
+    fn from(x: UCN) -> BigUint {
         let mut result = BigUint::zero();
 
-        for part in self.contents.iter().rev() {
+        for part in x.contents.iter().rev() {
             result <<= 64;
             result += BigUint::from(*part);
         }
 
         result
+    }
+}
+
+impl From<UCN> for BigInt {
+    fn from(x: UCN) -> BigInt {
+        let uint = BigUint::from(x);
+        BigInt::from(uint)
     }
 }
 
