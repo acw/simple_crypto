@@ -15,9 +15,14 @@ Cargo.lock
 # And some Haskell stuff, because I can't shake it!
 **/cabal.sandbox.config
 **/.cabal-sandbox
+
+# Test generation leavings
 tests/rsa/GenerateRSATests.hi
 tests/rsa/GenerateRSATests.o
 tests/rsa/gen
+tests/dsa/GenerateDSATests.hi
+tests/dsa/GenerateDSATests.o
+tests/dsa/gen
 
 # And I started playing with IDEs, so ...
 .vscode
