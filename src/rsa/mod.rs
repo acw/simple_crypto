@@ -91,12 +91,14 @@ mod tests {
     }
 
     quickcheck! {
+        #[ignore]
         fn rsa_ep_dp_inversion(kp: RSAKeyPair, n: UCN) -> bool {
             let m = n.reduce(&kp.public.nu);
             let ciphertext = ep(&kp.public.nu, &kp.public.e, &m);
             let mprime = dp(&kp.private.nu, &kp.private.d, &ciphertext);
             mprime == m
         }
+        #[ignore]
         fn rsa_sp_vp_inversion(kp: RSAKeyPair, n: UCN) -> bool {
             let m = n.reduce(&kp.public.nu);
             let sig = sp1(&kp.private.nu, &kp.private.d, &m);

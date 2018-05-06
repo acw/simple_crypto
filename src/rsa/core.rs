@@ -142,6 +142,7 @@ mod tests {
     use super::*;
 
     #[test]
+    #[ignore]
     fn can_get_p_and_q() {
         let mut rng = OsRng::new().unwrap();
         let e = UCN::from(65537 as u64);
