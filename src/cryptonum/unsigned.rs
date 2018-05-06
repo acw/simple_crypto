@@ -1,5 +1,5 @@
 use cryptonum::signed::SCN;
-use num::{BigUint,ToPrimitive,Zero};
+use num::{BigInt,BigUint,ToPrimitive,Zero};
 use std::fmt;
 use std::fmt::Write;
 use std::cmp::Ordering;
@@ -24,7 +24,15 @@ impl UCN {
     }
 
     pub fn bits(&self) -> usize {
-        self.contents.len() * 64
+        let num_elems = self.contents.len();
+        let mut res = num_elems * 64;
+
+        if self.contents.len() > 0 {
+            assert!(self.contents[num_elems - 1] != 0);
+            res -= self.contents[num_elems - 1].leading_zeros() as usize;
+        }
+
+        res
     }
 
     pub fn is_zero(&self) -> bool {
@@ -45,6 +53,18 @@ impl UCN {
         } else {
             (self.contents[0] & 1) == 0
         }
+    }
+
+    pub fn is_multiple_of(&self, other: &UCN) -> bool {
+        self % other == UCN::from(1u64)
+    }
+
+    pub fn gcd(&self, other: &UCN) -> UCN {
+        let a = SCN{ negative: false, value: self.clone()  };
+        let b = SCN{ negative: false, value: other.clone() };
+        let (d,_,_) = a.egcd(b);
+        assert!(!d.negative);
+        d.value
     }
 
     fn clean(&mut self) {
