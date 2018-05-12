@@ -45,7 +45,7 @@ fn dsa_verification_tests()
 
         assert!(!neg0 & !neg1 & !neg2 & !neg4 &
                 !neg5 & !neg6 & !neg7 & !neg8);
-        
+
         let p = UCN::from_bytes(pbytes);
         let g = UCN::from_bytes(gbytes);
         let q = UCN::from_bytes(qbytes);

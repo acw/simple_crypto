@@ -130,11 +130,11 @@ class Generator {
     throws IOException, InterruptedException
   {
     SecureRandom rng = new SecureRandom();
-    FileWriter outfile = new FileWriter("signatures.test", false);
+    FileWriter outfile = new FileWriter("signature.test", false);
     Generator gen = new Generator(rng, outfile);
 
     gen.runTests(1024, 160, 500);
-    gen.runTests(2047, 224, 500);
+    gen.runTests(2048, 224, 500);
     gen.runTests(2048, 256, 250);
     gen.runTests(3072, 256, 100);
   }
@@ -160,31 +160,61 @@ class Generator {
       }
     }
 
-    private void runTest()
+    private DSAParameters getParameters()
+      throws IOException
     {
-      try {
         DSAParameterGenerationParameters genparams =
           new DSAParameterGenerationParameters(lsize, nsize, 80, rng);
         DSAParametersGenerator gen =
           new DSAParametersGenerator(parent.appropriateDigest(nsize));
         gen.init(genparams);
-        DSAParameters params = gen.generateParameters();
+        return gen.generateParameters();
+    }
+
+    private AsymmetricCipherKeyPair getKeyPair(DSAParameters params)
+    {
         DSAKeyGenerationParameters dsakeygenparams =
           new DSAKeyGenerationParameters(rng, params);
         DSAKeyPairGenerator keygen = new DSAKeyPairGenerator();
         keygen.init(dsakeygenparams);
-        AsymmetricCipherKeyPair kp = keygen.generateKeyPair();
-        DSAPublicKeyParameters pub = (DSAPublicKeyParameters)kp.getPublic();
-        DSAPrivateKeyParameters priv = (DSAPrivateKeyParameters)kp.getPrivate();
+        return keygen.generateKeyPair();
+    }
+
+    private byte[] getMessage()
+    {
         int msgsize = getRandomChoice(1024);
         byte message[] = new byte[msgsize];
         rng.nextBytes(message);
+        return message;
+    }
+
+    private byte[] runHash(byte[] msg, int digestsize)
+      throws IOException
+    {
+      Digest digestfn = appropriateDigest(digestsize);
+      digestfn.update(msg, 0, msg.length);
+      byte result[] = new byte[digestfn.getDigestSize()];
+      digestfn.doFinal(result, 0);
+      return result;
+    }
+
+    private void runTest()
+    {
+      try {
+        DSAParameters params = getParameters();
+        AsymmetricCipherKeyPair kp = getKeyPair(params);
+        DSAPublicKeyParameters pub = (DSAPublicKeyParameters)kp.getPublic();
+        DSAPrivateKeyParameters priv = (DSAPrivateKeyParameters)kp.getPrivate();
+
+        byte message[] = getMessage();
         int digestsize = randomDigestSize();
+        byte hash[] = runHash(message, digestsize);
+
         Digest msgdigest = appropriateDigest(digestsize);
         HMacDSAKCalculator kgen = new HMacDSAKCalculator(msgdigest);
         DSASigner signer = new DSASigner(kgen);
         signer.init(true, priv);
-        BigInteger rs[] = signer.generateSignature(message);
+        BigInteger rs[] = signer.generateSignature(hash);
         parent.output(params, kp, digestsize, message, rs);
       } catch(IOException exc) {
         System.out.println("EXCEPTION!");

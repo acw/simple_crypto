@@ -20,9 +20,8 @@ Cargo.lock
 tests/rsa/GenerateRSATests.hi
 tests/rsa/GenerateRSATests.o
 tests/rsa/gen
-tests/dsa/GenerateDSATests.hi
-tests/dsa/GenerateDSATests.o
-tests/dsa/gen
+tests/dsa/*.class
+tests/dsa/*.jar
 
 # And I started playing with IDEs, so ...
 .vscode
