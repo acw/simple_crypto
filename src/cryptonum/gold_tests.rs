@@ -123,6 +123,7 @@ fn signed_mod_test()
 }
 
 #[test]
+#[ignore]
 fn modular_exponentiation_test()
 {
     run_test("tests/math/modexp.tests", 4, |scase| {

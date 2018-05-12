@@ -16,6 +16,7 @@ fn get_signing_hash(s: usize) -> &'static SigningHash {
 }
 
 #[test]
+#[ignore]
 fn rsa_signing_tests()
 {
     run_test("tests/rsa/signature.test", 7, |case| {
@@ -89,6 +90,7 @@ fn rsa_decryption_tests()
 }
 
 #[test]
+#[ignore]
 fn rsa_encryption_tests()
 {
     run_test("tests/rsa/encryption.test", 6, |case| {

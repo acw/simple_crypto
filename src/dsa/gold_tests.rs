@@ -69,6 +69,7 @@ fn dsa_verification_tests()
 }
 
 #[test]
+#[ignore]
 fn dsa_signing_tests()
 {
     run_test("tests/dsa/signature.test", 9, |case| {
@@ -82,7 +83,7 @@ fn dsa_signing_tests()
 
 
         assert!(!neg0 & !neg1 & !neg2 & !neg3 & !neg4 & !neg5 & !neg6);
-        
+
         let p = UCN::from_bytes(pbytes);
         let g = UCN::from_bytes(gbytes);
         let q = UCN::from_bytes(qbytes);
