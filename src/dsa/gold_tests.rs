@@ -25,7 +25,8 @@ fn pqg_generation_checks() {
             generate_provable_primes(&mut rng, &seed, params).unwrap();
         assert!(validate_provable_primes(&mut rng, &p, &q, &ev));
         let index = rng.gen::<u8>();
-        let g = generate_verifiable_generator(&p, &q, &ev, index).unwrap();
+        let pu = p.barrett_u();
+        let g = generate_verifiable_generator(&p, &pu, &q, &ev, index).unwrap();
         assert!(verify_generator(&p, &q, &ev, index, &g));
     }
 }

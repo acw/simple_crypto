@@ -1,4 +1,4 @@
-use cryptonum::UCN;
+use cryptonum::{BarrettUCN,UCN};
 use digest::{FixedOutput,Input};
 use dsa::errors::DSAGenError;
 use dsa::parameters::{DSAParameterSize,n_bits,l_bits};
@@ -192,7 +192,7 @@ pub fn validate_provable_primes<G: Rng>(rng: &mut G,
     }
 }
 
-pub fn generate_verifiable_generator(p: &UCN,
+pub fn generate_verifiable_generator(p: &UCN, pu: &BarrettUCN,
                                      q: &UCN,
                                      ev: &DSAGenEvidence,
                                      index: u8)
@@ -229,7 +229,7 @@ pub fn generate_verifiable_generator(p: &UCN,
         dgst.process(&u);
         let w = UCN::from_bytes(dgst.fixed_result().as_slice());
         // 9. g = W^e mod p
-        let g = w.modexp(&e, &p);
+        let g = w.fastmodexp(&e, &pu);
         // 10. if (g < 2), then go to step 5.
         if &g >= &two {
             // 11. Return VALID and the value of g.

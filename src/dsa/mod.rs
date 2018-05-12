@@ -65,7 +65,7 @@ impl DSAKeyPair {
         let one = UCN::from(1 as u64);
         let x = (&c % (&params.q - &one)) + &one;
         // 7. y = g^x mod p
-        let y = params.g.modexp(&x, &params.p);
+        let y = params.g.fastmodexp(&x, &params.pu);
         // 8. Return SUCCESS, x, and y.
         let private = DSAPrivate { params: params.clone(), x: x };
         let public  = DSAPublic  { params: params.clone(), y: y };

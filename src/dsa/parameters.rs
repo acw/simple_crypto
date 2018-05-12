@@ -1,4 +1,4 @@
-use cryptonum::UCN;
+use cryptonum::{BarrettUCN,UCN};
 use dsa::errors::*;
 use dsa::generation::{DSAGenEvidence,verify_generator,
                       get_input_seed,generate_provable_primes,
@@ -37,6 +37,8 @@ pub struct DSAParameters {
     pub p: UCN,
     pub g: UCN,
     pub q: UCN,
+    pub pu: BarrettUCN,
+    pub qu: BarrettUCN
 }
 
 impl DSAParameters {
@@ -56,7 +58,9 @@ impl DSAParameters {
                         (3072, 256) => DSAParameterSize::L3072N256,
                         _           => return Err(DSAError::InvalidParamSize)
                     };
-        Ok(DSAParameters{ size: size, p: p, g: g, q: q })
+        let pu = p.barrett_u();
+        let qu = q.barrett_u();
+        Ok(DSAParameters{ size: size, p: p, g: g, q: q, pu: pu, qu: qu })
     }
 
     /// Generate a new set of DSA parameters for use. You probably shouldn't be
@@ -89,8 +93,10 @@ impl DSAParameters {
                   idx: u8)
         -> Result<DSAParameters, DSAGenError>
     {
-        let g = generate_verifiable_generator(&p, &q, &ev, idx)?;
-        Ok(DSAParameters{ size: ps, p: p, q: q, g: g })
+        let pu = p.barrett_u();
+        let qu = q.barrett_u();
+        let g = generate_verifiable_generator(&p, &pu, &q, &ev, idx)?;
+        Ok(DSAParameters{ size: ps, p: p, q: q, g: g, pu: pu, qu: qu })
     }
 
     /// Given the provided evidence, validate that the domain parameters

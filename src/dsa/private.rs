@@ -47,7 +47,7 @@ impl DSAPrivate {
                                 .map(|x| *x)
                                 .collect();
         let h0 = bits2int(&h1, n);
-        let h = h0.rem(&self.params.q);
+        let h = h0.reduce(&self.params.qu);
 
         // 2.  A random value modulo q, dubbed k, is generated.  That value
         //     shall not be 0; hence, it lies in the [1, q-1] range.  Most
@@ -68,7 +68,8 @@ impl DSAPrivate {
             //
             //    If r turns out to be zero, a new k should be selected and r
             //    computed again (this is an utterly improbable occurrence).
-            let r = self.params.g.modexp(&k, &self.params.p) % &self.params.q;
+            let r = self.params.g.fastmodexp(&k, &self.params.pu)
+                                 .rem(&self.params.q);
             if r.is_zero() {
                 continue;
             }
@@ -78,7 +79,7 @@ impl DSAPrivate {
             //
             //     The pair (r, s) is the signature.
             let kinv = k.modinv(&self.params.q);
-            let s = ((&h + (&self.x * &r)) * &kinv) % &self.params.q;
+            let s = ((&h + (&self.x * &r)) * &kinv).rem(&self.params.q);
             return DSASignature{ r: r, s: s };
         }
         panic!("The world is broken; couldn't find a k in sign().");

@@ -46,13 +46,13 @@ impl DSAPublic {
                   bytes.truncate(len);
                   UCN::from_bytes(&bytes) };
         // u1 = (zw) mod q
-        let u1 = (&z * &w).rem(&self.params.q);
+        let u1 = (&z * &w).reduce(&self.params.qu);
         // u2 = (rw) mod q
-        let u2 = (&sig.r * &w).rem(&self.params.q);
+        let u2 = (&sig.r * &w).reduce(&self.params.qu);
         // v = (((g)^u1(y)^u2) mod p) mod q
-        let v_1 = self.params.g.modexp(&u1, &self.params.p);
-        let v_2 = self.y.modexp(&u2, &self.params.p);
-        let v = (&v_1 * &v_2).rem(&self.params.p)
+        let v_1 = self.params.g.fastmodexp(&u1, &self.params.pu);
+        let v_2 = self.y.fastmodexp(&u2, &self.params.pu);
+        let v = (&v_1 * &v_2).reduce(&self.params.pu)
                              .rem(&self.params.q);
         // if v = r, then the signature is verified
         v == sig.r
