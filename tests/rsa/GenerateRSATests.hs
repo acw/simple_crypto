@@ -17,9 +17,6 @@ import System.ProgressBar
 import System.Random
 import Debug.Trace
 
-numThreads :: Int
-numThreads = 4
-
 keySizes :: [Int]
 keySizes = [512,1024,2048,3072,4096,7680,8192,15360]
 
@@ -160,10 +157,12 @@ runEncryptionGenerator inputs outputs =
                                  ("c", showBinary (BSL.toStrict c))]
               go Nothing g5
 
-writeData :: Chan [(String,String)] -> (Progress -> IO ()) -> Handle -> IO ()
-writeData outputChan progressBar hndl = go 0
+writeData :: Chan [(String,String)] -> Int -> (Progress -> IO ()) ->
+             Handle ->
+             IO ()
+writeData outputChan countInt progressBar hndl = go 0
  where
-  count = fromIntegral (length keyIterations)
+  count = fromIntegral countInt
   go x | x == count = return ()
        | otherwise = do output <- readChan outputChan
                         dump hndl output
@@ -175,6 +174,8 @@ main :: IO ()
 main =
   do sizeChan <- newChan
      outputChan <- newChan
+     let count = length keyIterations
+     numThreads <- getNumCapabilities
      --
      unless (all (`elem` keySizes) keyIterations) $
         fail "System setup failure."
@@ -183,14 +184,26 @@ main =
                   forkIO $ runSignatureGenerator sizeChan outputChan
      let bar = autoProgressBar (msg "Generating signature tests") percentage 60
      writeList2Chan sizeChan keyIterations
-     g1 <- withFile "signature.test" WriteMode (writeData outputChan bar)
+     g1 <- withFile "signature.test" WriteMode $ 
+             writeData outputChan count bar
      mapM_ killThread sigthrs
+     --
+     encthrs <- replicateM numThreads $
+                  forkIO $ runEncryptionGenerator sizeChan outputChan
+     let bar = autoProgressBar (msg "Generating encryption tests") percentage 60
+     writeList2Chan sizeChan (take 1000 keyIterations)
+     g2 <- withFile "encryption.test" WriteMode $
+             writeData outputChan 1000 bar
+     mapM_ killThread encthrs
      --
      replicateM_ numThreads $
         void $ forkIO $ runEncryptionGenerator sizeChan outputChan
      let bar = autoProgressBar (msg "Generating encryption tests") percentage 60
-     writeList2Chan sizeChan keyIterations
-     g2 <- withFile "encryption.test" WriteMode (writeData outputChan bar)
+     writeList2Chan sizeChan (drop 1000 keyIterations)
+     let i = length keyIterations - 1
+     g2 <- withFile "encryption.ext.test" WriteMode $
+             writeData outputChan (count - 1000) bar
+     --
      return ()
 
 randomElement :: CryptoRandomGen g => g -> [a] -> (a, g)
