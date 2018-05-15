@@ -17,9 +17,9 @@ Cargo.lock
 **/.cabal-sandbox
 
 # Test generation leavings
-tests/rsa/GenerateRSATests.hi
-tests/rsa/GenerateRSATests.o
-tests/rsa/gen
+**/*.hi
+**/*.o
+**/gen
 tests/dsa/*.class
 tests/dsa/*.jar
 
