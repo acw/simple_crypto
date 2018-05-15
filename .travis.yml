@@ -1,3 +1,8 @@
 language: rust
 rust:
+  - stable
+  - beta
   - nightly
+script:
+  - cargo build --verbose
+  - travis_wait 25 cargo test --verbose
