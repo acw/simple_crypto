@@ -5,7 +5,7 @@ mod gold_tests;
 mod parameters;
 mod public;
 mod private;
-mod rfc6979;
+pub(crate) mod rfc6979;
 
 pub use self::public::DSAPublic;
 pub use self::private::DSAPrivate;

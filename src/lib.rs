@@ -33,6 +33,10 @@ pub mod rsa;
 /// unless you've got a legacy application or system that you're trying to
 /// interact with. DSA is almost always the wrong choice.
 pub mod dsa;
+/// The 'ecdsa' module provides support for ECDSA-related signing and
+/// verification algorithms, as well as key generation. This and RSA should be
+/// your go-to choice for asymmetric crypto.
+pub mod ecdsa;
 
 #[cfg(test)]
 mod testing;

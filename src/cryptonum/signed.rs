@@ -66,6 +66,16 @@ impl SCN {
 
         (old_r, old_s, old_t)
     }
+
+    pub fn divmod(&self, x: &SCN, m: &UCN) -> SCN {
+        let sm = SCN::from(m.clone());
+        let xmod = x % &sm;
+        assert!(!xmod.negative);
+        let i = xmod.value.modinv(&m);
+        let si = SCN::from(i);
+        let yi = self * si;
+        yi % sm
+    }
 }
 
 impl fmt::UpperHex for SCN {
@@ -135,6 +145,60 @@ impl Ord for SCN {
         }
     }
 }
+
+//------------------------------------------------------------------------------
+//
+//  Shifts
+//
+//------------------------------------------------------------------------------
+
+impl ShlAssign<u64> for SCN {
+    fn shl_assign(&mut self, rhs: u64) {
+        self.value <<= rhs;
+    }
+}
+
+impl Shl<u64> for SCN {
+    type Output = SCN;
+
+    fn shl(self, rhs: u64) -> SCN {
+        let mut copy = self.clone();
+        copy.shl_assign(rhs);
+        copy
+    }
+}
+
+derive_shift_operators!(SCN, ShlAssign, Shl, shl_assign, shl, usize);
+derive_shift_operators!(SCN, ShlAssign, Shl, shl_assign, shl, u32);
+derive_shift_operators!(SCN, ShlAssign, Shl, shl_assign, shl, u16);
+derive_shift_operators!(SCN, ShlAssign, Shl, shl_assign, shl, u8);
+
+impl ShrAssign<u64> for SCN {
+    fn shr_assign(&mut self, rhs: u64) {
+        self.value >>= rhs;
+    }
+}
+
+impl Shr<u64> for SCN {
+    type Output = SCN;
+
+    fn shr(self, rhs: u64) -> SCN {
+        let mut copy = self.clone();
+        copy.shr_assign(rhs);
+        copy
+    }
+}
+
+derive_shift_operators!(SCN, ShrAssign, Shr, shr_assign, shr, usize);
+derive_shift_operators!(SCN, ShrAssign, Shr, shr_assign, shr, u32);
+derive_shift_operators!(SCN, ShrAssign, Shr, shr_assign, shr, u16);
+derive_shift_operators!(SCN, ShrAssign, Shr, shr_assign, shr, u8);
+
+derive_signed_shift_operators!(SCN, usize, isize);
+derive_signed_shift_operators!(SCN, u64,   i64);
+derive_signed_shift_operators!(SCN, u32,   i32);
+derive_signed_shift_operators!(SCN, u16,   i16);
+derive_signed_shift_operators!(SCN, u8,    i8);
 
 //------------------------------------------------------------------------------
 //
