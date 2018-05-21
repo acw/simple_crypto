@@ -20,8 +20,8 @@ Cargo.lock
 **/*.hi
 **/*.o
 **/gen
-tests/dsa/*.class
-tests/dsa/*.jar
+**/*.class
+**/*.jar
 
 # And I started playing with IDEs, so ...
 .vscode

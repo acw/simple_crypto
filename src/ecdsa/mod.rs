@@ -1,4 +1,6 @@
 mod curves;
+#[cfg(test)]
+mod gold_tests;
 mod math;
 mod private;
 mod public;

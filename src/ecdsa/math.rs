@@ -9,12 +9,32 @@ pub struct ECCPoint {
     pub y: SCN
 }
 
+pub fn point_add_two_muls(n1: &UCN, p1: &ECCPoint, n2: &UCN, p2: &ECCPoint)
+    -> ECCPoint
+{
+    let scaled1 = p1.scale(&n1);
+    let scaled2 = p2.scale(&n2);
+    scaled1.add(&scaled2)
+}
+
 impl ECCPoint {
+    pub fn new(ec: &EllipticCurve, x: SCN, y: SCN) -> ECCPoint {
+        ECCPoint { curve: ec.clone(), x: x, y: y }
+    }
+
     pub fn default(ec: &EllipticCurve) -> ECCPoint {
         ECCPoint {
             curve: ec.clone(),
             x: ec.Gx.clone(),
             y: ec.Gy.clone()
+        }
+    }
+
+    pub fn negate(&self) -> ECCPoint {
+        ECCPoint {
+            curve: self.curve.clone(),
+            x: self.x.clone(),
+            y: SCN::from(self.curve.p.clone()) - self.y.clone() 
         }
     }
 
