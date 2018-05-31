@@ -1,4 +1,4 @@
-use cryptonum::unsigned::{UCN,divmod};
+use cryptonum::unsigned::{BarrettUCN,UCN,divmod};
 use num::BigInt;
 use num::bigint::Sign;
 use std::fmt;
@@ -67,14 +67,27 @@ impl SCN {
         (old_r, old_s, old_t)
     }
 
-    pub fn divmod(&self, x: &SCN, m: &UCN) -> SCN {
-        let sm = SCN::from(m.clone());
-        let xmod = x % &sm;
+    pub fn reduce(&self, m: &BarrettUCN) -> SCN {
+        println!("signed reduce");
+        SCN{ negative: false, value: self.value.reduce(m) }
+    }
+
+    pub fn divmod(&self, x: &SCN, m: &BarrettUCN) -> SCN {
+        println!("STEP1");
+        let xmod = x.reduce(m);
+        println!("STEP2");
         assert!(!xmod.negative);
-        let i = xmod.value.modinv(&m);
+        println!("STEP3");
+        let i = xmod.value.modinv(&m.m);
+        println!("STEP4");
         let si = SCN::from(i);
+        println!("STEP5");
         let yi = self * si;
-        yi % sm
+        println!("STEP6: {:X}", yi);
+        println!("   mod {:X}", m.m);
+        let res = yi.reduce(m);
+        println!("STEP7");
+        res
     }
 }
 

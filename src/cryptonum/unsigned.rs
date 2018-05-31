@@ -132,34 +132,54 @@ impl UCN {
 
     pub fn barrett_u(&self) -> BarrettUCN {
         let k = self.contents.len();
+        self.barrett_uk(k)
+    }
+
+    pub fn barrett_uk(&self, k: usize) -> BarrettUCN {
         let b = UCN::from(1 as u8) << (64 * 2 * k);
         let u = b / self;
         BarrettUCN{ u: u, k: k, m: self.clone() }
     }
 
     pub fn reduce(&self, u: &BarrettUCN) -> UCN {
+        println!("unsigned reduce");
+        println!("  self: {:X} ({})", self, self.contents.len());
+        println!("  m:    {:X} ({})", u.m,  u.m.contents.len());
         // 1. q1←⌊x/bk−1⌋, q2←q1 · μ, q3←⌊q2/bk+1⌋.
         let q1 = self >> (64 * (u.k - 1));
+        println!("reduce1");
         let q2 = q1 * &u.u;
+        println!("reduce2");
         let q3 = q2 >> (64 * (u.k + 1));
+        println!("reduce3");
         // 2. r1←x mod bk+1, r2←q3 · m mod bk+1, r←r1 − r2.
         // 3. If r<0 then r←r+bk+1.
         let mut r1 = self.clone();
         r1.contents.resize(u.k + 1, 0);
+        println!("reduce4");
         let mut r2 = q3 * &u.m;
         r2.contents.resize(u.k + 1, 0);
+        println!("reduce5");
+        println!("     r1: {:X}", r1);
+        println!("     r2: {:X}", r2);
         let mut r = if r1 >= r2 {
+                        println!("reduce5a");
                         r1 - r2
                     } else {
+                        println!("reduce5b");
                         let mut bk1cont = Vec::with_capacity(u.k + 1);
                         bk1cont.resize(u.k, 0);
                         bk1cont.push(1);
                         (r1 + UCN{ contents: bk1cont }) - r2
                     };
+        println!("reduce6");
+        println!("  r = {:X}", r);
+        println!("  m = {:X}", u.m);
         // 4. Whiler≥mdo:r←r−m.
         while &r >= &u.m {
             r -= &u.m;
         }
+        println!("reduce7");
         // 5. Return(r).
         r
     }
@@ -881,6 +901,7 @@ pub fn divmod(quotient: &mut Vec<u64>, remainder: &mut Vec<u64>,
         let qit1 = UCN{ contents: vec![q[i - t - 1]] };
         let ybit1 = &y << (64 * (i - t - 1));
         let subbit = &qit1 * &ybit1;
+        let orig_x_len = x.contents.len();
         if subbit <= x {
             x -= subbit;
         } else {
@@ -888,6 +909,9 @@ pub fn divmod(quotient: &mut Vec<u64>, remainder: &mut Vec<u64>,
             //                        q_(i-t-1) <- q(i-t-1) - 1
             x -= subbit - ybit1;
             q[i - t - 1] -= 1;
+        }
+        while x.contents.len() < orig_x_len {
+            x.contents.insert(0, 0);
         }
         i -= 1;
     }
@@ -898,6 +922,7 @@ pub fn divmod(quotient: &mut Vec<u64>, remainder: &mut Vec<u64>,
         // everything earlier; this removes it.
         x.contents.remove(0);
     }
+    x.clean();
     remainder.append(&mut x.contents);
     // 5. return (q,r)
     while (q.len() > 0) && (q[q.len() - 1] == 0) {

@@ -8,14 +8,16 @@ use hmac::Hmac;
 #[allow(non_snake_case)]
 #[derive(Clone,Debug,PartialEq)]
 pub struct ECDSAPublic {
-    pub(crate) curve: EllipticCurve,
+    pub(crate) curve: &'static EllipticCurve,
     pub(crate) Q: ECCPoint
 }
 
 impl ECDSAPublic {
-    pub fn new(curve: &EllipticCurve, point: &ECCPoint) -> ECDSAPublic {
+    pub fn new(curve: &'static EllipticCurve, point: &ECCPoint)
+        -> ECDSAPublic
+    {
         ECDSAPublic {
-            curve: curve.clone(),
+            curve: curve,
             Q: point.clone()
         }
     }
@@ -49,11 +51,12 @@ impl ECDSAPublic {
         let u2 = (&sig.r * &c) % n;
         let x = point_add_two_muls(&u1, &ECCPoint::default(&self.curve),
                                    &u2, &self.Q);
+        let xx = x.get_x();
 
-        if x.x.is_negative() {
+        if xx.is_negative() {
             return false;
         }
 
-        (x.x.value % n) == sig.r
+        (xx.value % n) == sig.r
     }
 }

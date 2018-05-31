@@ -8,14 +8,16 @@ use hmac::Hmac;
 
 #[derive(Clone,Debug,PartialEq)]
 pub struct ECDSAPrivate {
-    pub(crate) curve: EllipticCurve,
+    pub(crate) curve: &'static EllipticCurve,
     pub(crate) d: UCN
 }
 
 impl ECDSAPrivate {
-    pub fn new(c: &EllipticCurve, d: &UCN) -> ECDSAPrivate {
+    pub fn new(c: &'static EllipticCurve, d: &UCN)
+        -> ECDSAPrivate
+    {
         ECDSAPrivate {
-            curve: c.clone(),
+            curve: c,
             d: d.clone()
         }
     }
@@ -64,10 +66,10 @@ impl ECDSAPrivate {
             //
             //    If r turns out to be zero, a new k should be selected and r
             //    computed again (this is an utterly improbable occurrence).
-            let g = ECCPoint::default(&self.curve);
+            let g = ECCPoint::default(self.curve);
             let kg = g.scale(&k);
             let ni = SCN::from(self.curve.n.clone());
-            let r = &kg.x % &ni;
+            let r = &kg.get_x() % &ni;
             if r.is_zero() {
                 continue;
             }
@@ -77,7 +79,7 @@ impl ECDSAPrivate {
             //
             //     The pair (r, s) is the signature.
             let kinv = SCN::from(k.modinv(&ni.value));
-            let s = ((SCN::from(h.clone()) + (&kg.x * &r)) * &kinv) % &ni;
+            let s = ((SCN::from(h.clone()) + (&kg.get_x() * &r)) * &kinv) % &ni;
             if s.is_zero() {
                 continue;
             }
