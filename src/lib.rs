@@ -1,4 +1,3 @@
-#![feature(i128_type)]
 //! # Simple Crypto: A quaint little crypto library for rust.
 //!
 //! This is the simple_crypto library. Its goal is to provide straightforward
@@ -11,19 +10,13 @@
 //! when they should use it, and examples. For now, it mostly just fowards
 //! off to more detailed modules. Help requested!
 
-#[cfg(test)]
-#[macro_use]
-extern crate quickcheck;
+//#[cfg(test)]
+//#[macro_use]
+//extern crate quickcheck;
 
 /// The cryptonum module provides support for large numbers at fixed,
 /// cryptographically-relevant sizes.
 pub mod cryptonum;
 
 #[cfg(test)]
-mod test {
-
-    #[test]
-    fn testing_works() {
-        assert!(true);
-    }
-}
+mod testing;
