@@ -6,29 +6,33 @@ pub trait Decoder {
     fn from_bytes(x: &[u8]) -> Self;
 }
 
+pub(crate) fn raw_decoder(input: &[u8], output: &mut [u64])
+{
+    let mut item = 0;
+    let mut shift = 0;
+    let mut idx = 0;
+
+    for v in input.iter().rev() {
+        item |= (*v as u64) << shift;
+        shift += 8;
+        if shift == 64 {
+            shift = 0;
+            output[idx] = item;
+            idx += 1;
+            item = 0;
+        }
+    }
+    if item != 0 {
+        output[idx] = item;
+    }
+}
+
 macro_rules! generate_decoder {
     ($name: ident) => {
         impl Decoder for $name {
             fn from_bytes(x: &[u8]) -> $name {
                 let mut res = $name::new();
-                let mut item = 0;
-                let mut shift = 0;
-                let mut idx = 0;
-
-                for v in x.iter().rev() {
-                    item |= (*v as u64) << shift;
-                    shift += 8;
-                    if shift == 64 {
-                        shift = 0;
-                        res.values[idx] = item;
-                        idx += 1;
-                        item = 0;
-                    }
-                }
-                if item != 0 {
-                    res.values[idx] = item;
-                }
-
+                raw_decoder(x, &mut res.values);
                 res
             }
         }
