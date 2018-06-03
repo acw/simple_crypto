@@ -11,6 +11,7 @@ mod comparison;
 mod conversions;
 mod encoding;
 mod multiplication;
+mod squaring;
 mod subtraction;
 
 pub use self::basetypes::*;

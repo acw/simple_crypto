@@ -12,7 +12,8 @@ testTypes = [("addition", addTest),
              ("modadd", modaddTest),
              ("subtraction", subTest),
              ("multiplication", mulTest),
-             ("expandingmul", expmulTest)
+             ("expandingmul", expmulTest),
+             ("squaring", squareTest)
             ]
 
 bitSizes :: [Int]
@@ -93,6 +94,15 @@ expmulTest bitsize gen0 = (res, gen2)
   res       = Map.fromList [("a", showHex a' ""),
                             ("b", showHex b' ""),
                             ("c", showHex c  "")]
+
+squareTest :: Int -> StdGen -> (Map String String, StdGen)
+squareTest bitsize gen0 = (res, gen1)
+ where
+  (a, gen1) = random gen0
+  a'        = a .&. mask bitsize
+  r         = a' * a'
+  res       = Map.fromList [("a", showHex a' ""),
+                            ("r", showHex r  "")]
 
 log :: String -> IO ()
 log str =
