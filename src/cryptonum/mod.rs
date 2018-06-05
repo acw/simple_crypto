@@ -9,6 +9,7 @@ mod basetypes;
 mod comparison;
 #[macro_use]
 mod conversions;
+mod division;
 mod encoding;
 mod multiplication;
 mod squaring;
