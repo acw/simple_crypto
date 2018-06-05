@@ -4,7 +4,7 @@ use cryptonum::{U192,   U256,   U384,   U512,   U576,
 use std::ops::{Mul,MulAssign};
 
 // This is algorithm 14.12 from "Handbook of Applied Cryptography"
-fn raw_multiplication(x: &[u64], y: &[u64], w: &mut [u64])
+pub fn raw_multiplication(x: &[u64], y: &[u64], w: &mut [u64])
 {
     assert_eq!(x.len(), y.len());
     assert_eq!(x.len() * 2, w.len());
@@ -15,9 +15,9 @@ fn raw_multiplication(x: &[u64], y: &[u64], w: &mut [u64])
         w[i] = 0;
     }
 
-    for i in 0..y.len() { // this may legitimately be off by one
+    for i in 0..y.len() {
         let mut carry = 0;
-        for j in 0..x.len() { // ditto
+        for j in 0..x.len() {
             let old = w[i+j] as u128;
             let x128 = x[j] as u128;
             let y128 = y[i] as u128;
