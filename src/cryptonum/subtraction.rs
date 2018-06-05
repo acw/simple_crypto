@@ -89,7 +89,6 @@ macro_rules! generate_tests {
         fn $testname() {
             let fname = format!("tests/math/subtraction{}.test",
                                 stringify!($name));
-            println!("FOO!");
             run_test(fname.to_string(), 3, |case| {
                 let (neg0, abytes) = case.get("a").unwrap();
                 let (neg1, bbytes) = case.get("b").unwrap();
