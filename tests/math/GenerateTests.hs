@@ -13,6 +13,7 @@ testTypes = [("addition", addTest),
              ("subtraction", subTest),
              ("multiplication", mulTest),
              ("expandingmul", expmulTest),
+             ("modmul", modmulTest),
              ("squaring", squareTest),
              ("division", divTest)
             ]
@@ -95,6 +96,19 @@ expmulTest bitsize gen0 = (res, gen2)
   res       = Map.fromList [("a", showHex a' ""),
                             ("b", showHex b' ""),
                             ("c", showHex c  "")]
+
+modmulTest :: Int -> StdGen -> (Map String String, StdGen)
+modmulTest bitsize gen0 = (res, gen2)
+ where
+  (a, gen1)  = random gen0
+  (b, gen2)  = random gen1
+  (m, gen3)  = random gen2
+  [a',b',m'] = splitMod bitsize [a,b,m]
+  c          = (a' * b') `mod` m'
+  res        = Map.fromList [("a", showHex a' ""),
+                             ("b", showHex b' ""),
+                             ("m", showHex m' ""),
+                             ("c", showHex c  "")]
 
 squareTest :: Int -> StdGen -> (Map String String, StdGen)
 squareTest bitsize gen0 = (res, gen1)

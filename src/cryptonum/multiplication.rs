@@ -1,7 +1,12 @@
 use cryptonum::{U192,   U256,   U384,   U512,   U576,
                 U1024,  U2048,  U3072,  U4096,  U8192,
                 U15360};
+use cryptonum::division::divmod;
 use std::ops::{Mul,MulAssign};
+
+pub trait ModMul<T=Self> {
+    fn modmul(&mut self, x: &Self, m: &T);
+}
 
 // This is algorithm 14.12 from "Handbook of Applied Cryptography"
 pub fn raw_multiplication(x: &[u64], y: &[u64], w: &mut [u64])
@@ -77,6 +82,29 @@ macro_rules! generate_multipliers
                 result
             }
         }
+
+        impl ModMul for $name {
+            fn modmul(&mut self, x: &$name, m: &$name) {
+                let mut mulres = Vec::with_capacity(2 * self.values.len());
+                mulres.resize(2 * self.values.len(), 0);
+                raw_multiplication(&self.values, &x.values, &mut mulres);
+                let mut widerm = Vec::with_capacity(mulres.len());
+                widerm.extend_from_slice(&m.values);
+                widerm.resize(mulres.len(), 0);
+                let mut dead   = Vec::with_capacity(widerm.len());
+                dead.resize(widerm.len(), 0);
+                let mut answer = Vec::with_capacity(widerm.len());
+                answer.resize(widerm.len(), 0);
+                divmod(&mulres, &widerm, &mut dead, &mut answer);
+                for i in 0..answer.len() {
+                    if i < self.values.len() {
+                        self.values[i] = answer[i];
+                    } else {
+                        assert_eq!(answer[i], 0);
+                    }
+                }
+            }
+        }
     }
 }
 
@@ -92,66 +120,99 @@ generate_multipliers!(U4096,   4096);
 generate_multipliers!(U8192,   8192);
 generate_multipliers!(U15360, 15360);
 
-#[cfg(test)]
-use cryptonum::Decoder;
-#[cfg(test)]
-use testing::run_test;
-
 macro_rules! generate_tests {
-    ($name: ident, $testname: ident) => (
-        #[test]
-        #[allow(non_snake_case)]
-        fn $testname() {
-            let fname = format!("tests/math/multiplication{}.test",
-                                stringify!($name));
-            run_test(fname.to_string(), 3, |case| {
-                let (neg0, abytes) = case.get("a").unwrap();
-                let (neg1, bbytes) = case.get("b").unwrap();
-                let (neg2, cbytes) = case.get("c").unwrap();
+    ( $( $name:ident ),* ) => {
+        #[cfg(test)]
+        mod normal {
+            use cryptonum::Decoder;
+            use super::*;
+            use testing::run_test;
 
-                assert!(!neg0 && !neg1 && !neg2);
-                let mut a = $name::from_bytes(abytes);
-                let b = $name::from_bytes(bbytes);
-                let c = $name::from_bytes(cbytes);
-                assert_eq!(&a * &b, c);
-                a *= b;
-                assert_eq!(a, c);
-            });
+            $(
+                #[test]
+                #[allow(non_snake_case)]
+                fn $name() {
+                    let fname = format!("tests/math/multiplication{}.test",
+                                        stringify!($name));
+                    run_test(fname.to_string(), 3, |case| {
+                        let (neg0, abytes) = case.get("a").unwrap();
+                        let (neg1, bbytes) = case.get("b").unwrap();
+                        let (neg2, cbytes) = case.get("c").unwrap();
+
+                        assert!(!neg0 && !neg1 && !neg2);
+                        let mut a = $name::from_bytes(abytes);
+                        let b = $name::from_bytes(bbytes);
+                        let c = $name::from_bytes(cbytes);
+                        assert_eq!(&a * &b, c);
+                        a *= b;
+                        assert_eq!(a, c);
+                    });
+                }
+            )*
         }
-    );
 
-    ($name: ident, $testname: ident, $dblname: ident, $doubletest: ident) => (
-        generate_tests!($name, $testname);
-        #[test]
-        #[allow(non_snake_case)]
-        fn $doubletest() {
-            let fname = format!("tests/math/expandingmul{}.test",
-                                stringify!($name));
-            run_test(fname.to_string(), 3, |case| {
-                let (neg0, abytes) = case.get("a").unwrap();
-                let (neg1, bbytes) = case.get("b").unwrap();
-                let (neg2, cbytes) = case.get("c").unwrap();
+        #[cfg(test)]
+        mod expanding {
+            use cryptonum::encoding::{Decoder,raw_decoder};
+            use super::*;
+            use testing::run_test;
 
-                assert!(!neg0 && !neg1 && !neg2);
-                let a = $name::from_bytes(abytes);
-                let b = $name::from_bytes(bbytes);
-                let c = $dblname::from_bytes(cbytes);
-                let mut r = $dblname::new();
-                raw_multiplication(&a.values, &b.values, &mut r.values);
-                assert_eq!(c, r);
-            });
+            $(
+                #[test]
+                #[allow(non_snake_case)]
+                fn $name() {
+                    let fname = format!("tests/math/expandingmul{}.test",
+                                        stringify!($name));
+                    run_test(fname.to_string(), 3, |case| {
+                        let (neg0, abytes) = case.get("a").unwrap();
+                        let (neg1, bbytes) = case.get("b").unwrap();
+                        let (neg2, cbytes) = case.get("c").unwrap();
+
+                        assert!(!neg0 && !neg1 && !neg2);
+                        let a = $name::from_bytes(abytes);
+                        let b = $name::from_bytes(bbytes);
+                        let mut c = Vec::with_capacity(a.values.len() * 2);
+                        c.resize(a.values.len() * 2, 0);
+                        raw_decoder(&cbytes, &mut c);
+                        let mut r = Vec::with_capacity(c.len());
+                        r.resize(c.len(), 0);
+                        raw_multiplication(&a.values, &b.values, &mut r);
+                        assert_eq!(c, r);
+                    });
+                }
+            )*
         }
-    )
+
+        #[cfg(test)]
+        mod slow_modular {
+            use cryptonum::Decoder;
+            use super::*;
+            use testing::run_test;
+
+            $(
+                #[test]
+                #[allow(non_snake_case)]
+                fn $name() {
+                    let fname = format!("tests/math/modmul{}.test",
+                                        stringify!($name));
+                    run_test(fname.to_string(), 4, |case| {
+                        let (neg0, abytes) = case.get("a").unwrap();
+                        let (neg1, bbytes) = case.get("b").unwrap();
+                        let (neg2, mbytes) = case.get("m").unwrap();
+                        let (neg3, cbytes) = case.get("c").unwrap();
+
+                        assert!(!neg0 && !neg1 && !neg2 && !neg3);
+                        let mut a = $name::from_bytes(abytes);
+                        let b = $name::from_bytes(bbytes);
+                        let m = $name::from_bytes(mbytes);
+                        let c = $name::from_bytes(cbytes);
+                        a.modmul(&b, &m);
+                        assert_eq!(a, c);
+                    });
+                }
+            )*
+        }
+    }
 }
 
-generate_tests!(U192,u192,U384,expandingU384);
-generate_tests!(U256,u256,U512,expandingU512);
-generate_tests!(U384,u384);
-generate_tests!(U512,u512,U1024,expandingU1024);
-generate_tests!(U576,u576);
-generate_tests!(U1024,u1024,U2048,expandingU2048);
-generate_tests!(U2048,u2048,U4096,expandingU4096);
-generate_tests!(U3072,u3072);
-generate_tests!(U4096,u4096,U8192,expandingU8192);
-generate_tests!(U8192,u8192);
-generate_tests!(U15360,u15360);
+generate_tests!(U192, U256, U384, U512, U576, U1024, U2048, U3072, U4096, U8192, U15360);
