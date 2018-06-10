@@ -100,66 +100,67 @@ generate_adders!(U4096);
 generate_adders!(U8192);
 generate_adders!(U15360);
 
-#[cfg(test)]
-use testing::run_test;
-#[cfg(test)]
-use cryptonum::Decoder;
-
 macro_rules! generate_tests {
-    ($name: ident, $testname: ident, $modtestname: ident) => (
+    ( $( $name:ident ),* ) => {
         #[cfg(test)]
-        #[test]
-        #[allow(non_snake_case)]
-        fn $testname() {
-            let fname = format!("tests/math/addition{}.test",
-                                stringify!($name));
-            run_test(fname.to_string(), 3, |case| {
-                let (neg0, abytes) = case.get("a").unwrap();
-                let (neg1, bbytes) = case.get("b").unwrap();
-                let (neg2, cbytes) = case.get("c").unwrap();
+        mod normal {
+            use cryptonum::Decoder;
+            use super::*;
+            use testing::run_test;
 
-                assert!(!neg0 && !neg1 && !neg2);
-                let mut a = $name::from_bytes(abytes);
-                let b = $name::from_bytes(bbytes);
-                let c = $name::from_bytes(cbytes);
-                assert_eq!(&a + &b, c);
-                a += b;
-                assert_eq!(a, c);
-            });
+            $(
+                #[test]
+                #[allow(non_snake_case)]
+                fn $name() {
+                    let fname = format!("tests/math/addition{}.test",
+                                        stringify!($name));
+                    run_test(fname.to_string(), 3, |case| {
+                        let (neg0, abytes) = case.get("a").unwrap();
+                        let (neg1, bbytes) = case.get("b").unwrap();
+                        let (neg2, cbytes) = case.get("c").unwrap();
+        
+                        assert!(!neg0 && !neg1 && !neg2);
+                        let mut a = $name::from_bytes(abytes);
+                        let b = $name::from_bytes(bbytes);
+                        let c = $name::from_bytes(cbytes);
+                        assert_eq!(&a + &b, c);
+                        a += b;
+                        assert_eq!(a, c);
+                    });
+                }
+            )*
         }
 
         #[cfg(test)]
-        #[test]
-        #[allow(non_snake_case)]
-        fn $modtestname() {
-            let fname = format!("tests/math/modadd{}.test",
-                                stringify!($name));
-            run_test(fname.to_string(), 4, |case| {
-                let (neg0, abytes) = case.get("a").unwrap();
-                let (neg1, bbytes) = case.get("b").unwrap();
-                let (neg2, cbytes) = case.get("c").unwrap();
-                let (neg3, mbytes) = case.get("m").unwrap();
+        mod slow_modular {
+            use cryptonum::encoding::Decoder;
+            use super::*;
+            use testing::run_test;
 
-                assert!(!neg0 && !neg1 && !neg2 && !neg3);
-                let mut a = $name::from_bytes(abytes);
-                let b = $name::from_bytes(bbytes);
-                let m = $name::from_bytes(mbytes);
-                let c = $name::from_bytes(cbytes);
-                a.modadd(&b, &m);
-                assert_eq!(a, c);
-            });
+            $(
+                #[test]
+                #[allow(non_snake_case)]
+                fn $name() {
+                    let fname = format!("tests/math/modadd{}.test",
+                                        stringify!($name));
+                    run_test(fname.to_string(), 4, |case| {
+                        let (neg0, abytes) = case.get("a").unwrap();
+                        let (neg1, bbytes) = case.get("b").unwrap();
+                        let (neg2, cbytes) = case.get("c").unwrap();
+                        let (neg3, mbytes) = case.get("m").unwrap();
+
+                        assert!(!neg0 && !neg1 && !neg2 && !neg3);
+                        let mut a = $name::from_bytes(abytes);
+                        let b = $name::from_bytes(bbytes);
+                        let m = $name::from_bytes(mbytes);
+                        let c = $name::from_bytes(cbytes);
+                        a.modadd(&b, &m);
+                        assert_eq!(a, c);
+                    });
+                }
+            )*
         }
-    )
+    }
 }
 
-generate_tests!(U192,u192,modU192);
-generate_tests!(U256,u256,modU256);
-generate_tests!(U384,u384,modU384);
-generate_tests!(U512,u512,modU512);
-generate_tests!(U576,u576,modU576);
-generate_tests!(U1024,u1024,modU1024);
-generate_tests!(U2048,u2048,modU2048);
-generate_tests!(U3072,u3072,modU3072);
-generate_tests!(U4096,u4096,modU4096);
-generate_tests!(U8192,u8192,modU8192);
-generate_tests!(U15360,u15360,modU15360);
+generate_tests!(U192, U256, U384, U512, U576, U1024, U2048, U3072, U4096, U8192, U15360);

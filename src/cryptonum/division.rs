@@ -197,52 +197,54 @@ fn matching_bignum_ge(x: &[u64], y: &[u64]) -> bool
 }
 
 #[cfg(test)]
-use testing::run_test;
-#[cfg(test)]
-use cryptonum::Decoder;
-#[cfg(test)]
-use cryptonum::{U192,U256,U384,U512,U576,U1024,U2048,U3072,U4096,U8192,U15360};
+mod normal {
+    use testing::run_test;
+    use cryptonum::Decoder;
+    use cryptonum::{U192,U256,U384,U512,U576,U1024,
+                    U2048,U3072,U4096,U8192,U15360};
+    use super::*;
 
-macro_rules! generate_tests {
-    ($name: ident, $testname: ident) => (
-        #[cfg(test)]
-        #[test]
-        #[allow(non_snake_case)]
-        fn $testname() {
-            let fname = format!("tests/math/division{}.test",
-                                stringify!($name));
-            run_test(fname.to_string(), 4, |case| {
-                let (neg0, abytes) = case.get("a").unwrap();
-                let (neg1, bbytes) = case.get("b").unwrap();
-                let (neg2, qbytes) = case.get("q").unwrap();
-                let (neg3, rbytes) = case.get("r").unwrap();
+    macro_rules! generate_tests {
+        ($name: ident) => (
+            #[cfg(test)]
+            #[test]
+            #[allow(non_snake_case)]
+            fn $name() {
+                let fname = format!("tests/math/division{}.test",
+                                    stringify!($name));
+                run_test(fname.to_string(), 4, |case| {
+                    let (neg0, abytes) = case.get("a").unwrap();
+                    let (neg1, bbytes) = case.get("b").unwrap();
+                    let (neg2, qbytes) = case.get("q").unwrap();
+                    let (neg3, rbytes) = case.get("r").unwrap();
 
-                assert!(!neg0 && !neg1 && !neg2 && !neg3);
+                    assert!(!neg0 && !neg1 && !neg2 && !neg3);
 
-                let a = $name::from_bytes(abytes);
-                let b = $name::from_bytes(bbytes);
-                let q = $name::from_bytes(qbytes);
-                let r = $name::from_bytes(rbytes);
+                    let a = $name::from_bytes(abytes);
+                    let b = $name::from_bytes(bbytes);
+                    let q = $name::from_bytes(qbytes);
+                    let r = $name::from_bytes(rbytes);
 
-                let mut myq = $name::new();
-                let mut myr = $name::new();
+                    let mut myq = $name::new();
+                    let mut myr = $name::new();
 
-                divmod(&a.values, &b.values, &mut myq.values, &mut myr.values);
-                assert_eq!(q, myq);
-                assert_eq!(r, myr);
-            });
-        }
-    )
+                    divmod(&a.values, &b.values, &mut myq.values, &mut myr.values);
+                    assert_eq!(q, myq);
+                    assert_eq!(r, myr);
+                });
+            }
+        )
+    }
+
+    generate_tests!(U192);
+    generate_tests!(U256);
+    generate_tests!(U384);
+    generate_tests!(U512);
+    generate_tests!(U576);
+    generate_tests!(U1024);
+    generate_tests!(U2048);
+    generate_tests!(U3072);
+    generate_tests!(U4096);
+    generate_tests!(U8192);
+    generate_tests!(U15360);
 }
-
-generate_tests!(U192,u192);
-generate_tests!(U256,u256);
-generate_tests!(U384,u384);
-generate_tests!(U512,u512);
-generate_tests!(U576,u576);
-generate_tests!(U1024,u1024);
-generate_tests!(U2048,u2048);
-generate_tests!(U3072,u3072);
-generate_tests!(U4096,u4096);
-generate_tests!(U8192,u8192);
-generate_tests!(U15360,u15360);
