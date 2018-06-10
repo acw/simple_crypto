@@ -85,16 +85,12 @@ macro_rules! generate_multipliers
 
         impl ModMul for $name {
             fn modmul(&mut self, x: &$name, m: &$name) {
-                let mut mulres = Vec::with_capacity(2 * self.values.len());
-                mulres.resize(2 * self.values.len(), 0);
+                let mut mulres = [0; $size/32];
                 raw_multiplication(&self.values, &x.values, &mut mulres);
-                let mut widerm = Vec::with_capacity(mulres.len());
-                widerm.extend_from_slice(&m.values);
-                widerm.resize(mulres.len(), 0);
-                let mut dead   = Vec::with_capacity(widerm.len());
-                dead.resize(widerm.len(), 0);
-                let mut answer = Vec::with_capacity(widerm.len());
-                answer.resize(widerm.len(), 0);
+                let mut widerm = [0; $size/32];
+                for (idx,val) in m.values.iter().enumerate() { widerm[idx] = *val; }
+                let mut dead   = [0; $size/32];
+                let mut answer = [0; $size/32];
                 divmod(&mulres, &widerm, &mut dead, &mut answer);
                 for i in 0..answer.len() {
                     if i < self.values.len() {
