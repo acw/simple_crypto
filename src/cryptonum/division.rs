@@ -1,4 +1,3 @@
-use cryptonum::addition::raw_addition;
 use cryptonum::comparison::{bignum_cmp,bignum_ge};
 use cryptonum::multiplication::raw_multiplication;
 use cryptonum::subtraction::raw_subtraction;
@@ -13,7 +12,7 @@ pub fn divmod(inx: &[u64], iny: &[u64], q: &mut [u64], r: &mut [u64])
     assert!(q.len() >= (inx.len() - 1));
     assert!(r.len() >= iny.len());
     // compute the basic number sizes
-    let mut n = match get_number_size(iny) {
+    let mut n = match get_number_size(inx) {
                     None    => 0,
                     Some(v) => v
                 };
