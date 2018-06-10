@@ -1,3 +1,11 @@
+use cryptonum::{U192,U256,U384,U512,U576,U1024,U2048,U3072,U4096,U8192,U15360};
+use cryptonum::division::divmod;
+
+pub trait ModSquare<T=Self>
+{
+    fn modsq(&mut self, m: &T);
+}
+
 // This is algorithm 14.16 from "Handbook of Applied Cryptography".
 pub fn raw_square(x: &[u64], result: &mut [u64])
 {
@@ -44,48 +52,101 @@ pub fn raw_square(x: &[u64], result: &mut [u64])
     }
 }
 
-#[cfg(test)]
-use testing::run_test;
-#[cfg(test)]
-use cryptonum::Decoder;
-#[cfg(test)]
-use cryptonum::encoding::raw_decoder;
-#[cfg(test)]
-use cryptonum::{U192,U256,U384,U512,U576,U1024,U2048,U3072,U4096,U8192,U15360};
-
-macro_rules! generate_tests {
-    ($name: ident, $testname: ident) => (
-        #[cfg(test)]
-        #[test]
-        #[allow(non_snake_case)]
-        fn $testname() {
-            let fname = format!("tests/math/squaring{}.test",
-                                stringify!($name));
-            run_test(fname.to_string(), 2, |case| {
-                let (neg0, abytes) = case.get("a").unwrap();
-                let (neg1, rbytes) = case.get("r").unwrap();
-
-                assert!(!neg0 && !neg1);
-                let a = $name::from_bytes(abytes);
-                let mut result = Vec::with_capacity(a.values.len() * 2);
-                result.resize(a.values.len() * 2, 0);
-                let mut myresult = result.clone();
-                raw_decoder(rbytes, &mut result);
-                raw_square(&a.values, &mut myresult);
-                assert_eq!(result, myresult);
-            });
+macro_rules! generate_squarers {
+    ($type: ident, $size: expr) => {
+        impl ModSquare for $type {
+            fn modsq(&mut self, m: &$type) {
+                let mut sqres  = [0; $size/32];
+                raw_square(&self.values, &mut sqres);
+                let mut widerm = [0; $size/32];
+                for (idx,val) in m.values.iter().enumerate() { widerm[idx] = *val; }
+                let mut dead   = [0; $size/32];
+                let mut answer = [0; $size/32];
+                divmod(&sqres, &widerm, &mut dead, &mut answer);
+                for i in 0..answer.len() {
+                    if i < self.values.len() {
+                        self.values[i] = answer[i];
+                    } else {
+                        assert_eq!(answer[i], 0);
+                    }
+                }
+            }
         }
-    )
+    };
 }
 
-generate_tests!(U192,u192);
-generate_tests!(U256,u256);
-generate_tests!(U384,u384);
-generate_tests!(U512,u512);
-generate_tests!(U576,u576);
-generate_tests!(U1024,u1024);
-generate_tests!(U2048,u2048);
-generate_tests!(U3072,u3072);
-generate_tests!(U4096,u4096);
-generate_tests!(U8192,u8192);
-generate_tests!(U15360,u15360);
+generate_squarers!(U192,     192);
+generate_squarers!(U256,     256);
+generate_squarers!(U384,     384);
+generate_squarers!(U512,     512);
+generate_squarers!(U576,     576);
+generate_squarers!(U1024,   1024);
+generate_squarers!(U2048,   2048);
+generate_squarers!(U3072,   3072);
+generate_squarers!(U4096,   4096);
+generate_squarers!(U8192,   8192);
+generate_squarers!(U15360, 15360);
+
+macro_rules! generate_tests {
+    ( $( $name:ident ),* ) => {
+        #[cfg(test)]
+        mod normal {
+            use cryptonum::Decoder;
+            use cryptonum::encoding::raw_decoder;
+            use super::*;
+            use testing::run_test;
+
+            $(
+                #[test]
+                #[allow(non_snake_case)]
+                fn $name() {
+                    let fname = format!("tests/math/squaring{}.test",
+                                        stringify!($name));
+                    run_test(fname.to_string(), 2, |case| {
+                        let (neg0, abytes) = case.get("a").unwrap();
+                        let (neg1, rbytes) = case.get("r").unwrap();
+
+                        assert!(!neg0 && !neg1);
+                        let a = $name::from_bytes(abytes);
+                        let mut result = Vec::with_capacity(a.values.len() * 2);
+                        result.resize(a.values.len() * 2, 0);
+                        let mut myresult = result.clone();
+                        raw_decoder(rbytes, &mut result);
+                        raw_square(&a.values, &mut myresult);
+                        assert_eq!(result, myresult);
+                    });
+                }
+            )*
+        }
+
+        #[cfg(test)]
+        mod slow_modular {
+            use cryptonum::Decoder;
+            use super::*;
+            use testing::run_test;
+
+            $(
+                #[test]
+                #[allow(non_snake_case)]
+                fn $name() {
+                    let fname = format!("tests/math/modsq{}.test",
+                                        stringify!($name));
+                    run_test(fname.to_string(), 3, |case| {
+                        let (neg0, abytes) = case.get("a").unwrap();
+                        let (neg1, mbytes) = case.get("m").unwrap();
+                        let (neg2, rbytes) = case.get("r").unwrap();
+
+                        assert!(!neg0 && !neg1 && !neg2);
+                        let mut a = $name::from_bytes(abytes);
+                        let     m = $name::from_bytes(mbytes);
+                        let     r = $name::from_bytes(rbytes);
+                        a.modsq(&m);
+                        assert_eq!(a, r);
+                    });
+                }
+            )*
+        }
+    }
+}
+
+generate_tests!(U192, U256, U384, U512, U576, U1024, U2048, U3072, U4096, U8192, U15360);
