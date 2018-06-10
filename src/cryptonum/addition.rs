@@ -21,8 +21,8 @@ pub fn raw_addition(x: &mut [u64], y: &[u64]) -> u64 {
     carry as u64
 }
 
-pub trait ModAdd {
-    fn modadd(&mut self, y: &Self, m: &Self);
+pub trait ModAdd<T=Self> {
+    fn modadd(&mut self, y: &Self, m: &T);
 }
 
 macro_rules! generate_adders
