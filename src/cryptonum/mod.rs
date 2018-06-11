@@ -11,6 +11,7 @@ mod comparison;
 mod conversions;
 mod division;
 mod encoding;
+mod exponentiation;
 mod multiplication;
 mod squaring;
 mod subtraction;
