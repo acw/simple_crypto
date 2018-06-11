@@ -5,6 +5,7 @@
 //! of course, but that's its origin.
 //!
 mod addition;
+mod barrett;
 mod basetypes;
 mod comparison;
 #[macro_use]
