@@ -2,6 +2,7 @@ import Control.Monad
 import Data.Bits(shiftL,(.&.))
 import Data.Map.Strict(Map)
 import qualified Data.Map.Strict as Map
+import GHC.Integer.GMP.Internals(powModInteger)
 import Numeric(showHex)
 import Prelude hiding (log)
 import System.IO(hFlush,stdout,IOMode(..),withFile,Handle,hClose,hPutStrLn)
@@ -16,7 +17,10 @@ testTypes = [("addition", addTest),
              ("modmul", modmulTest),
              ("squaring", squareTest),
              ("modsq", modsqTest),
-             ("division", divTest)
+             ("modexp", modexpTest),
+             ("division", divTest),
+             ("barrett_gen", barrettGenTest),
+             ("barrett_reduce", barrettReduceTest)
             ]
 
 bitSizes :: [Int]
@@ -131,6 +135,19 @@ modsqTest bitsize gen0 = (res, gen1)
                             ("m", showHex m' ""),
                             ("r", showHex r  "")]
 
+modexpTest :: Int -> StdGen -> (Map String String, StdGen)
+modexpTest bitsize gen0 = (res, gen2)
+ where
+  (b, gen1)  = random gen0
+  (e, gen2)  = random gen1
+  (m, gen3)  = random gen2
+  [b',e',m'] = splitMod bitsize [b,e,m]
+  r          = powModInteger b' e' m'
+  res        = Map.fromList [("b", showHex b' ""),
+                             ("e", showHex e' ""),
+                             ("m", showHex m' ""),
+                             ("r", showHex r  "")]
+
 
 divTest :: Int -> StdGen -> (Map String String, StdGen)
 divTest bitsize gen0 = (res, gen2)
@@ -144,6 +161,45 @@ divTest bitsize gen0 = (res, gen2)
                             ("b", showHex b' ""),
                             ("q", showHex q  ""),
                             ("r", showHex r  "")]
+
+barrettGenTest :: Int -> StdGen -> (Map String String, StdGen)
+barrettGenTest bitsize gen0 = (res, gen1)
+ where
+  (m, gen1) = random gen0
+  m'        = m .&. mask bitsize
+  k         = computeK m'
+  u         = barrett bitsize m'
+  res       = Map.fromList [("m", showHex m' ""),
+                            ("k", showHex k  ""),
+                            ("u", showHex u  "")]
+
+barrettReduceTest :: Int -> StdGen -> (Map String String, StdGen)
+barrettReduceTest bitsize gen0 = (res, gen2)
+ where
+  (m, gen1) = random gen0
+  (x, gen2) = random gen1
+  m'        = m .&. mask bitsize
+  x'        = x .&. mask (min bitsize (2 * k * 64))
+  k         = computeK m'
+  u         = barrett bitsize m'
+  r         = x' `mod` m'
+  res       = Map.fromList [("m", showHex m' ""),
+                            ("x", showHex x' ""),
+                            ("k", showHex k  ""),
+                            ("u", showHex u  ""),
+                            ("r", showHex r  "")]
+
+barrett :: Int -> Integer -> Integer
+barrett bitsize m = (b ^ (2 * k)) `div` m
+ where
+  b = 2 ^ 64
+  k = computeK m
+
+computeK :: Integer -> Int
+computeK v = go 0 1
+ where
+  go k acc | v < acc   = k + 1
+           | otherwise = go (k + 1) (acc * (2 ^ 64))
 
 log :: String -> IO ()
 log str =
