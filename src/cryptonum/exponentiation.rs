@@ -38,10 +38,10 @@ macro_rules! generate_exponentiators
 
                     while mask != 0 {
                         if e.values[i] & mask != 0 {
-                            self.modmul(&s, &m);
+                            self.modmul(&s, m);
                         }
                         mask <<= 1;
-                        s.modsq(&m);
+                        s.modsq(m);
                     }
                 }
                 // Return A
@@ -94,7 +94,40 @@ macro_rules! generate_tests {
                 }
             )*
         }
+
+        #[cfg(test)]
+        mod varrett_modular {
+            use cryptonum::encoding::Decoder;
+            use super::*;
+            use testing::run_test;
+
+            $(
+                #[test]
+                #[allow(non_snake_case)]
+                #[ignore]
+                fn $name() {
+                    let fname = format!("tests/math/modexp{}.test",
+                                        stringify!($name));
+                    run_test(fname.to_string(), 4, |case| {
+                        let (neg0, bbytes) = case.get("b").unwrap();
+                        let (neg1, ebytes) = case.get("e").unwrap();
+                        let (neg2, mbytes) = case.get("m").unwrap();
+                        let (neg3, rbytes) = case.get("r").unwrap();
+
+                        assert!(!neg0 && !neg1 && !neg2 && !neg3);
+                        let mut b = $name::from_bytes(bbytes);
+                        let e = $name::from_bytes(ebytes);
+                        let m = $name::from_bytes(mbytes);
+                        let r = $name::from_bytes(rbytes);
+                        b.modexp(&e, &m);
+                        assert_eq!(b, r);
+                    });
+                }
+            )*
+        }
+
     }
 }
 
-generate_tests!(U192, U256, U384, U512, U576, U1024, U2048, U3072, U4096, U8192, U15360);
+generate_tests!(U192, U256, U384, U512, U576, U1024, U2048,
+                U3072, U4096, U8192, U15360);

@@ -5,6 +5,7 @@ import qualified Data.Map.Strict as Map
 import GHC.Integer.GMP.Internals(powModInteger)
 import Numeric(showHex)
 import Prelude hiding (log)
+import System.Environment(getArgs)
 import System.IO(hFlush,stdout,IOMode(..),withFile,Handle,hClose,hPutStrLn)
 import System.Random(StdGen,newStdGen,random)
 
@@ -18,6 +19,7 @@ testTypes = [("addition", addTest),
              ("squaring", squareTest),
              ("modsq", modsqTest),
              ("modexp", modexpTest),
+             ("bmodexp", bmodexpTest),
              ("division", divTest),
              ("barrett_gen", barrettGenTest),
              ("barrett_reduce", barrettReduceTest)
@@ -189,6 +191,24 @@ barrettReduceTest bitsize gen0 = (res, gen2)
                             ("u", showHex u  ""),
                             ("r", showHex r  "")]
 
+bmodexpTest :: Int -> StdGen -> (Map String String, StdGen)
+bmodexpTest bitsize gen0 = (res, gen2)
+ where
+  (b, gen1)  = random gen0
+  (e, gen2)  = random gen1
+  (m, gen3)  = random gen2
+  [b',e',m'] = splitMod bitsize [b,e,m]
+  k         = computeK m'
+  u         = barrett bitsize m'
+  r          = powModInteger b' e' m'
+  res        = Map.fromList [("b", showHex b' ""),
+                             ("e", showHex e' ""),
+                             ("m", showHex m' ""),
+                             ("k", showHex k  ""),
+                             ("u", showHex u  ""),
+                             ("r", showHex r  "")]
+
+
 barrett :: Int -> Integer -> Integer
 barrett bitsize m = (b ^ (2 * k)) `div` m
  where
@@ -218,13 +238,18 @@ generateData hndl generator gen () =
 
 main :: IO ()
 main =
-  forM_ testTypes $ \ (testName, testFun) ->
-    forM_ bitSizes $ \ bitsize ->
-      do log ("Generating " ++ show bitsize ++ "-bit " ++ testName ++ " tests")
-         withFile (testName ++ "U" ++ show bitsize ++ ".test") WriteMode $ \ hndl ->
-           do gen <- newStdGen
-              foldM_ (generateData hndl (testFun bitsize))
-                     gen
-                     (replicate numTests ())
-              hClose hndl
-              log " done\n"
+  do args <- getArgs
+     let tests = if null args
+                   then testTypes
+                   else filter (\ (name,_) -> name `elem` args) testTypes
+     forM_ tests $ \ (testName, testFun) ->
+       forM_ bitSizes $ \ bitsize ->
+         do log ("Generating "++show bitsize++"-bit "++testName++" tests")
+            withFile (testName ++ "U" ++ show bitsize ++ ".test") WriteMode $
+               \ hndl ->
+                 do gen <- newStdGen
+                    foldM_ (generateData hndl (testFun bitsize))
+                           gen
+                           (replicate numTests ())
+                    hClose hndl
+                    log " done\n"

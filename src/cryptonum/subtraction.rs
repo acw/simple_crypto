@@ -4,7 +4,6 @@ use cryptonum::{U192,   U256,   U384,   U512,   U576,
 use cryptonum::addition::raw_addition;
 use std::ops::{Sub,SubAssign};
 
-#[inline(always)]
 pub fn raw_subtraction(x: &mut [u64], y: &[u64])
 {
     assert_eq!(x.len(), y.len());

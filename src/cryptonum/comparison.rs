@@ -15,7 +15,7 @@ pub fn bignum_cmp(x: &[u64], y: &[u64]) -> Ordering {
             Ordering::Equal   => continue
         }
     }
-    
+
     Ordering::Equal
 }
 

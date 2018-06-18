@@ -9,7 +9,6 @@ pub trait ModMul<T=Self> {
 }
 
 // This is algorithm 14.12 from "Handbook of Applied Cryptography"
-#[inline(always)]
 pub fn raw_multiplication(x: &[u64], y: &[u64], w: &mut [u64])
 {
     assert_eq!(x.len(), y.len());
