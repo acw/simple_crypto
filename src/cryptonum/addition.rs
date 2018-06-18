@@ -5,6 +5,7 @@ use cryptonum::comparison::bignum_ge;
 use cryptonum::subtraction::raw_subtraction;
 use std::ops::{Add,AddAssign};
 
+#[inline(always)]
 pub fn raw_addition(x: &mut [u64], y: &[u64]) -> u64 {
     assert_eq!(x.len(), y.len());
 
@@ -132,7 +133,7 @@ macro_rules! generate_tests {
         }
 
         #[cfg(test)]
-        mod slow_modular {
+        mod modular {
             use cryptonum::encoding::Decoder;
             use super::*;
             use testing::run_test;

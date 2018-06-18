@@ -7,6 +7,7 @@ pub trait ModSquare<T=Self>
 }
 
 // This is algorithm 14.16 from "Handbook of Applied Cryptography".
+#[inline(always)]
 pub fn raw_square(x: &[u64], result: &mut [u64])
 {
     assert_eq!(x.len() * 2, result.len());

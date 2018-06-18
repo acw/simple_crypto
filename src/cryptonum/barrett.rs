@@ -1,7 +1,7 @@
 use cryptonum::{U192,   U256,   U384,   U512,   U576,
                 U1024,  U2048,  U3072,  U4096,  U8192,
                 U15360};
-use cryptonum::addition::raw_addition;
+use cryptonum::addition::{ModAdd,raw_addition};
 use cryptonum::comparison::{bignum_cmp,bignum_ge};
 use cryptonum::division::divmod;
 use cryptonum::multiplication::raw_multiplication;
@@ -98,6 +98,27 @@ macro_rules! generate_barrett_implementations {
                 // Copy it over.
                 for (idx, val) in x.values.iter_mut().enumerate() {
                     *val = r[idx];
+                }
+            }
+        }
+
+        impl ModAdd<$bname> for $name {
+            fn modadd(&mut self, y: &$name, m: &$bname) {
+                let carry = raw_addition(&mut self.values, &y.values);
+                let msized = &m.m[0..$size/64];
+                if carry > 0 {
+                    let mut left = [0; $size/64 + 1];
+                    (&mut left[0..$size/64]).copy_from_slice(&self.values);
+                    left[$size/64] = carry;
+                    let mut right = [0; $size/64 + 1];
+                    (&mut right[0..$size/64]).copy_from_slice(msized);
+                    raw_subtraction(&mut left, &right);
+                    for i in 0..self.values.len() {
+                        self.values[i] = left[i];
+                    }
+                }
+                if bignum_ge(&self.values, msized) {
+                    raw_subtraction(&mut self.values, msized);
                 }
             }
         }
@@ -198,6 +219,37 @@ macro_rules! generate_tests {
                         let r = $name::from_bytes(&rbytes);
                         u.reduce(&mut x);
                         assert_eq!(x, r);
+                    });
+                }
+            )*
+        }
+
+        #[cfg(test)]
+        mod modadd {
+            use cryptonum::encoding::Decoder;
+            use super::*;
+            use testing::run_test;
+
+            $(
+                #[test]
+                #[allow(non_snake_case)]
+                fn $name() {
+                    let fname = format!("tests/math/modadd{}.test",
+                                        stringify!($name));
+                    run_test(fname.to_string(), 4, |case| {
+                        let (neg0, abytes) = case.get("a").unwrap();
+                        let (neg1, bbytes) = case.get("b").unwrap();
+                        let (neg2, cbytes) = case.get("c").unwrap();
+                        let (neg3, mbytes) = case.get("m").unwrap();
+
+                        assert!(!neg0 && !neg1 && !neg2 && !neg3);
+                        let mut a = $name::from_bytes(abytes);
+                        let b = $name::from_bytes(bbytes);
+                        let m = $name::from_bytes(mbytes);
+                        let mu = $bname::new(&m);
+                        let c = $name::from_bytes(cbytes);
+                        a.modadd(&b, &mu);
+                        assert_eq!(a, c);
                     });
                 }
             )*
