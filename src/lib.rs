@@ -9,14 +9,23 @@
 //! that a new user should use, along with documentation regarding how and
 //! when they should use it, and examples. For now, it mostly just fowards
 //! off to more detailed modules. Help requested!
+extern crate byteorder;
+extern crate digest;
+#[cfg(test)]
+#[macro_use]
+extern crate quickcheck;
+extern crate num;
+extern crate rand;
+extern crate sha1;
+extern crate sha2;
+extern crate simple_asn1;
 
-//#[cfg(test)]
-//#[macro_use]
-//extern crate quickcheck;
-
-/// The cryptonum module provides support for large numbers at fixed,
+/// The `cryptonum` module provides support for large numbers at fixed,
 /// cryptographically-relevant sizes.
 pub mod cryptonum;
+/// The `rsa` module provides bare-bones support for RSA signing, verification,
+/// encryption, decryption, and key generation.
+pub mod rsa;
 
 #[cfg(test)]
 mod testing;

@@ -1,107 +1,40 @@
-use cryptonum::{U192,   U256,   U384,   U512,   U576,
-                U1024,  U2048,  U3072,  U4096,  U8192,
-                U15360};
-use cryptonum::addition::{ModAdd,raw_addition};
-use cryptonum::comparison::{bignum_cmp,bignum_ge};
-use cryptonum::division::divmod;
-use cryptonum::exponentiation::ModExp;
-use cryptonum::multiplication::{ModMul,raw_multiplication};
-use cryptonum::squaring::{ModSquare,raw_square};
-use cryptonum::subtraction::raw_subtraction;
-use std::cmp::{Ordering,min};
-use std::fmt;
+use cryptonum::addition::UnsafeAdd;
+use cryptonum::basetypes::*;
+use std::cmp::min;
 
-macro_rules! generate_barrett_implementations {
-    ($bname: ident, $name: ident, $size: expr) => {
+macro_rules! generate_barretts {
+    ($bname:ident,$name:ident,$big:ident,$bg2:ident,$dbl:ident,$size:expr) =>
+    {
+        #[derive(Debug,PartialEq)]
         pub struct $bname {
-            pub(crate) k:  usize,
-            pub(crate) m:  [u64; $size/32],
-            pub(crate) mu: [u64; $size/32]
-        }
-
-        impl fmt::Debug for $bname {
-            fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-                write!(f, stringify!($bname))?;
-                write!(f, "{{ ")?;
-                for x in self.mu.iter() {
-                    write!(f, "{:X} ", *x)?;
-                }
-                write!(f, "}} ")
-            }
-        }
-
-        impl PartialEq for $bname {
-            fn eq(&self, rhs: &$bname) -> bool {
-                for (left, right) in rhs.mu.iter().zip(rhs.mu.iter()) {
-                    if *left != *right {
-                        return false;
-                    }
-                }
-                true
-            }
+            pub(crate) k: usize,
+            pub(crate) m: $big,
+            pub(crate) mu: $big
         }
 
         impl $bname {
             pub fn new(m: &$name) -> $bname {
-                let mut b      = [0; ($size/32) + 1];
-                let mut widerm = [0; ($size/32) + 1];
-                let mut quot   = [0; ($size/32) + 1];
-                let mut remndr = [0; ($size/32) + 1];
-                let mut result = $bname{ k: 0,
-                                         m: [0; $size/32],
-                                         mu: [0; $size/32] };
-
-                for (idx, val) in m.values.iter().enumerate() {
-                    let x = *val;
-                    widerm[idx] = x;
-                    result.m[idx] = x;
-                    if x != 0 { result.k = idx; }
+                // Step #1: Figure out k
+                let mut k = 0;
+                for i in 0..$size/64 {
+                    if m.values[i] != 0 {
+                        k = i;
+                    }
                 }
-                result.k += 1;
-                b[result.k*2] = 1;
-                divmod(&b, &widerm, &mut quot, &mut remndr);
-                for (idx, val) in result.mu.iter_mut().enumerate() { *val = quot[idx]; }
-                result
+                k += 1;
+                // Step #2: Compute b
+                let mut b = $bg2::zero();
+                b.values[2*k] = 1;
+                // Step #3: Divide b by m.
+                let bigm = $bg2::from(m);
+                let (quot, _) = b.divmod(&bigm);
+                let resm = $big::from(m);
+                let mu = $big::from(&quot);
+                // Done!
+                $bname{ k: k, m: resm, mu: mu }
             }
 
-            pub fn reduce(&self, x: &mut $name) {
-                assert!(self.reduce_ok(&x));
-                // 1. q1←⌊x/bk−1⌋, q2←q1 · μ, q3←⌊q2/bk+1⌋.
-                let mut q1 = [0; $size/32];
-                shiftr(&x.values, self.k - 1, &mut q1);
-                let mut q2 = [0; $size/16];
-                raw_multiplication(&q1, &self.mu, &mut q2);
-                let mut q3 = [0; $size/16];
-                shiftr(&q2, self.k + 1,&mut q3);
-                // 2. r1←x mod bk+1, r2←q3 · m mod bk+1, r←r1 − r2.
-                let mut r = [0; $size/16];
-                let copylen = min(self.k+1, x.values.len());
-                for i in 0..copylen { r[i] = x.values[i]; }
-                let mut r2big = [0; $size/8];
-                let mut mwider = [0; $size/16];
-                for i in 0..$size/32 { mwider[i] = self.m[i]; }
-                raw_multiplication(&q3, &mwider, &mut r2big);
-                let mut r2 = [0; $size/16];
-                for i in 0..self.k+1 { r2[i] = r2big[i]; }
-                let went_negative = !bignum_ge(&r, &r2);
-                raw_subtraction(&mut r, &r2);
-                // 3. If r<0 then r←r+bk+1.
-                if went_negative {
-                    let mut bk1 = [0; $size/32];
-                    bk1[self.k+1] = 1;
-                    raw_addition(&mut r, &bk1);
-                }
-                // 4. While r≥m do: r←r−m.
-                while bignum_cmp(&r, &mwider) == Ordering::Greater {
-                    raw_subtraction(&mut r, &mwider);
-                }
-                // Copy it over.
-                for (idx, val) in x.values.iter_mut().enumerate() {
-                    *val = r[idx];
-                }
-            }
-
-            pub fn reduce_ok(&self, x: &$name) -> bool {
+            pub fn ok_for_reduce(&self, x: &$dbl) -> bool {
                 for i in self.k*2 .. x.values.len() {
                     if x.values[i] != 0 {
                         return false
@@ -109,168 +42,123 @@ macro_rules! generate_barrett_implementations {
                 }
                 true
             }
-        }
 
-        impl ModAdd<$bname> for $name {
-            fn modadd(&mut self, y: &$name, m: &$bname) {
-                let carry = raw_addition(&mut self.values, &y.values);
-                let msized = &m.m[0..$size/64];
-                if carry > 0 {
-                    let mut left = [0; $size/64 + 1];
-                    (&mut left[0..$size/64]).copy_from_slice(&self.values);
-                    left[$size/64] = carry;
-                    let mut right = [0; $size/64 + 1];
-                    (&mut right[0..$size/64]).copy_from_slice(msized);
-                    raw_subtraction(&mut left, &right);
-                    for i in 0..self.values.len() {
-                        self.values[i] = left[i];
-                    }
-                }
-                if bignum_ge(&self.values, msized) {
-                    raw_subtraction(&mut self.values, msized);
-                }
-            }
-        }
-
-        impl ModMul<$bname> for $name {
-            fn modmul(&mut self, x: &$name, m: &$bname) {
-                let mut mulres = [0; $size/32];
-                raw_multiplication(&self.values, &x.values, &mut mulres);
+            pub fn reduce(&self, x: &$dbl) -> $name {
+                assert!(self.ok_for_reduce(x));
+                let     m2: $bg2  = $bg2::from(&self.m);
                 // 1. q1←⌊x/bk−1⌋, q2←q1 · μ, q3←⌊q2/bk+1⌋.
-                let mut q1 = [0; $size/32];
-                shiftr(&mulres, m.k - 1, &mut q1);
-                let mut q2 = [0; $size/16];
-                raw_multiplication(&q1, &m.mu, &mut q2);
-                let mut q3 = [0; $size/16];
-                shiftr(&q2, m.k + 1, &mut q3);
+                let     q1: $big  = x.shiftr(self.k - 1);
+                let     q2: $bg2  = q1.unsafe_mul(&self.mu);
+                let     q3: $big  = q2.check_shiftr(self.k + 1);
                 // 2. r1←x mod bk+1, r2←q3 · m mod bk+1, r←r1 − r2.
-                let mut r = [0; $size/16];
-                let copylen = min(m.k + 1, mulres.len());
-                for i in 0..copylen { r[i] = mulres[i]; }
-                let mut r2big = [0; $size/8];
-                let mut mwider = [0; $size/16];
-                for i in 0..$size/32 { mwider[i] = m.m[i]; }
-                raw_multiplication(&q3, &mwider, &mut r2big);
-                let mut r2 = [0; $size/16];
-                for i in 0..m.k+1 { r2[i] = r2big[i]; }
-                let went_negative = !bignum_ge(&r, &r2);
-                raw_subtraction(&mut r, &r2);
+                let mut r:  $bg2  = x.mask(self.k + 1);
+                let mut r2: $bg2  = q3.unsafe_mul(&self.m);
+                r2.mask_inplace(self.k + 1);
+                let went_negative = &r < &r2;
+                r -= &r2;
                 // 3. If r<0 then r←r+bk+1.
                 if went_negative {
-                    let mut bk1 = [0; $size/32];
-                    bk1[m.k + 1] = 1;
-                    raw_addition(&mut r, &bk1);
+                    let mut bk1 = $bg2::zero();
+                    bk1.values[self.k+1] = 1;
+                    r = r.unsafe_add(&bk1);
                 }
                 // 4. While r≥m do: r←r−m.
-                while bignum_cmp(&r, &mwider) == Ordering::Greater {
-                    raw_subtraction(&mut r, &mwider);
+                while &r > &m2 {
+                    r -= &m2;
                 }
-                // Copy it over.
-                for (idx, val) in self.values.iter_mut().enumerate() {
-                    *val = r[idx];
-                }
+                // Done!
+                $name::from(&r)
             }
         }
 
-        impl ModSquare<$bname> for $name {
-            fn modsq(&mut self, m: &$bname) {
-                let mut sqres = [0; $size/32];
-                raw_square(&self.values, &mut sqres);
-                // 1. q1←⌊x/bk−1⌋, q2←q1 · μ, q3←⌊q2/bk+1⌋.
-                let mut q1 = [0; $size/32];
-                shiftr(&sqres, m.k - 1, &mut q1);
-                let mut q2 = [0; $size/16];
-                raw_multiplication(&q1, &m.mu, &mut q2);
-                let mut q3 = [0; $size/16];
-                shiftr(&q2, m.k + 1, &mut q3);
-                // 2. r1←x mod bk+1, r2←q3 · m mod bk+1, r←r1 − r2.
-                let mut r = [0; $size/16];
-                let copylen = min(m.k + 1, sqres.len());
-                for i in 0..copylen { r[i] = sqres[i]; }
-                let mut r2big = [0; $size/8];
-                let mut mwider = [0; $size/16];
-                for i in 0..$size/32 { mwider[i] = m.m[i]; }
-                raw_multiplication(&q3, &mwider, &mut r2big);
-                let mut r2 = [0; $size/16];
-                for i in 0..m.k+1 { r2[i] = r2big[i]; }
-                let went_negative = !bignum_ge(&r, &r2);
-                raw_subtraction(&mut r, &r2);
-                // 3. If r<0 then r←r+bk+1.
-                if went_negative {
-                    let mut bk1 = [0; $size/32];
-                    bk1[m.k + 1] = 1;
-                    raw_addition(&mut r, &bk1);
-                }
-                // 4. While r≥m do: r←r−m.
-                while bignum_cmp(&r, &mwider) == Ordering::Greater {
-                    raw_subtraction(&mut r, &mwider);
-                }
-                // Copy it over.
-                for (idx, val) in self.values.iter_mut().enumerate() {
-                    *val = r[idx];
-                }
-            }
-        }
-
-        impl ModExp<$bname> for $name {
-            fn modexp(&mut self, e: &$name, m: &$bname) {
-                // S <- g
-                let mut s = self.clone();
-                m.reduce(&mut s);
-                // A <- 1
-                for val in self.values.iter_mut() { *val = 0; }
-                self.values[0] = 1;
-                // We do a quick skim through and find the highest index that
-                // actually has a value in it.
-                let mut highest_digit = 0;
-                for (idx, val) in e.values.iter().enumerate() {
-                    if *val != 0 {
-                        highest_digit = idx;
+        impl $dbl {
+            fn shiftr(&self, x: usize) -> $big {
+                let mut res = $big::zero();
+                for i in 0..self.values.len()-x {
+                    if i >= res.values.len() {
+                        assert_eq!(self.values[i+x], 0);
+                    } else {
+                        res.values[i] = self.values[i+x];
                     }
                 }
-                // While e != 0 do the following:
-                //   If e is odd then A <- A * S
-                //   e <- floor(e / 2)
-                //   If e != 0 then S <- S * S
-                for i in 0..highest_digit+1 {
-                    let mut mask = 1;
+                res
+            }
 
-                    while mask != 0 {
-                        if e.values[i] & mask != 0 {
-                            self.modmul(&s, m);
+            fn mask(&self, len: usize) -> $bg2 {
+                let mut res = $bg2::zero();
+                let     copylen = min(len, self.values.len());
+                for i in 0..copylen {
+                    res.values[i] = self.values[i];
+                }
+                res
+            }
+        }
+
+        impl $big {
+            fn unsafe_mul(&self, rhs: &$big) -> $bg2 {
+                let mut w = $bg2::zero();
+                let len = rhs.values.len();
+
+                for i in 0..len {
+                    let mut carry = 0;
+                    for j in 0..len {
+                        if i+j >= w.values.len() {
+                            continue;
                         }
-                        mask <<= 1;
-                        s.modsq(m);
+                        let old = w.values[i+j] as u128;
+                        let x128 = self.values[j] as u128;
+                        let y128 = rhs.values[i] as u128;
+                        let uv = old + (x128 * y128) + carry;
+                        w.values[i+j] = uv as u64;
+                        carry = uv >> 64;
+                    }
+                    if i+len < w.values.len() {
+                        w.values[i+len] = carry as u64;
                     }
                 }
-                // Return A
+
+                w
             }
         }
-    };
-}
 
-fn shiftr(x: &[u64], amt: usize, dest: &mut [u64])
-{
-    for i in amt..x.len() {
-        dest[i-amt] = x[i];
+        impl $bg2 {
+            fn check_shiftr(&self, x: usize) -> $big {
+                let mut res = $big::zero();
+
+                for i in 0..self.values.len()-x {
+                    if i >= res.values.len() {
+                        assert_eq!(self.values[i+x], 0);
+                    } else {
+                        res.values[i] = self.values[i+x];
+                    }
+                }
+                res
+            }
+
+            fn mask_inplace(&mut self, len: usize) {
+                let dellen = min(len, self.values.len());
+                for i in dellen..self.values.len() {
+                    self.values[i] = 0;
+                }
+            }
+        }
     }
 }
 
-
-generate_barrett_implementations!(BarrettU192,   U192,  192);
-generate_barrett_implementations!(BarrettU256,   U256,  256);
-generate_barrett_implementations!(BarrettU384,   U384,  384);
-generate_barrett_implementations!(BarrettU512,   U512,  512);
-generate_barrett_implementations!(BarrettU576,   U576,  576);
-generate_barrett_implementations!(BarrettU1024,  U1024, 1024);
-generate_barrett_implementations!(BarrettU2048,  U2048, 2048);
-generate_barrett_implementations!(BarrettU3072,  U3072, 3072);
-generate_barrett_implementations!(BarrettU4096,  U4096, 4096);
-generate_barrett_implementations!(BarrettU8192,  U8192, 8192);
-generate_barrett_implementations!(BarrettU15360, U15360,15360);
+generate_barretts!(BarrettU192,   U192,   U256,   U448,   U384,     192);
+generate_barretts!(BarrettU256,   U256,   U320,   U576,   U512,     256);
+generate_barretts!(BarrettU384,   U384,   U448,   U832,   U768,     384);
+generate_barretts!(BarrettU512,   U512,   U576,   U1088,  U1024,    512);
+generate_barretts!(BarrettU576,   U576,   U640,   U1216,  U1152,    576);
+generate_barretts!(BarrettU1024,  U1024,  U1088,  U2112,  U2048,   1024);
+generate_barretts!(BarrettU2048,  U2048,  U2112,  U4160,  U4096,   2048);
+generate_barretts!(BarrettU3072,  U3072,  U3136,  U6208,  U6144,   3072);
+generate_barretts!(BarrettU4096,  U4096,  U4160,  U8256,  U8192,   4096);
+generate_barretts!(BarrettU8192,  U8192,  U8256,  U16448, U16384,  8192);
+generate_barretts!(BarrettU15360, U15360, U15424, U30784, U30720, 15360);
 
 macro_rules! generate_tests {
-    ( $( ($bname: ident, $name:ident, $size:expr) ),* ) => {
+    ( $( ($bname:ident,$name:ident,$big:ident,$dbl:ident,$size:expr) ),* ) => {
         #[cfg(test)]
         mod generation {
             use cryptonum::encoding::{Decoder,raw_decoder};
@@ -290,15 +178,13 @@ macro_rules! generate_tests {
 
                         assert!(!neg0 && !neg1 && !neg2);
                         let m = $name::from_bytes(mbytes);
+                        let u = $big::from_bytes(ubytes);
                         let mut kbig = [0; 1];
                         raw_decoder(&kbytes, &mut kbig);
-                        let mut u = $bname{ k: kbig[0] as usize,
-                                            m: [0; $size/32],
-                                            mu: [0; $size/32]};
-                        raw_decoder(&mbytes, &mut u.m);
-                        raw_decoder(&ubytes, &mut u.mu);
+                        let k = kbig[0] as usize;
                         let r = $bname::new(&m);
-                        assert_eq!(u,r);
+                        assert_eq!(k,r.k);
+                        assert_eq!(u,r.mu);
                     });
                 }
             )*
@@ -324,118 +210,16 @@ macro_rules! generate_tests {
                         let (neg4, rbytes) = case.get("r").unwrap();
 
                         assert!(!neg0 && !neg1 && !neg2 && !neg3 && !neg4);
+                        let m = $big::from_bytes(mbytes);
+                        let u = $big::from_bytes(ubytes);
                         let mut kbig = [0; 1];
                         raw_decoder(&kbytes, &mut kbig);
-                        let mut u = $bname{ k: kbig[0] as usize,
-                                            m: [0; $size/32],
-                                            mu: [0; $size/32]};
-                        raw_decoder(&mbytes, &mut u.m);
-                        raw_decoder(&ubytes, &mut u.mu);
-                        let mut x = $name::from_bytes(&xbytes);
-                        let r = $name::from_bytes(&rbytes);
-                        u.reduce(&mut x);
-                        assert_eq!(x, r);
-                    });
-                }
-            )*
-        }
-
-        #[cfg(test)]
-        mod modadd {
-            use cryptonum::encoding::Decoder;
-            use super::*;
-            use testing::run_test;
-
-            $(
-                #[test]
-                #[allow(non_snake_case)]
-                fn $name() {
-                    let fname = format!("tests/math/modadd{}.test",
-                                        stringify!($name));
-                    run_test(fname.to_string(), 4, |case| {
-                        let (neg0, abytes) = case.get("a").unwrap();
-                        let (neg1, bbytes) = case.get("b").unwrap();
-                        let (neg2, cbytes) = case.get("c").unwrap();
-                        let (neg3, mbytes) = case.get("m").unwrap();
-
-                        assert!(!neg0 && !neg1 && !neg2 && !neg3);
-                        let mut a = $name::from_bytes(abytes);
-                        let b = $name::from_bytes(bbytes);
-                        let m = $name::from_bytes(mbytes);
-                        let mu = $bname::new(&m);
-                        let c = $name::from_bytes(cbytes);
-                        a.modadd(&b, &mu);
-                        assert_eq!(a, c);
-                    });
-                }
-            )*
-        }
-
-        #[cfg(test)]
-        mod modmul {
-            use cryptonum::encoding::Decoder;
-            use super::*;
-            use testing::run_test;
-
-            $(
-                #[test]
-                #[allow(non_snake_case)]
-                fn $name() {
-                    let fname = format!("tests/math/modmul{}.test",
-                                        stringify!($name));
-                    run_test(fname.to_string(), 4, |case| {
-                        let (neg0, abytes) = case.get("a").unwrap();
-                        let (neg1, bbytes) = case.get("b").unwrap();
-                        let (neg2, cbytes) = case.get("c").unwrap();
-                        let (neg3, mbytes) = case.get("m").unwrap();
-
-                        assert!(!neg0 && !neg1 && !neg2 && !neg3);
-                        let mut a = $name::from_bytes(abytes);
-                        let b = $name::from_bytes(bbytes);
-                        let m = $name::from_bytes(mbytes);
-                        let mu = $bname::new(&m);
-                        let c = $name::from_bytes(cbytes);
-                        a.modmul(&b, &mu);
-                        assert_eq!(a, c);
-                    });
-                }
-            )*
-        }
-
-        #[cfg(test)]
-        mod modexp {
-            use cryptonum::encoding::{Decoder,raw_decoder};
-            use super::*;
-            use testing::run_test;
-
-            $(
-                #[test]
-                #[allow(non_snake_case)]
-                fn $name() {
-                    let fname = format!("tests/math/bmodexp{}.test",
-                                        stringify!($name));
-                    run_test(fname.to_string(), 6, |case| {
-                        let (neg0, bbytes) = case.get("b").unwrap();
-                        let (neg1, ebytes) = case.get("e").unwrap();
-                        let (neg2, mbytes) = case.get("m").unwrap();
-                        let (neg3, kbytes) = case.get("k").unwrap();
-                        let (neg4, ubytes) = case.get("u").unwrap();
-                        let (neg5, rbytes) = case.get("r").unwrap();
-
-                        assert!(!neg0 && !neg1 && !neg2 &&
-                                !neg3 && !neg4 && !neg5);
-                        let mut b = $name::from_bytes(bbytes);
-                        let e = $name::from_bytes(ebytes);
-                        let mut kbig = [0; 1];
-                        raw_decoder(&kbytes, &mut kbig);
-                        let mut u = $bname{ k: kbig[0] as usize,
-                                            m: [0; $size/32],
-                                            mu: [0; $size/32] };
-                        raw_decoder(&mbytes, &mut u.m);
-                        raw_decoder(&ubytes, &mut u.mu);
+                        let k = kbig[0] as usize;
+                        let x = $dbl::from_bytes(xbytes);
                         let r = $name::from_bytes(rbytes);
-                        b.modexp(&e, &u);
-                        assert_eq!(b, r);
+                        let bu = $bname{ k: k, m: m, mu: u };
+                        let r2 = bu.reduce(&x);
+                        assert_eq!(r, r2);
                     });
                 }
             )*
@@ -443,14 +227,14 @@ macro_rules! generate_tests {
     }
 }
 
-generate_tests!((BarrettU192,   U192,   192),
-                (BarrettU256,   U256,   256),
-                (BarrettU384,   U384,   384),
-                (BarrettU512,   U512,   512),
-                (BarrettU576,   U576,   576),
-                (BarrettU1024,  U1024,  1024),
-                (BarrettU2048,  U2048,  2048),
-                (BarrettU3072,  U3072,  3072),
-                (BarrettU4096,  U4096,  4096),
-                (BarrettU8192,  U8192,  8192),
-                (BarrettU15360, U15360, 15360));
+generate_tests!((BarrettU192,   U192,   U256,   U384,   192),
+                (BarrettU256,   U256,   U320,   U512,   256),
+                (BarrettU384,   U384,   U448,   U768,   384),
+                (BarrettU512,   U512,   U576,   U1024,  512),
+                (BarrettU576,   U576,   U640,   U1152,  576),
+                (BarrettU1024,  U1024,  U1088,  U2048,  1024),
+                (BarrettU2048,  U2048,  U2112,  U4096,  2048),
+                (BarrettU3072,  U3072,  U3136,  U6144,  3072),
+                (BarrettU4096,  U4096,  U4160,  U8192,  4096),
+                (BarrettU8192,  U8192,  U8256,  U16384, 8192),
+                (BarrettU15360, U15360, U15424, U30720, 15360));

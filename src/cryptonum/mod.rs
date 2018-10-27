@@ -8,14 +8,19 @@ mod addition;
 mod barrett;
 mod basetypes;
 mod comparison;
-#[macro_use]
 mod conversions;
 mod division;
 mod encoding;
-mod exponentiation;
+mod modmath;
 mod multiplication;
+mod shifts;
+mod signed;
 mod squaring;
 mod subtraction;
 
+pub use self::barrett::*;
 pub use self::basetypes::*;
-pub use self::encoding::Decoder;
+pub use self::encoding::{Decoder,Encoder};
+pub use self::signed::Signed;
+#[allow(unused)]
+pub(crate) use self::modmath::{ModExp,ModInv};

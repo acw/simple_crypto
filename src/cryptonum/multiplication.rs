@@ -1,123 +1,66 @@
-use cryptonum::{U192,   U256,   U384,   U512,   U576,
-                U1024,  U2048,  U3072,  U4096,  U8192,
-                U15360};
-use cryptonum::division::divmod;
-use std::ops::{Mul,MulAssign};
-
-pub trait ModMul<T=Self> {
-    fn modmul(&mut self, x: &Self, m: &T);
-}
-
-// This is algorithm 14.12 from "Handbook of Applied Cryptography"
-pub fn raw_multiplication(x: &[u64], y: &[u64], w: &mut [u64])
-{
-    assert_eq!(x.len(), y.len());
-    assert_eq!(x.len() * 2, w.len());
-
-    // clear out the destination array, because we're going to use it as a
-    // temporary
-    for i in 0..w.len() {
-        w[i] = 0;
-    }
-
-    for i in 0..y.len() {
-        let mut carry = 0;
-        for j in 0..x.len() {
-            let old = w[i+j] as u128;
-            let x128 = x[j] as u128;
-            let y128 = y[i] as u128;
-            let uv = old + (x128 * y128) + carry;
-            w[i+j] = uv as u64;
-            carry = uv >> 64;
-        }
-        w[i+x.len()] = carry as u64;
-    }
-}
+use cryptonum::basetypes::*;
+use std::ops::Mul;
 
 macro_rules! generate_multipliers
 {
-    ($name: ident, $size: expr) => {
-        impl MulAssign for $name {
-            fn mul_assign(&mut self, rhs: $name) {
-                let mut result = [0; $size/32];
-                raw_multiplication(&self.values, &rhs.values, &mut result);
-                for i in 0..self.values.len() {
-                    self.values[i] = result[i];
-                }
-            }
-        }
-        impl<'a> MulAssign<&'a $name> for $name {
-            fn mul_assign(&mut self, rhs: &$name) {
-                let mut result = [0; $size/32];
-                raw_multiplication(&self.values, &rhs.values, &mut result);
-                for i in 0..self.values.len() {
-                    self.values[i] = result[i];
-                }
-            }
-        }
-        impl Mul for $name {
-            type Output = $name;
-
-            fn mul(self, rhs: $name) -> $name {
-                let mut result = self.clone();
-                result.mul_assign(rhs);
-                result
-            }
-        }
-        impl<'a> Mul<&'a $name> for $name {
-            type Output = $name;
-
-            fn mul(self, rhs: &$name) -> $name {
-                let mut result = self.clone();
-                result.mul_assign(rhs);
-                result
-            }
-        }
+    ($name: ident, $bigger: ident, $size: expr) => {
         impl<'a,'b> Mul<&'a $name> for &'b $name {
-            type Output = $name;
+            type Output = $bigger;
 
-            fn mul(self, rhs: &$name) -> $name {
-                let mut result = self.clone();
-                result.mul_assign(rhs);
-                result
-            }
-        }
+            fn mul(self, rhs: &$name) -> $bigger {
+                let mut w = $bigger::zero();
+                let len = $size/64;
 
-        impl ModMul for $name {
-            fn modmul(&mut self, x: &$name, m: &$name) {
-                let mut mulres = [0; $size/32];
-                raw_multiplication(&self.values, &x.values, &mut mulres);
-                let mut widerm = [0; $size/32];
-                for (idx,val) in m.values.iter().enumerate() { widerm[idx] = *val; }
-                let mut dead   = [0; $size/32];
-                let mut answer = [0; $size/32];
-                divmod(&mulres, &widerm, &mut dead, &mut answer);
-                for i in 0..answer.len() {
-                    if i < self.values.len() {
-                        self.values[i] = answer[i];
-                    } else {
-                        assert_eq!(answer[i], 0);
+                for i in 0..len {
+                    let mut carry = 0;
+                    for j in 0..len {
+                        let old = w.values[i+j] as u128;
+                        let x128 = self.values[j] as u128;
+                        let y128 = rhs.values[i] as u128;
+                        let uv = old + (x128 * y128) + carry;
+                        w.values[i+j] = uv as u64;
+                        carry = uv >> 64;
                     }
+                    w.values[i+len] = carry as u64;
                 }
+
+                w
             }
         }
     }
 }
 
-generate_multipliers!(U192,     192);
-generate_multipliers!(U256,     256);
-generate_multipliers!(U384,     384);
-generate_multipliers!(U512,     512);
-generate_multipliers!(U576,     576);
-generate_multipliers!(U1024,   1024);
-generate_multipliers!(U2048,   2048);
-generate_multipliers!(U3072,   3072);
-generate_multipliers!(U4096,   4096);
-generate_multipliers!(U8192,   8192);
-generate_multipliers!(U15360, 15360);
+generate_multipliers!(U192,   U384,     192);
+generate_multipliers!(U256,   U512,     256);
+generate_multipliers!(U384,   U768,     384);
+generate_multipliers!(U448,   U896,     448);
+generate_multipliers!(U512,   U1024,    512);
+generate_multipliers!(U576,   U1152,    576);
+generate_multipliers!(U768,   U1536,    768);
+generate_multipliers!(U832,   U1664,    832);
+generate_multipliers!(U1024,  U2048,   1024);
+generate_multipliers!(U1088,  U2176,   1088);
+generate_multipliers!(U1152,  U2304,   1152);
+generate_multipliers!(U1216,  U2432,   1216);
+generate_multipliers!(U1536,  U3072,   1536);
+generate_multipliers!(U2048,  U4096,   2048);
+generate_multipliers!(U2112,  U4224,   2112);
+generate_multipliers!(U3072,  U6144,   3072);
+generate_multipliers!(U4096,  U8192,   4096);
+generate_multipliers!(U4160,  U8320,   4160);
+generate_multipliers!(U6144,  U12288,  6144);
+generate_multipliers!(U6208,  U12416,  6208);
+generate_multipliers!(U7680,  U15360,  7680);
+generate_multipliers!(U8192,  U16384,  8192);
+generate_multipliers!(U8256,  U16512,  8256);
+generate_multipliers!(U15360, U30720, 15360);
+generate_multipliers!(U16384, U32768, 16384);
+generate_multipliers!(U16448, U32896, 16448);
+generate_multipliers!(U30720, U61440, 30720);
+generate_multipliers!(U30784, U61568, 30784);
 
 macro_rules! generate_tests {
-    ( $( $name:ident ),* ) => {
+    ( $( ($name:ident, $bigger:ident) ),* ) => {
         #[cfg(test)]
         mod normal {
             use cryptonum::Decoder;
@@ -134,81 +77,27 @@ macro_rules! generate_tests {
                         let (neg0, abytes) = case.get("a").unwrap();
                         let (neg1, bbytes) = case.get("b").unwrap();
                         let (neg2, cbytes) = case.get("c").unwrap();
-
-                        assert!(!neg0 && !neg1 && !neg2);
-                        let mut a = $name::from_bytes(abytes);
-                        let b = $name::from_bytes(bbytes);
-                        let c = $name::from_bytes(cbytes);
-                        assert_eq!(&a * &b, c);
-                        a *= b;
-                        assert_eq!(a, c);
-                    });
-                }
-            )*
-        }
-
-        #[cfg(test)]
-        mod expanding {
-            use cryptonum::encoding::{Decoder,raw_decoder};
-            use super::*;
-            use testing::run_test;
-
-            $(
-                #[test]
-                #[allow(non_snake_case)]
-                fn $name() {
-                    let fname = format!("tests/math/expandingmul{}.test",
-                                        stringify!($name));
-                    run_test(fname.to_string(), 3, |case| {
-                        let (neg0, abytes) = case.get("a").unwrap();
-                        let (neg1, bbytes) = case.get("b").unwrap();
-                        let (neg2, cbytes) = case.get("c").unwrap();
-
                         assert!(!neg0 && !neg1 && !neg2);
                         let a = $name::from_bytes(abytes);
                         let b = $name::from_bytes(bbytes);
-                        let mut c = Vec::with_capacity(a.values.len() * 2);
-                        c.resize(a.values.len() * 2, 0);
-                        raw_decoder(&cbytes, &mut c);
-                        let mut r = Vec::with_capacity(c.len());
-                        r.resize(c.len(), 0);
-                        raw_multiplication(&a.values, &b.values, &mut r);
-                        assert_eq!(c, r);
+                        let c = $bigger::from_bytes(cbytes);
+                        assert_eq!(&a * &b, c);
                     });
                 }
             )*
         }
 
-        #[cfg(test)]
-        mod slow_modular {
-            use cryptonum::Decoder;
-            use super::*;
-            use testing::run_test;
-
-            $(
-                #[test]
-                #[allow(non_snake_case)]
-                fn $name() {
-                    let fname = format!("tests/math/modmul{}.test",
-                                        stringify!($name));
-                    run_test(fname.to_string(), 4, |case| {
-                        let (neg0, abytes) = case.get("a").unwrap();
-                        let (neg1, bbytes) = case.get("b").unwrap();
-                        let (neg2, mbytes) = case.get("m").unwrap();
-                        let (neg3, cbytes) = case.get("c").unwrap();
-
-                        assert!(!neg0 && !neg1 && !neg2 && !neg3);
-                        let mut a = $name::from_bytes(abytes);
-                        let b = $name::from_bytes(bbytes);
-                        let m = $name::from_bytes(mbytes);
-                        let c = $name::from_bytes(cbytes);
-                        a.modmul(&b, &m);
-                        assert_eq!(a, c);
-                    });
-                }
-            )*
-        }
     }
 }
 
-generate_tests!(U192, U256, U384, U512, U576, U1024, U2048, U3072, U4096, U8192, U15360);
+generate_tests!((U192,   U384),
+                (U256,   U512),
+                (U384,   U768),
+                (U512,   U1024),
+                (U576,   U1152),
+                (U1024,  U2048),
+                (U2048,  U4096),
+                (U3072,  U6144),
+                (U4096,  U8192),
+                (U8192,  U16384),
+                (U15360, U30720));
