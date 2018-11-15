@@ -1,6 +1,6 @@
-use cryptonum::*;
+use cryptonum::unsigned::*;
 use digest::{FixedOutput,Input};
-use num::{BigInt,BigUint};
+use num::BigInt;
 use rand::{OsRng,Rng};
 use rsa::core::{decode_biguint,pkcs1_pad,xor_vecs};
 use rsa::errors::RSAError;
@@ -8,6 +8,9 @@ use rsa::oaep::OAEPParams;
 use rsa::signing_hashes::SigningHash;
 use simple_asn1::{ASN1Block,ASN1DecodeErr,ASN1EncodeErr,
                   ASN1Class,FromASN1,ToASN1};
+#[cfg(test)]
+use std::fmt;
+use utils::TranslateNums;
 
 pub trait RSAPublicKey<N> {
     /// Generate a new public key pair for the given modulus and
@@ -84,49 +87,51 @@ impl FromASN1 for RSAPublic {
                 let nsize = n.bits();
                 let mut rsa_size = 512;
 
+                println!("n': {:X}", n);
+                println!("nsize: {}", nsize);
                 while rsa_size < nsize {
                     rsa_size = rsa_size + 256;
                 }
                 match rsa_size {
                     512    => {
-                        let n2 = U512::from(n);
-                        let e2 = U512::from(e);
+                        let n2 = U512::from_num(n);
+                        let e2 = U512::from_num(e);
                         let res = RSA512Public::new(n2, e2);
                         Ok((RSAPublic::Key512(res), rest))
                     }
                     1024    => {
-                        let n2 = U1024::from(n);
-                        let e2 = U1024::from(e);
+                        let n2 = U1024::from_num(n);
+                        let e2 = U1024::from_num(e);
                         let res = RSA1024Public::new(n2, e2);
                         Ok((RSAPublic::Key1024(res), rest))
                     }
                     2048    => {
-                        let n2 = U2048::from(n);
-                        let e2 = U2048::from(e);
+                        let n2 = U2048::from_num(n);
+                        let e2 = U2048::from_num(e);
                         let res = RSA2048Public::new(n2, e2);
                         Ok((RSAPublic::Key2048(res), rest))
                     }
                     3072    => {
-                        let n2 = U3072::from(n);
-                        let e2 = U3072::from(e);
+                        let n2 = U3072::from_num(n);
+                        let e2 = U3072::from_num(e);
                         let res = RSA3072Public::new(n2, e2);
                         Ok((RSAPublic::Key3072(res), rest))
                     }
                     4096    => {
-                        let n2 = U4096::from(n);
-                        let e2 = U4096::from(e);
+                        let n2 = U4096::from_num(n);
+                        let e2 = U4096::from_num(e);
                         let res = RSA4096Public::new(n2, e2);
                         Ok((RSAPublic::Key4096(res), rest))
                     }
                     8192    => {
-                        let n2 = U8192::from(n);
-                        let e2 = U8192::from(e);
+                        let n2 = U8192::from_num(n);
+                        let e2 = U8192::from_num(e);
                         let res = RSA8192Public::new(n2, e2);
                         Ok((RSAPublic::Key8192(res), rest))
                     }
                     15360    => {
-                        let n2 = U15360::from(n);
-                        let e2 = U15360::from(e);
+                        let n2 = U15360::from_num(n);
+                        let e2 = U15360::from_num(e);
                         let res = RSA15360Public::new(n2, e2);
                         Ok((RSAPublic::Key15360(res), rest))
                     }
@@ -170,16 +175,17 @@ impl ToASN1 for RSAPublic {
 macro_rules! generate_rsa_public
 {
     ($rsa: ident, $num: ident, $bar: ident, $var: ident, $size: expr) => {
-        #[derive(Debug,PartialEq)]
+        #[derive(PartialEq)]
         pub struct $rsa {
+            n:  $num,
             nu: $bar,
             e:  $num
         }
 
         impl RSAPublicKey<$num> for $rsa {
             fn new(n: $num, e: $num) -> $rsa {
-                let nu = $bar::new(&n);
-                $rsa { nu: nu, e: e }
+                let nu = $bar::new(n.clone());
+                $rsa { n: n, nu: nu, e: e }
             }
 
             fn verify(&self, signhash: &SigningHash, msg: &[u8], sig: &[u8])
@@ -292,12 +298,23 @@ macro_rules! generate_rsa_public
             fn to_asn1_class(&self, c: ASN1Class)
                 -> Result<Vec<ASN1Block>,Self::Error>
             {
-                let n = BigInt::from(BigUint::from(self.nu.m.clone()));
-                let e = BigInt::from(BigUint::from(self.e.clone()));
+                let n = BigInt::from(self.n.to_num());
+                let e = BigInt::from(self.e.to_num());
                 let enc_n = ASN1Block::Integer(c, 0, n);
                 let enc_e = ASN1Block::Integer(c, 0, e);
                 let seq = ASN1Block::Sequence(c, 0, vec![enc_n, enc_e]);
                 Ok(vec![seq])
+            }
+        }
+
+        #[cfg(test)]
+        impl fmt::Debug for $rsa {
+            fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
+                fmt.debug_struct(stringify!($rsa))
+                   .field("n", &self.n)
+                   .field("nu", &self.nu)
+                   .field("e", &self.e)
+                   .finish()
             }
         }
     }
@@ -312,12 +329,12 @@ generate_rsa_public!(RSA8192Public,  U8192,  BarrettU8192,  Key8192,  8192);
 generate_rsa_public!(RSA15360Public, U15360, BarrettU15360, Key15360, 15360);
 
 macro_rules! generate_tests {
-    ( $( ($mod: ident, $rsa: ident, $num: ident, $size: expr) ),* ) => {
+    ( $( ($mod: ident, $rsa: ident, $num: ident, $bar: ident, $num64: ident, $size: expr) ),* ) => {
         $(
         #[cfg(test)]
         #[allow(non_snake_case)]
         mod $mod {
-            use cryptonum::Decoder;
+            use cryptonum::unsigned::Decoder;
             use super::*;
             use testing::run_test;
             use rsa::signing_hashes::*;
@@ -325,13 +342,20 @@ macro_rules! generate_tests {
             #[test]
             fn encode() {
                 let fname = format!("tests/rsa/rsa{}.test", $size);
-                run_test(fname.to_string(), 6, |case| {
+                run_test(fname.to_string(), 8, |case| {
                     let (neg0, nbytes) = case.get("n").unwrap();
+                    let (neg1, ubytes) = case.get("u").unwrap();
+                    let (neg2, kbytes) = case.get("k").unwrap();
 
-                    assert!(!neg0);
+                    assert!(!neg0&&!neg1&&!neg2);
                     let n = $num::from_bytes(nbytes);
+                    println!("n:  {:X}", n);
+                    let n64 = $num64::from(&n);
+                    let nu = $num64::from_bytes(ubytes);
+                    let bigk = $num::from_bytes(kbytes);
+                    let k = usize::from(bigk);
                     let e = $num::from(65537u64);
-                    let pubkey = $rsa::new(n, e);
+                    let pubkey = $rsa{ n: n, nu: $bar::from_components(k, n64, nu), e: e };
                     let asn1 = pubkey.to_asn1().unwrap();
                     let (pubkey2, _) = $rsa::from_asn1(&asn1).unwrap();
                     assert_eq!(pubkey, pubkey2);
@@ -341,16 +365,22 @@ macro_rules! generate_tests {
             #[test]
             fn verify() {
                 let fname = format!("tests/rsa/rsa{}.test", $size);
-                run_test(fname.to_string(), 6, |case| {
+                run_test(fname.to_string(), 8, |case| {
                     let (neg0, nbytes) = case.get("n").unwrap();
                     let (neg1, hbytes) = case.get("h").unwrap();
                     let (neg2, mbytes) = case.get("m").unwrap();
                     let (neg3, sbytes) = case.get("s").unwrap();
+                    let (neg4, ubytes) = case.get("u").unwrap();
+                    let (neg5, kbytes) = case.get("k").unwrap();
 
-                    assert!(!neg0 && !neg1 && !neg2 && !neg3);
+                    assert!(!neg0 && !neg1 && !neg2 && !neg3 && !neg4 && !neg5);
                     let n = $num::from_bytes(nbytes);
+                    let n64 = $num64::from(&n);
+                    let nu = $num64::from_bytes(ubytes);
+                    let bigk = $num::from_bytes(kbytes);
+                    let k = usize::from(bigk);
                     let e = $num::from(65537u64);
-                    let pubkey = $rsa::new(n, e);
+                    let pubkey = $rsa{ n: n, nu: $bar::from_components(k, n64, nu), e: e };
                     let hashnum = ((hbytes[0] as u16)<<8) + (hbytes[1] as u16);
                     let sighash = match hashnum {
                                     0x160 => &SIGNING_HASH_SHA1,
@@ -367,16 +397,22 @@ macro_rules! generate_tests {
             #[test]
             fn encrypt() {
                 let fname = format!("tests/rsa/rsa{}.test", $size);
-                run_test(fname.to_string(), 6, |case| {
+                run_test(fname.to_string(), 8, |case| {
                     let (neg0, nbytes) = case.get("n").unwrap();
                     let (neg1, hbytes) = case.get("h").unwrap();
                     let (neg2, mbytes) = case.get("m").unwrap();
                     let (neg3, sbytes) = case.get("s").unwrap();
+                    let (neg4, ubytes) = case.get("u").unwrap();
+                    let (neg5, kbytes) = case.get("k").unwrap();
 
-                    assert!(!neg0 && !neg1 && !neg2 && !neg3);
+                    assert!(!neg0 && !neg1 && !neg2 && !neg3 && !neg4 && !neg5);
                     let n = $num::from_bytes(nbytes);
+                    let n64 = $num64::from(&n);
+                    let nu = $num64::from_bytes(ubytes);
+                    let bigk = $num::from_bytes(kbytes);
+                    let k = usize::from(bigk);
                     let e = $num::from(65537u64);
-                    let pubkey = $rsa::new(n, e);
+                    let pubkey = $rsa{ n: n, nu: $bar::from_components(k, n64, nu), e: e };
                     let hashnum = ((hbytes[0] as u16)<<8) + (hbytes[1] as u16);
                     let sighash = match hashnum {
                                     0x160 => &SIGNING_HASH_SHA1,
@@ -394,11 +430,11 @@ macro_rules! generate_tests {
     }
 }
 
-generate_tests!( (RSA512,   RSA512Public,   U512,   512),
-                 (RSA1024,  RSA1024Public,  U1024,  1024),
-                 (RSA2048,  RSA2048Public,  U2048,  2048),
-                 (RSA3072,  RSA3072Public,  U3072,  3072),
-                 (RSA4096,  RSA4096Public,  U4096,  4096),
-                 (RSA8192,  RSA8192Public,  U8192,  8192),
-                 (RSA15360, RSA15360Public, U15360, 15360)
+generate_tests!( (RSA512,   RSA512Public,   U512,   BarrettU512,   U576,   512),
+                 (RSA1024,  RSA1024Public,  U1024,  BarrettU1024,  U1088,  1024),
+                 (RSA2048,  RSA2048Public,  U2048,  BarrettU2048,  U2112,  2048),
+                 (RSA3072,  RSA3072Public,  U3072,  BarrettU3072,  U3136,  3072),
+                 (RSA4096,  RSA4096Public,  U4096,  BarrettU4096,  U4160,  4096),
+                 (RSA8192,  RSA8192Public,  U8192,  BarrettU8192,  U8256,  8192),
+                 (RSA15360, RSA15360Public, U15360, BarrettU15360, U15424, 15360)
                );

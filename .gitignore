@@ -19,3 +19,7 @@ Cargo.lock
 **/gen
 **/.cabal-sandbox
 **/cabal.sandbox.config
+FlameGraph
+*.user_stacks
+**/.ghc.environment.*
+tests/rsa/dist*

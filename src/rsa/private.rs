@@ -1,4 +1,4 @@
-use cryptonum::*;
+use cryptonum::unsigned::*;
 use digest::{FixedOutput,Input};
 use rsa::core::{drop0s,pkcs1_pad,xor_vecs};
 use rsa::errors::RSAError;
@@ -55,7 +55,7 @@ macro_rules! generate_rsa_private
 
         impl RSAPrivateKey<$num> for $rsa {
             fn new(n: $num, d: $num) -> $rsa {
-                let nu = $bar::new(&n);
+                let nu = $bar::new(n.clone());
                 $rsa { nu: nu, d: d }
             }
 
@@ -157,12 +157,12 @@ generate_rsa_private!(RSA8192Private,  U8192,  BarrettU8192,  8192);
 generate_rsa_private!(RSA15360Private, U15360, BarrettU15360, 15360);
 
 macro_rules! generate_tests {
-    ( $( ($mod: ident, $rsa: ident, $num: ident, $size: expr) ),* ) => {
+    ( $( ($mod: ident, $rsa: ident, $num: ident, $bar: ident, $num64: ident, $size: expr) ),* ) => {
         $(
         #[cfg(test)]
         #[allow(non_snake_case)]
         mod $mod {
-            use cryptonum::Decoder;
+            use cryptonum::unsigned::Decoder;
             use super::*;
             use testing::run_test;
             use rsa::signing_hashes::*;
@@ -172,17 +172,22 @@ macro_rules! generate_tests {
             #[test]
             fn sign() {
                 let fname = format!("tests/rsa/rsa{}.test", $size);
-                run_test(fname.to_string(), 6, |case| {
+                run_test(fname.to_string(), 8, |case| {
                     let (neg0, dbytes) = case.get("d").unwrap();
                     let (neg1, nbytes) = case.get("n").unwrap();
                     let (neg2, hbytes) = case.get("h").unwrap();
                     let (neg3, mbytes) = case.get("m").unwrap();
                     let (neg4, sbytes) = case.get("s").unwrap();
+                    let (neg5, ubytes) = case.get("u").unwrap();
+                    let (neg6, kbytes) = case.get("k").unwrap();
 
-                    assert!(!neg0&&!neg1&&!neg2&&!neg3&&!neg4);
-                    let n = $num::from_bytes(nbytes);
+                    assert!(!neg0&&!neg1&&!neg2&&!neg3&&!neg4&&!neg5&&!neg6);
+                    let n = $num64::from_bytes(nbytes);
+                    let nu = $num64::from_bytes(ubytes);
+                    let bigk = $num::from_bytes(kbytes);
+                    let k = usize::from(bigk);
                     let d = $num::from_bytes(dbytes);
-                    let privkey = $rsa::new(n, d);
+                    let privkey = $rsa{ nu: $bar::from_components(k, n, nu), d: d };
                     let hashnum = ((hbytes[0] as u16)<<8) + (hbytes[1] as u16);
                     let sighash = match hashnum {
                                     0x160 => &SIGNING_HASH_SHA1,
@@ -200,17 +205,22 @@ macro_rules! generate_tests {
             #[test]
             fn decrypt() {
                 let fname = format!("tests/rsa/rsa{}.test", $size);
-                run_test(fname.to_string(), 6, |case| {
+                run_test(fname.to_string(), 8, |case| {
                     let (neg0, dbytes) = case.get("d").unwrap();
                     let (neg1, nbytes) = case.get("n").unwrap();
                     let (neg2, hbytes) = case.get("h").unwrap();
                     let (neg3, mbytes) = case.get("m").unwrap();
                     let (neg4, cbytes) = case.get("c").unwrap();
+                    let (neg5, ubytes) = case.get("u").unwrap();
+                    let (neg6, kbytes) = case.get("k").unwrap();
 
-                    assert!(!neg0&&!neg1&&!neg2&&!neg3&&!neg4);
-                    let n = $num::from_bytes(nbytes);
+                    assert!(!neg0&&!neg1&&!neg2&&!neg3&&!neg4&&!neg5&&!neg6);
+                    let n = $num64::from_bytes(nbytes);
+                    let nu = $num64::from_bytes(ubytes);
+                    let bigk = $num::from_bytes(kbytes);
+                    let k = usize::from(bigk);
                     let d = $num::from_bytes(dbytes);
-                    let privkey = $rsa::new(n, d);
+                    let privkey = $rsa{ nu: $bar::from_components(k, n, nu), d: d };
                     let hashnum = ((hbytes[0] as u16)<<8) + (hbytes[1] as u16);
                     let empty = "".to_string();
                     match hashnum {
@@ -253,11 +263,11 @@ macro_rules! generate_tests {
     }
 }
 
-generate_tests!( (RSA512,   RSA512Private,   U512,   512),
-                 (RSA1024,  RSA1024Private,  U1024,  1024),
-                 (RSA2048,  RSA2048Private,  U2048,  2048),
-                 (RSA3072,  RSA3072Private,  U3072,  3072),
-                 (RSA4096,  RSA4096Private,  U4096,  4096),
-                 (RSA8192,  RSA8192Private,  U8192,  8192),
-                 (RSA15360, RSA15360Private, U15360, 15360)
+generate_tests!( (RSA512,   RSA512Private,   U512,   BarrettU512,   U576,   512),
+                 (RSA1024,  RSA1024Private,  U1024,  BarrettU1024,  U1088,  1024),
+                 (RSA2048,  RSA2048Private,  U2048,  BarrettU2048,  U2112,  2048),
+                 (RSA3072,  RSA3072Private,  U3072,  BarrettU3072,  U3136,  3072),
+                 (RSA4096,  RSA4096Private,  U4096,  BarrettU4096,  U4160,  4096),
+                 (RSA8192,  RSA8192Private,  U8192,  BarrettU8192,  U8256,  8192),
+                 (RSA15360, RSA15360Private, U15360, BarrettU15360, U15424, 15360)
                );

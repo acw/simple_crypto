@@ -41,7 +41,8 @@ pub use self::public::{RSAPublic, RSAPublicKey,
                        RSA3072Public, RSA4096Public, RSA8192Public,
                        RSA15360Public};
 
-use cryptonum::*;
+use cryptonum::signed::{ModInv};
+use cryptonum::unsigned::{U256,U512,U1024,U1536,U2048,U3072,U4096,U7680,U8192,U15360};
 use rand::Rng;
 
 macro_rules! generate_rsa_pair
@@ -64,10 +65,12 @@ macro_rules! generate_rsa_pair
                 loop {
                     let e = $uint::from(65537u32);
                     let (p, q) = $pair::generate_pq(rng, &e);
-                    let one = $half::from(1u32);
-                    let phi = &(&p - &one) * &(&q - &one);
+                    let one: $half = $half::from(1u32);
+                    let pminus1: $half = &p - &one;
+                    let qminus1: $half = &q - &one;
+                    let phi: $uint = pminus1 * qminus1;
                     let n = &p * &q;
-                    if let Some(d) = e.modinv(phi) {
+                    if let Some(d) = e.modinv(&phi) {
                         let public = $pub::new(n.clone(), e);
                         let private = $priv::new(n, d);
                         return $pair::new(public, private);
