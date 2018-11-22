@@ -1,4 +1,4 @@
-use digest::{FixedOutput,Input};
+use digest::Digest;
 use sha1::Sha1;
 use sha2::{Sha224,Sha256,Sha384,Sha512};
 use std::fmt;
@@ -46,9 +46,7 @@ pub static SIGNING_HASH_SHA1: SigningHash = SigningHash {
 };
 
 fn runsha1(i: &[u8]) -> Vec<u8> {
-    let mut d = Sha1::default();
-    d.process(i);
-    d.fixed_result().as_slice().to_vec()
+    Sha1::digest(i).as_slice().to_vec()
 }
 
 /// Sign a hash based on SHA2-224. This is the first reasonable choice
@@ -63,9 +61,7 @@ pub static SIGNING_HASH_SHA224: SigningHash = SigningHash {
 };
 
 fn runsha224(i: &[u8]) -> Vec<u8> {
-    let mut d = Sha224::default();
-    d.process(i);
-    d.fixed_result().as_slice().to_vec()
+    Sha224::digest(i).as_slice().to_vec()
 }
 
 /// Sign a hash based on SHA2-256. The first one I'd recommend!
@@ -78,9 +74,7 @@ pub static SIGNING_HASH_SHA256: SigningHash = SigningHash {
 };
 
 fn runsha256(i: &[u8]) -> Vec<u8> {
-    let mut d = Sha256::default();
-    d.process(i);
-    d.fixed_result().as_slice().to_vec()
+    Sha256::digest(i).as_slice().to_vec()
 }
 
 /// Sign a hash based on SHA2-384. Approximately 50% better than
@@ -94,9 +88,7 @@ pub static SIGNING_HASH_SHA384: SigningHash = SigningHash {
 };
 
 fn runsha384(i: &[u8]) -> Vec<u8> {
-    let mut d = Sha384::default();
-    d.process(i);
-    d.fixed_result().as_slice().to_vec()
+    Sha384::digest(i).as_slice().to_vec()
 }
 
 /// Sign a hash based on SHA2-512. At this point, you're getting a bit
@@ -111,9 +103,7 @@ pub static SIGNING_HASH_SHA512: SigningHash = SigningHash {
 };
 
 fn runsha512(i: &[u8]) -> Vec<u8> {
-    let mut d = Sha512::default();
-    d.process(i);
-    d.fixed_result().as_slice().to_vec()
+    Sha512::digest(i).as_slice().to_vec()
 }
 
 

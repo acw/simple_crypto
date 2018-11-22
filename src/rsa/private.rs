@@ -1,5 +1,5 @@
 use cryptonum::unsigned::*;
-use digest::{FixedOutput,Input};
+use digest::{Digest,FixedOutput};
 use rsa::core::{drop0s,pkcs1_pad,xor_vecs};
 use rsa::errors::RSAError;
 use rsa::oaep::OAEPParams;
@@ -23,7 +23,7 @@ pub trait RSAPrivateKey<N> {
     /// then encrypt the message with that key.
     fn decrypt<H>(&self, oaep: &OAEPParams<H>, msg: &[u8])
         -> Result<Vec<u8>,RSAError>
-     where H: Default + Input + FixedOutput;
+     where H: Default + Digest + FixedOutput;
 }
 
 pub enum RSAPrivate {
@@ -49,8 +49,8 @@ macro_rules! generate_rsa_private
 {
     ($rsa: ident, $num: ident, $bar: ident, $size: expr) => {
         pub struct $rsa {
-            nu: $bar,
-            d:  $num
+            pub(crate) nu: $bar,
+            pub(crate) d:  $num
         }
 
         impl RSAPrivateKey<$num> for $rsa {
@@ -72,7 +72,7 @@ macro_rules! generate_rsa_private
 
             fn decrypt<H>(&self, oaep: &OAEPParams<H>, msg: &[u8])
                 -> Result<Vec<u8>,RSAError>
-             where H: Default + Input + FixedOutput
+             where H: Default + Digest + FixedOutput
             {
                 let mut res = Vec::new();
 
@@ -97,7 +97,7 @@ macro_rules! generate_rsa_private
             fn oaep_decrypt<H>(&self, oaep: &OAEPParams<H>, c: &[u8])
                 -> Result<Vec<u8>,RSAError>
              where
-              H: Default + Input + FixedOutput
+              H: Default + Digest + FixedOutput
             {
                 let byte_len = $size / 8;
                 // Step 1b

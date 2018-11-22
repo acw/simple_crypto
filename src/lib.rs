@@ -13,6 +13,7 @@ extern crate byteorder;
 extern crate cryptonum;
 extern crate digest;
 #[cfg(test)]
+#[macro_use]
 extern crate quickcheck;
 extern crate num;
 extern crate rand;

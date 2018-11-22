@@ -1,5 +1,5 @@
 use simple_asn1::ASN1DecodeErr;
-use std::io;
+use rand;
 
 #[derive(Debug)]
 pub enum RSAError {
@@ -8,12 +8,12 @@ pub enum RSAError {
     DecryptionError,
     DecryptHashMismatch,
     InvalidKey,
-    RandomGenError(io::Error),
+    RandomGenError(rand::Error),
     ASN1DecodeErr(ASN1DecodeErr)
 }
 
-impl From<io::Error> for RSAError {
-    fn from(e: io::Error) -> RSAError {
+impl From<rand::Error> for RSAError {
+    fn from(e: rand::Error) -> RSAError {
         RSAError::RandomGenError(e)
     }
 }

@@ -1,7 +1,8 @@
 use cryptonum::unsigned::*;
-use digest::{FixedOutput,Input};
+use digest::{Digest,FixedOutput};
 use num::BigInt;
-use rand::{OsRng,Rng};
+use rand::Rng;
+use rand::rngs::OsRng;
 use rsa::core::{decode_biguint,pkcs1_pad,xor_vecs};
 use rsa::errors::RSAError;
 use rsa::oaep::OAEPParams;
@@ -40,7 +41,7 @@ pub trait RSAPublicKey<N> {
         -> Result<Vec<u8>,RSAError>
      where
       G: Rng,
-      H: Default + Input + FixedOutput;
+      H: Default + Digest + FixedOutput;
 
     /// Encrypt the message with a hash function, given the appropriate
     /// label. Please note that RSA encryption is not particularly fast,
@@ -53,7 +54,7 @@ pub trait RSAPublicKey<N> {
     fn encrypt<H>(&self,oaep:&OAEPParams<H>,msg:&[u8])
         -> Result<Vec<u8>,RSAError>
      where
-      H: Default + Input + FixedOutput
+      H: Default + Digest + FixedOutput
     {
         let mut g = OsRng::new()?;
         self.encrypt_rng(&mut g, oaep, msg)
@@ -177,9 +178,9 @@ macro_rules! generate_rsa_public
     ($rsa: ident, $num: ident, $bar: ident, $var: ident, $size: expr) => {
         #[derive(PartialEq)]
         pub struct $rsa {
-            n:  $num,
-            nu: $bar,
-            e:  $num
+            pub(crate) n:  $num,
+            pub(crate) nu: $bar,
+            pub(crate) e:  $num
         }
 
         impl RSAPublicKey<$num> for $rsa {
@@ -203,7 +204,7 @@ macro_rules! generate_rsa_public
                 -> Result<Vec<u8>,RSAError>
              where
               G: Rng,
-              H: Default + Input + FixedOutput
+              H: Default + Digest + FixedOutput
             {
                 let byte_len = $size / 8;
                 let mut res = Vec::new();
@@ -233,7 +234,7 @@ macro_rules! generate_rsa_public
                 -> Result<Vec<u8>,RSAError>
              where
               G: Rng,
-              H: Default + Input + FixedOutput
+              H: Default + Digest + FixedOutput
             {
                 let byte_len = $size / 8;
                 // Step 1b
@@ -253,7 +254,9 @@ macro_rules! generate_rsa_public
                 db.push(1);
                 db.extend_from_slice(m);
                 // Step 2d
-                let seed : Vec<u8> = g.gen_iter().take(oaep.hash_len()).collect();
+                let mut seed: Vec<u8> = Vec::with_capacity(oaep.hash_len());
+                seed.resize(oaep.hash_len(), 0);
+                g.fill(seed.as_mut_slice());
                 // Step 2e
                 let db_mask = oaep.mgf1(&seed, byte_len - oaep.hash_len() - 1);
                 // Step 2f
