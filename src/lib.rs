@@ -12,10 +12,11 @@
 extern crate byteorder;
 extern crate cryptonum;
 extern crate digest;
+extern crate hmac;
+extern crate num;
 #[cfg(test)]
 #[macro_use]
 extern crate quickcheck;
-extern crate num;
 extern crate rand;
 extern crate sha1;
 extern crate sha2;
@@ -24,6 +25,11 @@ extern crate simple_asn1;
 /// The `rsa` module provides bare-bones support for RSA signing, verification,
 /// encryption, decryption, and key generation.
 pub mod rsa;
+/// The `dsa` module provides bare-bones support for DSA signing, verification,
+/// and key generation. You shouldn't need to use these if you're building a
+/// new system, but might need to use them to interact with legacy systems or
+/// protocols.
+pub mod dsa;
 
 #[cfg(test)]
 mod testing;

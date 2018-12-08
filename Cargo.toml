@@ -12,6 +12,7 @@ repository = "https://github.com/acw/simple_crypto"
 byteorder   = "^1.2.7"
 cryptonum   = { path = "../cryptonum" }
 digest      = "^0.8.0"
+hmac        = "^0.7.0"
 num         = "^0.2.0"
 rand        = "^0.6.0"
 sha-1       = "^0.8.1"

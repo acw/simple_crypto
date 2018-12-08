@@ -1,27 +1,27 @@
 use cryptonum::unsigned::*;
 use num::BigUint;
 
-pub trait TranslateNums {
-    fn from_num(x: BigUint) -> Self;
+pub trait TranslateNums: Sized {
+    fn from_num(x: BigUint) -> Option<Self>;
     fn to_num(&self) -> BigUint;
 }
 
 macro_rules! from_biguint {
     ($uname: ident, $size: expr) => {
         impl TranslateNums for $uname {
-            fn from_num(x: BigUint) -> $uname {
+            fn from_num(x: BigUint) -> Option<$uname> {
                 let mut base_vec = x.to_bytes_be();
                 let target_bytes = $size / 8;
 
+                if target_bytes < base_vec.len() {
+                    return None;
+
+                }
                 while target_bytes > base_vec.len() {
                     base_vec.insert(0,0);
                 }
 
-                while base_vec.len() > target_bytes {
-                    base_vec.remove(0);
-                }
-
-                $uname::from_bytes(&base_vec)
+                Some($uname::from_bytes(&base_vec))
             }
 
             fn to_num(&self) -> BigUint {
@@ -32,6 +32,8 @@ macro_rules! from_biguint {
     };
 }
 
+from_biguint!(U192,   192);
+from_biguint!(U256,   256);
 from_biguint!(U512,   512);
 from_biguint!(U1024,  1024);
 from_biguint!(U2048,  2048);

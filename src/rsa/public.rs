@@ -95,44 +95,44 @@ impl FromASN1 for RSAPublic {
                 }
                 match rsa_size {
                     512    => {
-                        let n2 = U512::from_num(n);
-                        let e2 = U512::from_num(e);
+                        let n2 = U512::from_num(n).ok_or(RSAError::InvalidKey)?;
+                        let e2 = U512::from_num(e).ok_or(RSAError::InvalidKey)?;
                         let res = RSA512Public::new(n2, e2);
                         Ok((RSAPublic::Key512(res), rest))
                     }
                     1024    => {
-                        let n2 = U1024::from_num(n);
-                        let e2 = U1024::from_num(e);
+                        let n2 = U1024::from_num(n).ok_or(RSAError::InvalidKey)?;
+                        let e2 = U1024::from_num(e).ok_or(RSAError::InvalidKey)?;
                         let res = RSA1024Public::new(n2, e2);
                         Ok((RSAPublic::Key1024(res), rest))
                     }
                     2048    => {
-                        let n2 = U2048::from_num(n);
-                        let e2 = U2048::from_num(e);
+                        let n2 = U2048::from_num(n).ok_or(RSAError::InvalidKey)?;
+                        let e2 = U2048::from_num(e).ok_or(RSAError::InvalidKey)?;
                         let res = RSA2048Public::new(n2, e2);
                         Ok((RSAPublic::Key2048(res), rest))
                     }
                     3072    => {
-                        let n2 = U3072::from_num(n);
-                        let e2 = U3072::from_num(e);
+                        let n2 = U3072::from_num(n).ok_or(RSAError::InvalidKey)?;
+                        let e2 = U3072::from_num(e).ok_or(RSAError::InvalidKey)?;
                         let res = RSA3072Public::new(n2, e2);
                         Ok((RSAPublic::Key3072(res), rest))
                     }
                     4096    => {
-                        let n2 = U4096::from_num(n);
-                        let e2 = U4096::from_num(e);
+                        let n2 = U4096::from_num(n).ok_or(RSAError::InvalidKey)?;
+                        let e2 = U4096::from_num(e).ok_or(RSAError::InvalidKey)?;
                         let res = RSA4096Public::new(n2, e2);
                         Ok((RSAPublic::Key4096(res), rest))
                     }
                     8192    => {
-                        let n2 = U8192::from_num(n);
-                        let e2 = U8192::from_num(e);
+                        let n2 = U8192::from_num(n).ok_or(RSAError::InvalidKey)?;
+                        let e2 = U8192::from_num(e).ok_or(RSAError::InvalidKey)?;
                         let res = RSA8192Public::new(n2, e2);
                         Ok((RSAPublic::Key8192(res), rest))
                     }
                     15360    => {
-                        let n2 = U15360::from_num(n);
-                        let e2 = U15360::from_num(e);
+                        let n2 = U15360::from_num(n).ok_or(RSAError::InvalidKey)?;
+                        let e2 = U15360::from_num(e).ok_or(RSAError::InvalidKey)?;
                         let res = RSA15360Public::new(n2, e2);
                         Ok((RSAPublic::Key15360(res), rest))
                     }
