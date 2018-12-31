@@ -3,6 +3,11 @@ use std::fs::File;
 use std::io::Read;
 use std::str::Lines;
 
+pub fn build_test_path(dir: &str, typename: &str) -> String
+{
+    format!("testdata/{}/{}.test", dir, typename)
+}
+
 fn next_value_set(line: &str) -> (String, bool, Vec<u8>)
 {
     assert!(line.is_ascii());
@@ -10,7 +15,7 @@ fn next_value_set(line: &str) -> (String, bool, Vec<u8>)
     let key = items.next().unwrap();
     let valbits = items.next().unwrap();
     let neg = valbits.contains('-');
-    let valbitsnoneg = valbits.trim_left_matches("-");
+    let valbitsnoneg = valbits.trim_start_matches("-");
 
     let mut nibble_iter = valbitsnoneg.chars().rev();
     let mut val = Vec::new();

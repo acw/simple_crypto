@@ -30,6 +30,9 @@ pub mod rsa;
 /// new system, but might need to use them to interact with legacy systems or
 /// protocols.
 pub mod dsa;
+/// The `ecdsa` module provides bare-bones support for ECDSA signing,
+/// verification, and key generation.
+pub mod ecdsa;
 
 #[cfg(test)]
 mod testing;
