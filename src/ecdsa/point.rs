@@ -30,7 +30,7 @@ impl Clone for Point<P192> {
 
 impl ECCPoint for Point<P192> {
     type Curve = P192;
-    type Scale = U192;
+    type Scale = I192;
 
     fn default() -> Point<P192>
     {
@@ -93,7 +93,7 @@ impl ECCPoint for Point<P192> {
         Point{ x: I192::from(xr), y: I192::from(yr) }
     }
 
-    fn scale(&self, d: &U192) -> Point<P192>
+    fn scale(&self, d: &I192) -> Point<P192>
     {
         assert!(!d.is_zero());
         #[allow(non_snake_case)]
@@ -118,7 +118,11 @@ impl ECCPoint for Point<P192> {
             bit -= 1;
         }
 
-        Q
+        if d.is_negative() {
+            Q.negate()
+        } else {
+            Q
+        }
     }
 }
 
@@ -204,7 +208,7 @@ mod tests {
 
             let x = I192::new(*negx, U192::from_bytes(xbytes));
             let y = I192::new(*negy, U192::from_bytes(ybytes));
-            let k = U192::from_bytes(kbytes);
+            let k = I192::new(*negk, U192::from_bytes(kbytes));
             let a = I192::new(*nega, U192::from_bytes(abytes));
             let b = I192::new(*negb, U192::from_bytes(bbytes));
             let point = Point{ x: x, y: y };

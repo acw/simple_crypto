@@ -5,7 +5,8 @@ module ECDSATesting(
 
 import Crypto.PubKey.ECC.Prim(scalarGenerate,pointAdd,pointNegate,pointDouble,pointBaseMul,pointMul)
 import Crypto.PubKey.ECC.Types(Curve,CurveName(..),Point(..),getCurveByName)
-import Crypto.Random(withDRG)
+import Crypto.Random(DRG(..),withDRG)
+import qualified Data.ByteString as S
 import qualified Data.Map.Strict as Map
 import Math(showX)
 import Task(Task(..))
@@ -87,16 +88,19 @@ scaleTest name curve = Task {
   go (memory0, drg0) =
     let (scalar0, drg1) = withDRG drg0 (scalarGenerate curve)
         (scalar1, drg2) = withDRG drg1 (scalarGenerate curve)
-        point = pointBaseMul curve scalar0
-        respnt = pointMul curve scalar1 point
+        (negbs,   drg3) = randomBytesGenerate 1 drg2
+        [negbyte]       = S.unpack negbs
+        k               = if odd negbyte then scalar1 else -scalar1 
+        point           = pointBaseMul curve scalar0
+        respnt          = pointMul curve k point
     in case (point, respnt) of
-         (PointO, _) -> go (memory0, drg2)
-         (_, PointO) -> go (memory0, drg2)
+         (PointO, _) -> go (memory0, drg3)
+         (_, PointO) -> go (memory0, drg3)
          (Point basex basey, Point resx resy) ->
             let res = Map.fromList [("x", showX basex), ("y", showX basey),
-                                    ("k", showX scalar1),
+                                    ("k", showX k),
                                     ("a", showX resx),  ("b", showX resy)]
-            in (res, scalar0, (memory0, drg2))
+            in (res, scalar0, (memory0, drg3))
 
 generateTasks :: (String, Curve) -> [Task]
 generateTasks (name, curve) = [negateTest name curve,
