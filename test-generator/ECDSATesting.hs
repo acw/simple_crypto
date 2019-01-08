@@ -12,7 +12,11 @@ import Math(showX)
 import Task(Task(..))
 
 curves :: [(String, Curve)]
-curves = [("P192", getCurveByName SEC_p192r1)]
+curves = [("P192", getCurveByName SEC_p192r1),
+          ("P224", getCurveByName SEC_p224r1),
+          ("P256", getCurveByName SEC_p256r1),
+          ("P384", getCurveByName SEC_p384r1),
+          ("P521", getCurveByName SEC_p521r1)]
 
 negateTest :: String -> Curve -> Task
 negateTest name curve = Task {
