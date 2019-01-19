@@ -2,7 +2,7 @@ mod errors;
 mod params;
 mod private;
 mod public;
-mod rfc6979;
+pub mod rfc6979;
 #[cfg(test)]
 mod tests;
 

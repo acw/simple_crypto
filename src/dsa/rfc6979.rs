@@ -6,6 +6,7 @@ use num::BigInt;
 use simple_asn1::{ASN1Block,ASN1Class,ASN1DecodeErr,ASN1EncodeErr};
 use simple_asn1::{FromASN1,ToASN1};
 use utils::TranslateNums;
+use std::ops::{Shr,Sub};
 
 #[derive(Debug,PartialEq)]
 pub struct DSASignature<N>
@@ -26,9 +27,8 @@ impl<N> DSASignature<N>
 pub struct KIterator<H,N>
  where
   H: BlockInput + Clone + Default + Digest + FixedOutput + Input + Reset,
-  N: Clone + Encoder + From<U512> + PartialOrd,
-  Hmac<H>: Mac,
-  U512: From<N>
+  N: Clone + Decoder + Encoder + From<U512> + PartialOrd + Shr<usize,Output=N>,
+  Hmac<H>: Mac
 {
     hmac_k: Hmac<H>,
     V: Vec<u8>,
@@ -39,9 +39,8 @@ pub struct KIterator<H,N>
 impl<H,N> KIterator<H,N>
  where
   H: BlockInput + Clone + Default + Digest + FixedOutput + Input + Reset,
-  N: Clone + Encoder + From<U512> + PartialOrd,
-  Hmac<H>: Mac,
-  U512: From<N>
+  N: Clone + Decoder + Encoder + From<U512> + PartialOrd + Shr<usize,Output=N> + Sub<Output=N>,
+  Hmac<H>: Mac
 {
     pub fn new(h1: &[u8], qlen: usize, q: &N, x: &N) -> KIterator<H,N>
     {
@@ -129,9 +128,8 @@ impl<H,N> KIterator<H,N>
 impl<H,N> Iterator for KIterator<H,N>
  where
   H: BlockInput + Clone + Default + Digest + FixedOutput + Input + Reset,
-  N: Clone + CryptoNum + Encoder + From<U512> + PartialOrd,
-  Hmac<H>: Mac,
-  U512: From<N>
+  N: Clone + CryptoNum + Decoder + Encoder + From<U512> + PartialOrd + Shr<usize,Output=N>,
+  Hmac<H>: Mac
 {
     type Item = N;
 
@@ -184,26 +182,28 @@ impl<H,N> Iterator for KIterator<H,N>
     }
 }
 
-pub fn bits2int<X: From<U512>>(x: &[u8], qlen: usize) -> X
+pub fn bits2int<X>(x: &[u8], qlen: usize) -> X
+ where
+  X: Decoder + Shr<usize,Output=X>
 {
-    let mut value = U512::from_bytes(x);
-    let vlen = x.len() * 8;
 
-    if vlen > qlen {
-        value >>= vlen - qlen;
+    if qlen < (x.len() * 8) {
+        let mut fixed_x = Vec::from(x);
+        let qlen_bytes = (qlen + 7) / 8;
+        let rounded_qlen = qlen_bytes * 8;
+        fixed_x.resize(qlen_bytes, 0);
+        X::from_bytes(&fixed_x) >> (rounded_qlen - qlen)
+    } else {
+        X::from_bytes(x)
     }
-
-    X::from(value)
 }
 
 fn bits2octets<X>(x: &[u8], q: &X, qlen: usize) -> Vec<u8>
  where
-  X: Clone + From<U512>,
-  U512: From<X>
+  X: Clone + Decoder + Encoder + PartialOrd + Sub<Output=X> + Shr<usize,Output=X>
 {
-    let z1: U512 = bits2int(x, qlen);
-    let qbig = U512::from(q.clone());
-    let res = if z1 > qbig { z1 - qbig } else { z1 };
+    let z1: X = bits2int(x, qlen);
+    let res = if &z1 > q { z1 - q.clone() } else { z1 };
     int2octets(&res, qlen)
 }
 
@@ -311,8 +311,9 @@ impl<N> ToASN1 for DSASignature<N>
 #[cfg(test)]
 mod tests {
     use cryptonum::unsigned::U192;
-    use sha2::Sha256;
+    use sha2::{Sha224,Sha256,Sha384,Sha512};
     use super::*;
+    use testing::*;
 
     const QBYTES: [u8; 21] = [0x04, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
                               0x00, 0x00, 0x02, 0x01, 0x08, 0xA2, 0xE0, 0xCC,
@@ -362,4 +363,81 @@ mod tests {
             }
         }
     }
+
+    use cryptonum::unsigned::*;
+
+    macro_rules! k_generator_tests {
+        ($testname: ident, $hash: ident, $fname: expr) => {
+            #[test]
+            fn $testname() {
+                let fname = build_test_path("rfc6979", $fname);
+                run_test(fname.to_string(), 7, |case| {
+                    let (negq, qbytes) = case.get("q").unwrap();
+                    let (negl, lbytes) = case.get("l").unwrap();
+                    let (negx, xbytes) = case.get("x").unwrap();
+                    let (negh, h1)     = case.get("h").unwrap();
+                    let (negk, kbytes) = case.get("k").unwrap();
+                    let (negy, ybytes) = case.get("y").unwrap();
+                    let (negz, zbytes) = case.get("z").unwrap();
+
+                    assert!(!negq && !negl && !negx && !negh &&
+                            !negk && !negy && !negz);
+                    let qlen = usize::from(U192::from_bytes(lbytes));
+                    assert!(qlen >= 160); assert!(qlen <= 521);
+
+                    if qlen < 192 {
+                        let q = U192::from_bytes(qbytes);
+                        let x = U192::from_bytes(xbytes);
+                        let k = U192::from_bytes(kbytes);
+                        let y = U192::from_bytes(ybytes);
+                        let z = U192::from_bytes(zbytes);
+
+                        let mut kiter = KIterator::<$hash,U192>::new(h1,qlen,&q,&x);
+                        assert_eq!(Some(k), kiter.next(), "first value test");
+                        assert_eq!(Some(y), kiter.next(), "second value test");
+                        assert_eq!(Some(z), kiter.next(), "third value test");
+                    } else if qlen < 256 {
+                        let q = U256::from_bytes(qbytes);
+                        let x = U256::from_bytes(xbytes);
+                        let k = U256::from_bytes(kbytes);
+                        let y = U256::from_bytes(ybytes);
+                        let z = U256::from_bytes(zbytes);
+
+                        let mut kiter = KIterator::<$hash,U256>::new(h1,qlen,&q,&x);
+                        assert_eq!(Some(k), kiter.next(), "first value test");
+                        assert_eq!(Some(y), kiter.next(), "second value test");
+                        assert_eq!(Some(z), kiter.next(), "third value test");
+                    } else if qlen < 512 {
+                        let q = U512::from_bytes(qbytes);
+                        let x = U512::from_bytes(xbytes);
+                        let k = U512::from_bytes(kbytes);
+                        let y = U512::from_bytes(ybytes);
+                        let z = U512::from_bytes(zbytes);
+
+                        let mut kiter = KIterator::<$hash,U512>::new(h1,qlen,&q,&x);
+                        assert_eq!(Some(k), kiter.next(), "first value test");
+                        assert_eq!(Some(y), kiter.next(), "second value test");
+                        assert_eq!(Some(z), kiter.next(), "third value test");
+                    } else {
+                        let q = U576::from_bytes(qbytes);
+                        let x = U576::from_bytes(xbytes);
+                        let k = U576::from_bytes(kbytes);
+                        let y = U576::from_bytes(ybytes);
+                        let z = U576::from_bytes(zbytes);
+
+                        let mut kiter = KIterator::<$hash,U576>::new(h1,qlen,&q,&x);
+                        assert_eq!(Some(k), kiter.next(), "first value test");
+                        assert_eq!(Some(y), kiter.next(), "second value test");
+                        assert_eq!(Some(z), kiter.next(), "third value test");
+                    }
+                });
+            } 
+        };
+    }
+
+    k_generator_tests!(kgen_sha224, Sha224, "SHA224");
+    k_generator_tests!(kgen_sha256, Sha256, "SHA256");
+    k_generator_tests!(kgen_sha384, Sha384, "SHA384");
+    k_generator_tests!(kgen_sha512, Sha512, "SHA512");
+
 }
