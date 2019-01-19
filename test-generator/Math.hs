@@ -5,11 +5,12 @@ module Math(
        , modulate, modulate'
        , isqrt
        , divmod
-       , showX, showB
+       , showX, showB, showBin
        )
  where
 
-import Data.Bits(shiftL,shiftR)
+import Data.Bits(shiftL,shiftR,(.&.))
+import qualified Data.ByteString as S
 import GHC.Integer.GMP.Internals(recipModInteger)
 import Numeric(showHex)
 
@@ -105,6 +106,13 @@ showX x | x < 0     = "-" ++ showX (abs x)
 showB :: Bool -> String
 showB False = "0"
 showB True  = "1"
+
+showBin :: S.ByteString -> String
+showBin bstr =
+    case S.uncons bstr of
+      Nothing -> ""
+      Just (x,rest) ->
+        showX (x `shiftR` 4) ++ showX (x .&. 0xF) ++ showBin rest
 
 isqrt :: Int -> Integer -> Integer
 isqrt bits val = final
