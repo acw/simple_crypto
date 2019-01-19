@@ -3,13 +3,18 @@ module ECDSATesting(
        )
  where
 
+import Crypto.Hash(SHA224(..),SHA256(..),SHA384(..),SHA512(..))
+import Crypto.Number.Generate(generateBetween)
+import Crypto.PubKey.ECC.ECDSA(PrivateKey(..),PublicKey(..),Signature(..),signWith)
+import Crypto.PubKey.ECC.Generate(generate)
 import Crypto.PubKey.ECC.Prim(scalarGenerate,pointAdd,pointNegate,pointDouble,pointBaseMul,pointMul)
 import Crypto.PubKey.ECC.Types(Curve,CurveName(..),Point(..),getCurveByName)
-import Crypto.Random(DRG(..),withDRG)
+import Crypto.Random(DRG(..),getRandomBytes,withDRG)
 import qualified Data.ByteString as S
 import qualified Data.Map.Strict as Map
-import Math(showX)
+import Math(showX,showBin)
 import Task(Task(..))
+import Utils(HashAlg(..),generateHash,showHash)
 
 curves :: [(String, Curve)]
 curves = [("P192", getCurveByName SEC_p192r1),
@@ -106,11 +111,44 @@ scaleTest name curve = Task {
                                     ("a", showX resx),  ("b", showX resy)]
             in (res, scalar0, (memory0, drg3))
 
+signTest :: String -> Curve -> Task
+signTest name curve = Task {
+    taskName = name ++ " curve signing",
+    taskFile = "../testdata/ecc/sign/" ++ name ++ ".test",
+    taskTest = go,
+    taskCount = 1000
+}
+ where
+  go (memory0, drg0) =
+    let ((pub, priv), drg1) = withDRG drg0 (generate curve)
+        (msg, drg2)         = withDRG drg1 $ do x <- generateBetween 0 256
+                                                getRandomBytes (fromIntegral x)
+        (hash, drg3)        = withDRG drg2 generateHash
+        k                   = 5
+    in case signWith' k priv hash msg of
+         Nothing -> go (memory0, drg3)
+         Just sig ->
+            let PublicKey _ (Point x y) = pub
+                PrivateKey _ d = priv
+                res = Map.fromList [("d", showX d),
+                                    ("x", showX x), ("y", showX y),
+                                    ("m", showBin msg), ("h", showHash hash),
+                                    ("r", showX (sign_r sig)),
+                                    ("s", showX (sign_s sig))]
+            in (res, d, (memory0, drg3))
+
+signWith' :: Integer -> PrivateKey -> HashAlg -> S.ByteString -> Maybe Signature
+signWith' k priv Sha224 msg = signWith k priv SHA224 msg
+signWith' k priv Sha256 msg = signWith k priv SHA256 msg
+signWith' k priv Sha384 msg = signWith k priv SHA384 msg
+signWith' k priv Sha512 msg = signWith k priv SHA512 msg
+
 generateTasks :: (String, Curve) -> [Task]
 generateTasks (name, curve) = [negateTest name curve,
                                doubleTest name curve,
                                addTest name curve,
-                               scaleTest name curve] 
+                               scaleTest name curve,
+                               signTest name curve] 
 
 ecdsaTasks :: [Task]
 ecdsaTasks = concatMap generateTasks curves
