@@ -7,6 +7,7 @@ pub trait EllipticCurve {
     type Unsigned : Clone;
     type Signed : Clone;
 
+    fn size() -> usize;
     fn p() -> Self::Unsigned;
     fn n() -> Self::Unsigned;
     fn SEED() -> Self::Unsigned;
@@ -22,6 +23,10 @@ pub enum P192 {}
 impl EllipticCurve for P192 {
     type Unsigned = U192;
     type Signed = I192;
+
+    fn size() -> usize {
+        192
+    }
 
     fn p() -> U192 {
         U192::from_bytes(&[0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
@@ -81,6 +86,10 @@ pub enum P224 {}
 impl EllipticCurve for P224 {
     type Unsigned = U256;
     type Signed = I256;
+
+    fn size() -> usize {
+        224
+    }
 
     fn p() -> U256 {
         U256::from_bytes(&[
@@ -160,6 +169,10 @@ impl EllipticCurve for P256 {
     type Signed = I256;
     type Unsigned = U256;
 
+    fn size() -> usize {
+        256
+    }
+
     fn p() -> U256 {
         U256::from_bytes(&[
                 0xff, 0xff, 0xff, 0xff, 0x00, 0x00, 0x00, 0x01,
@@ -238,6 +251,10 @@ pub enum P384 {}
 impl EllipticCurve for P384 {
     type Signed = I384;
     type Unsigned = U384;
+
+    fn size() -> usize {
+        384
+    }
 
     fn p() -> U384 {
         U384::from_bytes(&[
@@ -330,6 +347,10 @@ pub enum P521 {}
 impl EllipticCurve for P521 {
     type Signed = I576;
     type Unsigned = U576;
+
+    fn size() -> usize {
+        521
+    }
 
     fn p() -> U576 {
         U576::from_bytes(&[
