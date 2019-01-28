@@ -8,13 +8,14 @@ import Crypto.Number.Generate(generateBetween)
 import Crypto.PubKey.ECC.ECDSA(PrivateKey(..),PublicKey(..),Signature(..),signWith)
 import Crypto.PubKey.ECC.Generate(generate)
 import Crypto.PubKey.ECC.Prim(scalarGenerate,pointAdd,pointNegate,pointDouble,pointBaseMul,pointMul)
-import Crypto.PubKey.ECC.Types(Curve,CurveName(..),Point(..),getCurveByName)
+import Crypto.PubKey.ECC.Types(Curve,CurveName(..),Point(..),common_curve,curveSizeBits,ecc_n,getCurveByName)
 import Crypto.Random(DRG(..),getRandomBytes,withDRG)
 import qualified Data.ByteString as S
 import qualified Data.Map.Strict as Map
 import Math(showX,showBin)
+import RFC6979(generateKStream)
 import Task(Task(..))
-import Utils(HashAlg(..),generateHash,showHash)
+import Utils(HashAlg(..),generateHash,runHash,showHash)
 
 curves :: [(String, Curve)]
 curves = [("P192", getCurveByName SEC_p192r1),
@@ -124,18 +125,27 @@ signTest name curve = Task {
         (msg, drg2)         = withDRG drg1 $ do x <- generateBetween 0 256
                                                 getRandomBytes (fromIntegral x)
         (hash, drg3)        = withDRG drg2 generateHash
-        k                   = 5
-    in case signWith' k priv hash msg of
-         Nothing -> go (memory0, drg3)
-         Just sig ->
-            let PublicKey _ (Point x y) = pub
-                PrivateKey _ d = priv
-                res = Map.fromList [("d", showX d),
-                                    ("x", showX x), ("y", showX y),
-                                    ("m", showBin msg), ("h", showHash hash),
-                                    ("r", showX (sign_r sig)),
-                                    ("s", showX (sign_s sig))]
-            in (res, d, (memory0, drg3))
+        n                   = ecc_n (common_curve curve)
+        PrivateKey _ d      = priv
+        kStream             = generateKStream hash msg d n (curveSizeBits curve)
+        findGoodK stream    =
+          case stream of
+            [] ->
+              go (memory0, drg3)
+            (k : restks) ->
+              case signWith' k priv hash msg of
+                Nothing ->
+                  findGoodK restks
+                Just sig ->
+                  let PublicKey _ (Point x y) = pub
+                      res = Map.fromList [("d", showX d), ("k", showX k),
+                                          ("x", showX x), ("y", showX y),
+                                          ("m", showBin msg), ("h", showHash hash),
+                                          ("n", showBin (runHash hash msg)),
+                                          ("r", showX (sign_r sig)),
+                                          ("s", showX (sign_s sig))]
+                  in (res, d, (memory0, drg3))
+    in findGoodK kStream
 
 signWith' :: Integer -> PrivateKey -> HashAlg -> S.ByteString -> Maybe Signature
 signWith' k priv Sha224 msg = signWith k priv SHA224 msg
