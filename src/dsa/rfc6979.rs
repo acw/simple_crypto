@@ -1,4 +1,4 @@
-use cryptonum::unsigned::{CryptoNum,Decoder,Encoder,U512};
+use cryptonum::unsigned::{CryptoNum,Decoder,Encoder};
 use digest::{BlockInput,Digest,FixedOutput,Input,Reset};
 use digest::generic_array::ArrayLength;
 use hmac::{Hmac,Mac};
@@ -27,7 +27,7 @@ impl<N> DSASignature<N>
 pub struct KIterator<H,N>
  where
   H: BlockInput + Clone + Default + Digest + FixedOutput + Input + Reset,
-  N: Clone + Decoder + Encoder + From<U512> + PartialOrd + Shr<usize,Output=N>,
+  N: Clone + Decoder + Encoder + PartialOrd + Shr<usize,Output=N>,
   Hmac<H>: Mac
 {
     hmac_k: Hmac<H>,
@@ -39,7 +39,7 @@ pub struct KIterator<H,N>
 impl<H,N> KIterator<H,N>
  where
   H: BlockInput + Clone + Default + Digest + FixedOutput + Input + Reset,
-  N: Clone + Decoder + Encoder + From<U512> + PartialOrd + Shr<usize,Output=N> + Sub<Output=N>,
+  N: Clone + Decoder + Encoder + PartialOrd + Shr<usize,Output=N> + Sub<Output=N>,
   Hmac<H>: Mac
 {
     pub fn new(h1: &[u8], qlen: usize, q: &N, x: &N) -> KIterator<H,N>
@@ -128,7 +128,7 @@ impl<H,N> KIterator<H,N>
 impl<H,N> Iterator for KIterator<H,N>
  where
   H: BlockInput + Clone + Default + Digest + FixedOutput + Input + Reset,
-  N: Clone + CryptoNum + Decoder + Encoder + From<U512> + PartialOrd + Shr<usize,Output=N>,
+  N: Clone + CryptoNum + Decoder + Encoder + PartialOrd + Shr<usize,Output=N>,
   Hmac<H>: Mac
 {
     type Item = N;
