@@ -265,9 +265,9 @@ macro_rules! generate_tests {
 
 generate_tests!( (RSA512,   RSA512Private,   U512,   BarrettU512,   U576,   512),
                  (RSA1024,  RSA1024Private,  U1024,  BarrettU1024,  U1088,  1024),
-                 (RSA2048,  RSA2048Private,  U2048,  BarrettU2048,  U2112,  2048),
-                 (RSA3072,  RSA3072Private,  U3072,  BarrettU3072,  U3136,  3072),
-                 (RSA4096,  RSA4096Private,  U4096,  BarrettU4096,  U4160,  4096),
-                 (RSA8192,  RSA8192Private,  U8192,  BarrettU8192,  U8256,  8192),
-                 (RSA15360, RSA15360Private, U15360, BarrettU15360, U15424, 15360)
+                 (RSA2048,  RSA2048Private,  U2048,  BarrettU2048,  U2112,  2048)
+//                 (RSA3072,  RSA3072Private,  U3072,  BarrettU3072,  U3136,  3072),
+//                 (RSA4096,  RSA4096Private,  U4096,  BarrettU4096,  U4160,  4096),
+//                 (RSA8192,  RSA8192Private,  U8192,  BarrettU8192,  U8256,  8192),
+//                 (RSA15360, RSA15360Private, U15360, BarrettU15360, U15424, 15360)
                );
