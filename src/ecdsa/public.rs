@@ -66,3 +66,43 @@ impl ECCPublicKey for ECCPublic<P192>
         }
     }
 }
+
+#[cfg(test)]
+use sha2::{Sha224,Sha256,Sha384,Sha512};
+#[cfg(test)]
+use testing::*;
+
+#[test]
+fn p192() {
+    let fname = build_test_path("ecc/sign",stringify!(P192));
+    run_test(fname.to_string(), 9, |case| {
+        let (negd, dbytes) = case.get("d").unwrap();
+        let (negk, _bytes) = case.get("k").unwrap();
+        let (negx, xbytes) = case.get("x").unwrap();
+        let (negy, ybytes) = case.get("y").unwrap();
+        let (negm, mbytes) = case.get("m").unwrap();
+        let (negh, hbytes) = case.get("h").unwrap();
+        let (negr, rbytes) = case.get("r").unwrap();
+        let (negs, sbytes) = case.get("s").unwrap();
+
+        assert!(!negd && !negk && !negx && !negy &&
+                !negm && !negh && !negr && !negs);
+        let _ = U192::from_bytes(dbytes);
+        let x = U192::from_bytes(xbytes);
+        let y = U192::from_bytes(ybytes);
+        let h = U192::from_bytes(hbytes);
+        let r = U192::from_bytes(rbytes);
+        let s = U192::from_bytes(sbytes);
+
+        let point = Point::<P192>{ x: I192::from(x), y: I192::from(y) };
+        let public = ECCPublic::<P192>::new(point);
+        let sig = DSASignature::new(r, s);
+        match usize::from(h) {
+            224 => assert!(public.verify::<Sha224>(mbytes, sig)),
+            256 => assert!(public.verify::<Sha256>(mbytes, sig)),
+            384 => assert!(public.verify::<Sha384>(mbytes, sig)),
+            512 => assert!(public.verify::<Sha512>(mbytes, sig)),
+            x   => panic!("Unknown hash algorithm {}", x)
+        };
+    });
+}

@@ -2,16 +2,22 @@ use cryptonum::signed::*;
 use cryptonum::unsigned::*;
 use ecdsa::curve::*;
 
-pub trait ECCPoint {
+pub trait ECCPoint : Sized {
     type Curve: EllipticCurve;
     type Scale;
 
     fn default() -> Self;
-    fn double_scalar_mult(x1: &Self::Scale, p1: &Self, x2: &Self::Scale, p2: &Self) -> Self;
     fn negate(&self) -> Self;
     fn double(&self) -> Self;
     fn add(&self, other: &Self) -> Self;
     fn scale(&self, amt: &Self::Scale) -> Self;
+    fn double_scalar_mult(x1: &Self::Scale, p1: &Self, x2: &Self::Scale, p2: &Self) -> Self
+    {
+        // FIXME: Replace this with something not stupid.
+        let big1 = p1.scale(x1);
+        let big2 = p2.scale(x2);
+        big1.add(&big2)
+    }
 }
 
 pub struct Point<T: EllipticCurve>
@@ -47,42 +53,6 @@ macro_rules! point_impl
                 }
             }
 
-            fn double_scalar_mult(x1: &$base, p1: &Self, x2: &$base, p2: &Self) -> Self
-            {
-                if x1.is_negative() {
-                    return Point::<$curve>::double_scalar_mult(&x1.abs(), &p1.negate(), x2, p2);
-                }
-
-                if x2.is_negative() {
-                    return Point::<$curve>::double_scalar_mult(x1, p2, &x2.abs(), &p2.negate());
-                }
-
-                let p0 = p1.add(p2);
-                let mut i = $curve::size() - 1;
-
-                // Find the point where we should start our loop
-                assert!(!x1.is_zero() || !x2.is_zero());
-                while x1.testbit(i) || x2.testbit(i) { i -= 1; }
-                // our base value is the addition of the input points
-                let mut acc = p1.add(&p2);
-                loop {
-                    let q = acc.double();
-
-                    match (x1.testbit(i), x2.testbit(i)) {
-                        (true,  true)  => acc = p0.add(&q),
-                        (true,  false) => acc = p1.add(&q),
-                        (false, true)  => acc = p2.add(&q),
-                        (false, false) => acc = q
-                    }
-
-                    if i == 0 {
-                        return acc;
-                    } else {
-                        i -= 1;
-                    }
-                } 
-            }
-        
             fn negate(&self) -> Point<$curve>
             {
                 let mut newy = $base::new(false, $curve::p());
