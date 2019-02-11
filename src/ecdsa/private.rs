@@ -23,80 +23,79 @@ pub trait ECCPrivateKey {
 macro_rules! generate_privates
 {
     ($curve: ident, $base: ident, $sig: ident, $dbl: ident, $quad: ident) => {
-
-impl ECCPrivateKey for ECCPrivate<$curve>
-{
-    type Unsigned = $base;
-
-    fn new(d: $base) -> ECCPrivate<$curve>
-    {
-        ECCPrivate{ d }
-    }
-
-    fn sign<Hash>(&self, m: &[u8]) -> DSASignature<$base>
-      where
-        Hash: BlockInput + Clone + Default + Digest + FixedOutput + Input + Reset,
-        Hmac<Hash>: Mac
-    {
-        // This algorithm is per RFC 6979, which has a nice, relatively
-        // straightforward description of how to do DSA signing.
-        //
-        // 1.  H(m) is transformed into an integer modulo q using the bits2int
-        //     transform and an extra modular reduction:
-        //
-        //        h = bits2int(H(m)) mod q
-        //
-        //     As was noted in the description of bits2octets, the extra
-        //     modular reduction is no more than a conditional subtraction.
-        //
-        let h1 = <Hash>::digest(m);
-        let size = <$curve>::size();
-        let h0: $base = bits2int(&h1, size);
-        let n = <$curve>::n();
-        let h = h0 % &n;
-
-        // 2.  A random value modulo q, dubbed k, is generated.  That value
-        //     shall not be 0; hence, it lies in the [1, q-1] range.  Most
-        //     of the remainder of this document will revolve around the
-        //     process used to generate k.  In plain DSA or ECDSA, k should
-        //     be selected through a random selection that chooses a value
-        //     among the q-1 possible values with uniform probability.
-        for k in KIterator::<Hash,$base>::new(&h1, size, &n, &self.d) {
-            // 3. A value r (modulo q) is computed from k and the key
-            //    parameters:
-            //     *  For DSA ...
-            //     *  For ECDSA ...
-            //
-            //    If r turns out to be zero, a new k should be selected and r
-            //    computed again (this is an utterly improbable occurrence).
-            let g = Point::<$curve>::default();
-            let ki = $sig::new(false, k.clone());
-            let kg = g.scale(&ki);
-            let ni = $sig::from(&n);
-            let ri = &kg.x % &ni;
-            if ri.is_zero() {
-                continue;
+        impl ECCPrivateKey for ECCPrivate<$curve>
+        {
+            type Unsigned = $base;
+        
+            fn new(d: $base) -> ECCPrivate<$curve>
+            {
+                ECCPrivate{ d }
             }
-            if ri.is_negative() {
-                continue;
-            }
-            let r = $base::from(ri);
-            // 4.  The value s (modulo q) is computed:
-            //
-            //           s = (h+x*r)/k mod q
-            //
-            //     The pair (r, s) is the signature.
-            if let Some(kinv) = k.modinv(&n) {
-                let mut hxr = &self.d * &r;
-                hxr += $dbl::from(&h);
-                let base = hxr * $dbl::from(kinv);
-                let s = $base::from(base % $quad::from(n));
-                return DSASignature{ r, s };
+        
+            fn sign<Hash>(&self, m: &[u8]) -> DSASignature<$base>
+              where
+                Hash: BlockInput + Clone + Default + Digest + FixedOutput + Input + Reset,
+                Hmac<Hash>: Mac
+            {
+                // This algorithm is per RFC 6979, which has a nice, relatively
+                // straightforward description of how to do DSA signing.
+                //
+                // 1.  H(m) is transformed into an integer modulo q using the bits2int
+                //     transform and an extra modular reduction:
+                //
+                //        h = bits2int(H(m)) mod q
+                //
+                //     As was noted in the description of bits2octets, the extra
+                //     modular reduction is no more than a conditional subtraction.
+                //
+                let h1 = <Hash>::digest(m);
+                let size = <$curve>::size();
+                let h0: $base = bits2int(&h1, size);
+                let n = <$curve>::n();
+                let h = h0 % &n;
+        
+                // 2.  A random value modulo q, dubbed k, is generated.  That value
+                //     shall not be 0; hence, it lies in the [1, q-1] range.  Most
+                //     of the remainder of this document will revolve around the
+                //     process used to generate k.  In plain DSA or ECDSA, k should
+                //     be selected through a random selection that chooses a value
+                //     among the q-1 possible values with uniform probability.
+                for k in KIterator::<Hash,$base>::new(&h1, size, &n, &self.d) {
+                    // 3. A value r (modulo q) is computed from k and the key
+                    //    parameters:
+                    //     *  For DSA ...
+                    //     *  For ECDSA ...
+                    //
+                    //    If r turns out to be zero, a new k should be selected and r
+                    //    computed again (this is an utterly improbable occurrence).
+                    let g = Point::<$curve>::default();
+                    let ki = $sig::new(false, k.clone());
+                    let kg = g.scale(&ki);
+                    let ni = $sig::from(&n);
+                    let ri = &kg.x % &ni;
+                    if ri.is_zero() {
+                        continue;
+                    }
+                    if ri.is_negative() {
+                        continue;
+                    }
+                    let r = $base::from(ri);
+                    // 4.  The value s (modulo q) is computed:
+                    //
+                    //           s = (h+x*r)/k mod q
+                    //
+                    //     The pair (r, s) is the signature.
+                    if let Some(kinv) = k.modinv(&n) {
+                        let mut hxr = &self.d * &r;
+                        hxr += $dbl::from(&h);
+                        let base = hxr * $dbl::from(kinv);
+                        let s = $base::from(base % $quad::from(n));
+                        return DSASignature{ r, s };
+                    }
+                }
+                panic!("The world is broken; couldn't find a k in sign().");
             }
         }
-        panic!("The world is broken; couldn't find a k in sign().");
-    }
-}
     }
 }
 
