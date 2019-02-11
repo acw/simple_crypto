@@ -7,6 +7,7 @@ pub trait ECCPoint {
     type Scale;
 
     fn default() -> Self;
+    fn double_scalar_mult(x1: &Self::Scale, p1: &Self, x2: &Self::Scale, p2: &Self) -> Self;
     fn negate(&self) -> Self;
     fn double(&self) -> Self;
     fn add(&self, other: &Self) -> Self;
@@ -44,6 +45,42 @@ macro_rules! point_impl
                     x: $curve::Gx(),
                     y: $curve::Gy()
                 }
+            }
+
+            fn double_scalar_mult(x1: &$base, p1: &Self, x2: &$base, p2: &Self) -> Self
+            {
+                if x1.is_negative() {
+                    return Point::<$curve>::double_scalar_mult(&x1.abs(), &p1.negate(), x2, p2);
+                }
+
+                if x2.is_negative() {
+                    return Point::<$curve>::double_scalar_mult(x1, p2, &x2.abs(), &p2.negate());
+                }
+
+                let p0 = p1.add(p2);
+                let mut i = $curve::size() - 1;
+
+                // Find the point where we should start our loop
+                assert!(!x1.is_zero() || !x2.is_zero());
+                while x1.testbit(i) || x2.testbit(i) { i -= 1; }
+                // our base value is the addition of the input points
+                let mut acc = p1.add(&p2);
+                loop {
+                    let q = acc.double();
+
+                    match (x1.testbit(i), x2.testbit(i)) {
+                        (true,  true)  => acc = p0.add(&q),
+                        (true,  false) => acc = p1.add(&q),
+                        (false, true)  => acc = p2.add(&q),
+                        (false, false) => acc = q
+                    }
+
+                    if i == 0 {
+                        return acc;
+                    } else {
+                        i -= 1;
+                    }
+                } 
             }
         
             fn negate(&self) -> Point<$curve>
@@ -234,6 +271,47 @@ macro_rules! point_tests
                     assert_eq!(b, res.y, "y equivalence");
                 });
             }
+
+             #[test]
+            fn add_scale2() {
+                let fname = build_test_path("ecc/add_scale2",stringify!($curve));
+                run_test(fname.to_string(), 8, |case| {
+                    println!("-----------------------------------------------");
+                    let (negx, xbytes) = case.get("x").unwrap();
+                    let (negy, ybytes) = case.get("y").unwrap();
+                    let (negp, pbytes) = case.get("p").unwrap();
+                    let (negq, qbytes) = case.get("q").unwrap();
+                    let (negn, nbytes) = case.get("n").unwrap();
+                    let (negm, mbytes) = case.get("m").unwrap();
+                    let (negr, rbytes) = case.get("r").unwrap();
+                    let (negs, sbytes) = case.get("s").unwrap();
+
+                    let x = $stype::new(*negx, $utype::from_bytes(xbytes));
+                    let y = $stype::new(*negy, $utype::from_bytes(ybytes));
+                    println!("x1: {:X}", x);
+                    println!("y1: {:X}", y);
+                    let p = $stype::new(*negp, $utype::from_bytes(pbytes));
+                    let q = $stype::new(*negq, $utype::from_bytes(qbytes));
+                    println!("x2: {:X}", p);
+                    println!("y2: {:X}", q);
+                    let n = $stype::new(*negn, $utype::from_bytes(nbytes));
+                    println!("n:  {:X}", n);
+                    let m = $stype::new(*negm, $utype::from_bytes(mbytes));
+                    println!("m:  {:X}", m);
+                    let r = $stype::new(*negr, $utype::from_bytes(rbytes));
+                    let s = $stype::new(*negs, $utype::from_bytes(sbytes));
+                    println!("rx: {:X}", r);
+                    println!("ry: {:X}", s);
+                    let p1  = Point::<$curve>{ x: x, y: y };
+                    let p2  = Point::<$curve>{ x: p, y: q };
+                    let res = Point::<$curve>::double_scalar_mult(&n, &p1, &m, &p2);
+                    println!("mx: {:X}", res.x);
+                    println!("my: {:X}", res.y);
+                    assert_eq!(r, res.x, "x equivalence");
+                    assert_eq!(s, res.y, "y equivalence");
+                });
+            }
+
         }
     }
 }
