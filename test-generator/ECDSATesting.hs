@@ -7,7 +7,7 @@ import Crypto.Hash(SHA224(..),SHA256(..),SHA384(..),SHA512(..))
 import Crypto.Number.Generate(generateBetween)
 import Crypto.PubKey.ECC.ECDSA(PrivateKey(..),PublicKey(..),Signature(..),signWith)
 import Crypto.PubKey.ECC.Generate(generate)
-import Crypto.PubKey.ECC.Prim(scalarGenerate,pointAdd,pointNegate,pointDouble,pointBaseMul,pointMul)
+import Crypto.PubKey.ECC.Prim(scalarGenerate,pointAdd,pointNegate,pointDouble,pointBaseMul,pointMul,pointAddTwoMuls)
 import Crypto.PubKey.ECC.Types(Curve,CurveName(..),Point(..),common_curve,curveSizeBits,ecc_n,getCurveByName)
 import Crypto.Random(DRG(..),getRandomBytes,withDRG)
 import qualified Data.ByteString as S
@@ -112,6 +112,33 @@ scaleTest name curve = Task {
                                     ("a", showX resx),  ("b", showX resy)]
             in (res, scalar0, (memory0, drg3))
 
+addScaleTest :: String -> Curve -> Task
+addScaleTest name curve = Task {
+    taskName = name ++ " point addition of two scalings",
+    taskFile = "../testdata/ecc/add_scale2/" ++ name ++ ".test",
+    taskTest = go,
+    taskCount = 1000
+}
+ where
+  go (memory0, drg0) =
+    let (scalar1, drg1) = withDRG drg0 (scalarGenerate curve)
+        (scalar2, drg2) = withDRG drg1 (scalarGenerate curve)
+        (n,       drg3) = withDRG drg2 (scalarGenerate curve)
+        (m,       drg4) = withDRG drg3 (scalarGenerate curve)
+        point1 = pointBaseMul curve scalar1
+        point2 = pointBaseMul curve scalar2
+        pointr = pointAddTwoMuls curve n point1 m point2
+    in case (point1, point2, pointr) of
+         (Point x1 y1, Point x2 y2, Point xr yr) ->
+            let res = Map.fromList [("x", showX x1), ("y", showX y1),
+                                    ("p", showX x2), ("q", showX y2),
+                                    ("n", showX n),  ("m", showX m),
+                                    ("r", showX xr), ("s", showX yr)]
+            in (res, scalar1, (memory0, drg4))
+         _ ->
+            go (memory0, drg4)
+
+
 signTest :: String -> Curve -> Task
 signTest name curve = Task {
     taskName = name ++ " curve signing",
@@ -158,6 +185,7 @@ generateTasks (name, curve) = [negateTest name curve,
                                doubleTest name curve,
                                addTest name curve,
                                scaleTest name curve,
+                               addScaleTest name curve,
                                signTest name curve] 
 
 ecdsaTasks :: [Task]
