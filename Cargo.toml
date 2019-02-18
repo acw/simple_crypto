@@ -10,6 +10,7 @@ repository = "https://github.com/acw/simple_crypto"
 
 [dependencies]
 byteorder   = "^1.2.7"
+chrono      = "^0.4.6"
 cryptonum   = { path = "../cryptonum" }
 digest      = "^0.8.0"
 hmac        = "^0.7.0"

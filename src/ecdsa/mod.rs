@@ -11,7 +11,8 @@ use rand::distributions::Standard;
 use self::curve::{EllipticCurve,P192,P224,P256,P384,P521};
 use self::point::{ECCPoint,Point};
 pub use self::private::{ECCPrivateKey,ECCPrivate};
-pub use self::public::{ECCPublicKey,ECCPublic};
+pub use self::public::{ECCPublicKey,ECDSAPublic,ECCPubKey};
+pub use self::public::{ECDSADecodeErr,ECDSAEncodeErr};
 
 pub trait ECDSAKeyPair<Public,Private> {
     fn generate<G: Rng>(g: &mut G) -> (Public, Private);
@@ -19,8 +20,8 @@ pub trait ECDSAKeyPair<Public,Private> {
 
 macro_rules! generate_impl {
     ($curve: ident, $un: ident, $si: ident) => {
-        impl ECDSAKeyPair<ECCPublic<$curve>,ECCPrivate<$curve>> for $curve {
-            fn generate<G: Rng>(rng: &mut G) -> (ECCPublic<$curve>, ECCPrivate<$curve>)
+        impl ECDSAKeyPair<ECCPubKey<$curve>,ECCPrivate<$curve>> for $curve {
+            fn generate<G: Rng>(rng: &mut G) -> (ECCPubKey<$curve>, ECCPrivate<$curve>)
             {
                 loop {
                     let size = ($curve::size() + 7) / 8;
@@ -37,7 +38,7 @@ macro_rules! generate_impl {
 
                     let d = $si::from(&proposed_d);
                     let public_point = Point::<$curve>::default().scale(&d);
-                    let public = ECCPublic::<$curve>::new(public_point);
+                    let public = ECCPubKey::<$curve>::new(public_point);
                     let private = ECCPrivate::<$curve>::new(proposed_d);
                     return (public, private);
                 }

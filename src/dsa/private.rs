@@ -5,13 +5,17 @@ use dsa::params::*;
 use dsa::rfc6979::*;
 use hmac::{Hmac,Mac};
 
-pub trait DSAPrivateKey<Params,L,N> {
+pub trait DSAPrivateKey {
+    type Params;
+    type L;
+    type N;
+
     /// Generate a new private key using the given DSA parameters and private
     /// key value.
-    fn new(params: Params, x: N) -> Self;
+    fn new(params: Self::Params, x: Self::N) -> Self;
     /// Generate a DSA signature for the given message, using the appropriate
     /// hash included in the type invocation.
-    fn sign<Hash>(&self, m: &[u8]) -> DSASignature<N>
+    fn sign<Hash>(&self, m: &[u8]) -> DSASignature<Self::N>
      where
       Hash: BlockInput + Clone + Default + Digest + FixedOutput + Input + Reset,
       Hmac<Hash>: Mac;
@@ -32,8 +36,12 @@ pub enum DSAPrivate {
 
 macro_rules! privkey_impls {
     ($ptype: ident, $ltype: ident, $ntype: ident, $big: ident, $bigger: ident, $biggest: ident) => {
-       impl DSAPrivateKey<$ptype,$ltype,$ntype> for DSAPrivKey<$ptype,$ntype>
+       impl DSAPrivateKey for DSAPrivKey<$ptype,$ntype>
        {
+           type Params = $ptype;
+           type L = $ltype;
+           type N = $ntype;
+
            fn new(params: $ptype, x: $ntype) -> DSAPrivKey<$ptype,$ntype>
            {
                DSAPrivKey{ params, x }

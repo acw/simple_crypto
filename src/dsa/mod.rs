@@ -20,17 +20,19 @@ pub struct DSAKeyPair<P,L,N>
     pub public: DSAPubKey<P,L>
 }
 
-pub trait DSAKeyGeneration<P>
+pub trait DSAKeyGeneration
 {
-    fn generate<G: Rng>(params: &P, rng: &mut G) -> Self;
+    type Params;
+
+    fn generate<G: Rng>(params: &Self::Params, rng: &mut G) -> Self;
 }
 
 macro_rules! generate_dsa_pair {
     ($ptype: ident, $ltype: ident, $ntype: ident, $nbig: ident) => {
-        impl DSAKeyGeneration<$ptype> for DSAKeyPair<$ptype,$ltype,$ntype>
-          where
-           DSAPrivKey<$ptype,$ntype>: DSAPrivateKey<$ptype,$ltype,$ntype>,
+        impl DSAKeyGeneration for DSAKeyPair<$ptype,$ltype,$ntype>
         {
+            type Params = $ptype;
+
             fn generate<G: Rng>(params: &$ptype, rng: &mut G) -> Self
             {
                 // 1. N = len(q); L = len(p);

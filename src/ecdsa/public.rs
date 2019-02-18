@@ -5,10 +5,19 @@ use dsa::rfc6979::DSASignature;
 use ecdsa::curve::{EllipticCurve,P192,P224,P256,P384,P521};
 use ecdsa::point::{ECCPoint,Point};
 use hmac::{Hmac,Mac};
+use simple_asn1::{ASN1Block,ASN1Class,ASN1DecodeErr,ASN1EncodeErr,FromASN1,ToASN1};
 use std::cmp::min;
 
-pub struct ECCPublic<Curve: EllipticCurve> {
+pub struct ECCPubKey<Curve: EllipticCurve> {
     q: Point<Curve>
+}
+
+pub enum ECDSAPublic {
+    ECCPublicP192(ECCPubKey<P192>),
+    ECCPublicP224(ECCPubKey<P224>),
+    ECCPublicP256(ECCPubKey<P256>),
+    ECCPublicP384(ECCPubKey<P384>),
+    ECCPublicP521(ECCPubKey<P521>),
 }
 
 pub trait ECCPublicKey {
@@ -16,25 +25,50 @@ pub trait ECCPublicKey {
     type Unsigned;
 
     fn new(d: Point<Self::Curve>) -> Self;
-    fn verify<Hash>(&self, m: &[u8], sig: DSASignature<Self::Unsigned>) -> bool
+    fn verify<Hash>(&self, m: &[u8], sig: &DSASignature<Self::Unsigned>) -> bool
       where
        Hash: BlockInput + Clone + Default + Digest + FixedOutput + Input + Reset,
        Hmac<Hash>: Mac;
 }
 
+pub enum ECDSAEncodeErr {
+    ASN1EncodeErr(ASN1EncodeErr),
+    XValueNegative, YValueNegative
+}
+
+impl From<ASN1EncodeErr> for ECDSAEncodeErr {
+    fn from(x: ASN1EncodeErr) -> ECDSAEncodeErr {
+        ECDSAEncodeErr::ASN1EncodeErr(x)
+    }
+}
+
+#[derive(Debug)]
+pub enum ECDSADecodeErr {
+    ASN1DecodeErr(ASN1DecodeErr),
+    NoKeyFound,
+    InvalidKeyFormat,
+    InvalidKeyBlockSize
+}
+
+impl From<ASN1DecodeErr> for ECDSADecodeErr {
+    fn from(x: ASN1DecodeErr) -> ECDSADecodeErr {
+        ECDSADecodeErr::ASN1DecodeErr(x)
+    }
+}
+
 macro_rules! public_impl {
     ($curve: ident, $un: ident, $si: ident) => {
-        impl ECCPublicKey for ECCPublic<$curve>
+        impl ECCPublicKey for ECCPubKey<$curve>
         {
             type Curve = $curve;
             type Unsigned = $un;
 
-            fn new(q: Point<$curve>) -> ECCPublic<$curve>
+            fn new(q: Point<$curve>) -> ECCPubKey<$curve>
             {
-                ECCPublic{ q }
+                ECCPubKey{ q }
             }
 
-            fn verify<Hash>(&self, m: &[u8], sig: DSASignature<Self::Unsigned>) -> bool
+            fn verify<Hash>(&self, m: &[u8], sig: &DSASignature<Self::Unsigned>) -> bool
               where
                Hash: BlockInput + Clone + Default + Digest + FixedOutput + Input + Reset,
                Hmac<Hash>: Mac
@@ -65,6 +99,66 @@ macro_rules! public_impl {
                     !point.x.is_negative() && (sig.r == $un::from(point.x))
                 } else {
                     false
+                }
+            }
+        }
+
+        impl ToASN1 for ECCPubKey<$curve> {
+            type Error = ECDSAEncodeErr;
+
+            fn to_asn1_class(&self, c: ASN1Class) -> Result<Vec<ASN1Block>,ECDSAEncodeErr>
+            {
+                if self.q.x.is_negative() {
+                    return Err(ECDSAEncodeErr::XValueNegative);
+                }
+                if self.q.y.is_negative() {
+                    return Err(ECDSAEncodeErr::YValueNegative);
+                }
+
+                let xval = $un::from(&self.q.x);
+                let yval = $un::from(&self.q.y);
+                let mut xbytes = xval.to_bytes();
+                let mut ybytes = yval.to_bytes();
+                let goalsize = ($curve::size() + 7) / 8;
+                let mut target = Vec::with_capacity(1 + (goalsize * 2));
+
+                while xbytes.len() > goalsize { xbytes.remove(0);  };
+                while xbytes.len() < goalsize { xbytes.insert(0,0) };
+                while ybytes.len() > goalsize { ybytes.remove(0);  };
+                while ybytes.len() < goalsize { ybytes.insert(0,0) };
+
+                target.push(4);
+                target.append(&mut xbytes);
+                target.append(&mut ybytes);
+
+                let result = ASN1Block::BitString(c, 0, target.len() * 8, target);
+                Ok(vec![result])
+            }
+        }
+
+        impl FromASN1 for ECCPubKey<$curve> {
+            type Error = ECDSADecodeErr;
+
+            fn from_asn1(bs: &[ASN1Block]) -> Result<(ECCPubKey<$curve>,&[ASN1Block]),ECDSADecodeErr>
+            {
+                let (x, rest) = bs.split_first().ok_or(ECDSADecodeErr::NoKeyFound)?;
+                if let ASN1Block::BitString(_, _, _, target) = x {
+                    let (hdr, xy_bstr) = target.split_first().ok_or(ECDSADecodeErr::InvalidKeyFormat)?;
+                    if *hdr != 4 {
+                        return Err(ECDSADecodeErr::InvalidKeyFormat);
+                    }
+                    let goalsize = ($curve::size() + 7) / 8;
+                    if xy_bstr.len() != (2 * goalsize) {
+                        return Err(ECDSADecodeErr::InvalidKeyBlockSize);
+                    }
+                    let (xbstr, ybstr) = xy_bstr.split_at(goalsize);
+                    let x = $un::from_bytes(xbstr);
+                    let y = $un::from_bytes(ybstr);
+                    let point = Point::<$curve>{ x: $si::from(x), y: $si::from(y) };
+                    let res = ECCPubKey::<$curve>::new(point);
+                    Ok((res, rest))
+                } else {
+                    Err(ECDSADecodeErr::InvalidKeyFormat)
                 }
             }
         }
@@ -107,13 +201,13 @@ macro_rules! test_impl {
                 let s = $un::from_bytes(sbytes);
 
                 let point = Point::<$curve>{ x: $si::from(x), y: $si::from(y) };
-                let public = ECCPublic::<$curve>::new(point);
+                let public = ECCPubKey::<$curve>::new(point);
                 let sig = DSASignature::new(r, s);
                 match usize::from(h) {
-                    224 => assert!(public.verify::<Sha224>(mbytes, sig)),
-                    256 => assert!(public.verify::<Sha256>(mbytes, sig)),
-                    384 => assert!(public.verify::<Sha384>(mbytes, sig)),
-                    512 => assert!(public.verify::<Sha512>(mbytes, sig)),
+                    224 => assert!(public.verify::<Sha224>(mbytes, &sig)),
+                    256 => assert!(public.verify::<Sha256>(mbytes, &sig)),
+                    384 => assert!(public.verify::<Sha384>(mbytes, &sig)),
+                    512 => assert!(public.verify::<Sha512>(mbytes, &sig)),
                     x   => panic!("Unknown hash algorithm {}", x)
                 };
             });

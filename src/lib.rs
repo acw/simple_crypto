@@ -10,6 +10,7 @@
 //! when they should use it, and examples. For now, it mostly just fowards
 //! off to more detailed modules. Help requested!
 extern crate byteorder;
+extern crate chrono;
 extern crate cryptonum;
 extern crate digest;
 extern crate hmac;
@@ -20,6 +21,7 @@ extern crate quickcheck;
 extern crate rand;
 extern crate sha1;
 extern crate sha2;
+#[macro_use]
 extern crate simple_asn1;
 
 /// The `rsa` module provides bare-bones support for RSA signing, verification,
@@ -33,6 +35,9 @@ pub mod dsa;
 /// The `ecdsa` module provides bare-bones support for ECDSA signing,
 /// verification, and key generation.
 pub mod ecdsa;
+/// The `x509` module supports parsing and generating x.509 certificates, as
+/// used by TLS and others.
+pub mod x509;
 
 #[cfg(test)]
 mod testing;

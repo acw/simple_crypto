@@ -24,6 +24,7 @@ mod private;
 mod public;
 mod signing_hashes;
 
+pub use self::errors::RSAError;
 pub use self::signing_hashes::{SigningHash,
                                SIGNING_HASH_NULL,
                                SIGNING_HASH_SHA1,

@@ -2,11 +2,16 @@ use cryptonum::unsigned::{CryptoNum,Decoder,Encoder,ModExp,PrimeGen};
 use cryptonum::unsigned::{U192,U256,U1024,U2048,U3072};
 use digest::Digest;
 use sha2::Sha256;
+use simple_asn1::{ToASN1,ASN1Block,ASN1Class,ASN1EncodeErr};
 use rand::Rng;
+use utils::TranslateNums;
 
-pub trait DSAParameters<L,N>
+pub trait DSAParameters : ToASN1
 {
-    fn new(p: L, g: L, q: N) -> Self;
+    type L;
+    type N;
+
+    fn new(p: Self::L, g: Self::L, q: Self::N) -> Self;
     fn generate<G: Rng>(rng: &mut G) -> Self;
     fn n_size() -> usize;
     fn l_size() -> usize;
@@ -25,8 +30,24 @@ macro_rules! generate_parameters {
             pub q: $ntype
         }
 
-        impl DSAParameters<$ltype,$ntype> for $name
+        impl ToASN1 for $name {
+            type Error = ASN1EncodeErr;
+
+            fn to_asn1_class(&self, c: ASN1Class)
+                -> Result<Vec<ASN1Block>,ASN1EncodeErr>
+            {
+                let p = ASN1Block::Integer(c, 0, self.p.to_num());
+                let q = ASN1Block::Integer(c, 0, self.q.to_num());
+                let g = ASN1Block::Integer(c, 0, self.g.to_num());
+                Ok(vec![ASN1Block::Sequence(c, 0, vec![p, q, g])])
+            }
+        }
+
+        impl DSAParameters for $name
         {
+            type L = $ltype;
+            type N = $ntype;
+
             fn new(p: $ltype, g: $ltype, q: $ntype) -> $name
             {
                 $name{ p: p, g: g, q: q }

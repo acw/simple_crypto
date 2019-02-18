@@ -1,6 +1,5 @@
 use cryptonum::unsigned::*;
 use digest::{Digest,FixedOutput};
-use num::BigInt;
 use rand::Rng;
 use rand::rngs::OsRng;
 use rsa::core::{decode_biguint,pkcs1_pad,xor_vecs};
@@ -71,6 +70,21 @@ pub enum RSAPublic {
     Key15360(RSA15360Public)
 }
 
+impl RSAPublic {
+    pub fn verify(&self, signhash: &SigningHash, msg: &[u8], sig: &[u8]) -> bool
+    {
+        match self {
+            RSAPublic::Key512(x)   => x.verify(signhash, msg, sig),
+            RSAPublic::Key1024(x)  => x.verify(signhash, msg, sig),
+            RSAPublic::Key2048(x)  => x.verify(signhash, msg, sig),
+            RSAPublic::Key3072(x)  => x.verify(signhash, msg, sig),
+            RSAPublic::Key4096(x)  => x.verify(signhash, msg, sig),
+            RSAPublic::Key8192(x)  => x.verify(signhash, msg, sig),
+            RSAPublic::Key15360(x) => x.verify(signhash, msg, sig)
+        }
+    }
+}
+
 impl FromASN1 for RSAPublic {
     type Error = RSAError;
 
@@ -95,44 +109,44 @@ impl FromASN1 for RSAPublic {
                 }
                 match rsa_size {
                     512    => {
-                        let n2 = U512::from_num(n).ok_or(RSAError::InvalidKey)?;
-                        let e2 = U512::from_num(e).ok_or(RSAError::InvalidKey)?;
+                        let n2 = U512::from_num(&n).ok_or(RSAError::InvalidKey)?;
+                        let e2 = U512::from_num(&e).ok_or(RSAError::InvalidKey)?;
                         let res = RSA512Public::new(n2, e2);
                         Ok((RSAPublic::Key512(res), rest))
                     }
                     1024    => {
-                        let n2 = U1024::from_num(n).ok_or(RSAError::InvalidKey)?;
-                        let e2 = U1024::from_num(e).ok_or(RSAError::InvalidKey)?;
+                        let n2 = U1024::from_num(&n).ok_or(RSAError::InvalidKey)?;
+                        let e2 = U1024::from_num(&e).ok_or(RSAError::InvalidKey)?;
                         let res = RSA1024Public::new(n2, e2);
                         Ok((RSAPublic::Key1024(res), rest))
                     }
                     2048    => {
-                        let n2 = U2048::from_num(n).ok_or(RSAError::InvalidKey)?;
-                        let e2 = U2048::from_num(e).ok_or(RSAError::InvalidKey)?;
+                        let n2 = U2048::from_num(&n).ok_or(RSAError::InvalidKey)?;
+                        let e2 = U2048::from_num(&e).ok_or(RSAError::InvalidKey)?;
                         let res = RSA2048Public::new(n2, e2);
                         Ok((RSAPublic::Key2048(res), rest))
                     }
                     3072    => {
-                        let n2 = U3072::from_num(n).ok_or(RSAError::InvalidKey)?;
-                        let e2 = U3072::from_num(e).ok_or(RSAError::InvalidKey)?;
+                        let n2 = U3072::from_num(&n).ok_or(RSAError::InvalidKey)?;
+                        let e2 = U3072::from_num(&e).ok_or(RSAError::InvalidKey)?;
                         let res = RSA3072Public::new(n2, e2);
                         Ok((RSAPublic::Key3072(res), rest))
                     }
                     4096    => {
-                        let n2 = U4096::from_num(n).ok_or(RSAError::InvalidKey)?;
-                        let e2 = U4096::from_num(e).ok_or(RSAError::InvalidKey)?;
+                        let n2 = U4096::from_num(&n).ok_or(RSAError::InvalidKey)?;
+                        let e2 = U4096::from_num(&e).ok_or(RSAError::InvalidKey)?;
                         let res = RSA4096Public::new(n2, e2);
                         Ok((RSAPublic::Key4096(res), rest))
                     }
                     8192    => {
-                        let n2 = U8192::from_num(n).ok_or(RSAError::InvalidKey)?;
-                        let e2 = U8192::from_num(e).ok_or(RSAError::InvalidKey)?;
+                        let n2 = U8192::from_num(&n).ok_or(RSAError::InvalidKey)?;
+                        let e2 = U8192::from_num(&e).ok_or(RSAError::InvalidKey)?;
                         let res = RSA8192Public::new(n2, e2);
                         Ok((RSAPublic::Key8192(res), rest))
                     }
                     15360    => {
-                        let n2 = U15360::from_num(n).ok_or(RSAError::InvalidKey)?;
-                        let e2 = U15360::from_num(e).ok_or(RSAError::InvalidKey)?;
+                        let n2 = U15360::from_num(&n).ok_or(RSAError::InvalidKey)?;
+                        let e2 = U15360::from_num(&e).ok_or(RSAError::InvalidKey)?;
                         let res = RSA15360Public::new(n2, e2);
                         Ok((RSAPublic::Key15360(res), rest))
                     }
@@ -301,8 +315,8 @@ macro_rules! generate_rsa_public
             fn to_asn1_class(&self, c: ASN1Class)
                 -> Result<Vec<ASN1Block>,Self::Error>
             {
-                let n = BigInt::from(self.n.to_num());
-                let e = BigInt::from(self.e.to_num());
+                let n = self.n.to_num();
+                let e = self.e.to_num();
                 let enc_n = ASN1Block::Integer(c, 0, n);
                 let enc_e = ASN1Block::Integer(c, 0, e);
                 let seq = ASN1Block::Sequence(c, 0, vec![enc_n, enc_e]);

@@ -1,15 +1,16 @@
 use cryptonum::unsigned::*;
-use num::BigUint;
+use num::{BigInt,BigUint};
+use num::bigint::Sign;
 
-pub trait TranslateNums: Sized {
-    fn from_num(x: BigUint) -> Option<Self>;
-    fn to_num(&self) -> BigUint;
+pub trait TranslateNums<N>: Sized {
+    fn from_num(x: &N) -> Option<Self>;
+    fn to_num(&self) -> N;
 }
 
 macro_rules! from_biguint {
     ($uname: ident, $size: expr) => {
-        impl TranslateNums for $uname {
-            fn from_num(x: BigUint) -> Option<$uname> {
+        impl TranslateNums<BigUint> for $uname {
+            fn from_num(x: &BigUint) -> Option<$uname> {
                 let mut base_vec = x.to_bytes_be();
                 let target_bytes = $size / 8;
 
@@ -29,12 +30,25 @@ macro_rules! from_biguint {
                 BigUint::from_bytes_be(&bytes)
             }
         }
+
+        impl TranslateNums<BigInt> for $uname {
+            fn from_num(x: &BigInt) -> Option<$uname> {
+                let ux = x.to_biguint()?;
+                $uname::from_num(&ux)
+            }
+
+            fn to_num(&self) -> BigInt {
+                BigInt::from_biguint(Sign::Plus, self.to_num())
+            }
+        }
     };
 }
 
 from_biguint!(U192,   192);
 from_biguint!(U256,   256);
+from_biguint!(U384,   384);
 from_biguint!(U512,   512);
+from_biguint!(U576,   576);
 from_biguint!(U1024,  1024);
 from_biguint!(U2048,  2048);
 from_biguint!(U3072,  3072);

@@ -250,8 +250,8 @@ fn hmac<H>(k: &[u8], m: &[u8]) -> Vec<u8>
 pub enum DSADecodeError {
     ASN1Error(ASN1DecodeErr),
     NoSignatureFound,
-    NegativeSigValues,
-    RValueTooBig, SValueTooBig
+    InvalidRValue,
+    InvalidSValue
 }
 
 impl From<ASN1DecodeErr> for DSADecodeError {
@@ -261,7 +261,7 @@ impl From<ASN1DecodeErr> for DSADecodeError {
 }
 
 impl<N> FromASN1 for DSASignature<N>
- where N: TranslateNums
+ where N: TranslateNums<BigInt>
 {
     type Error = DSADecodeError;
 
@@ -275,16 +275,9 @@ impl<N> FromASN1 for DSASignature<N>
                 match (&info[0], &info[1]) {
                     (&ASN1Block::Integer(_,_,ref rint),
                      &ASN1Block::Integer(_,_,ref sint)) => {
-                        match (rint.to_biguint(), sint.to_biguint()) {
-                            (Some(rnum), Some(snum)) => {
-                                let r = N::from_num(rnum).ok_or(DSADecodeError::RValueTooBig)?;
-                                let s = N::from_num(snum).ok_or(DSADecodeError::SValueTooBig)?;
-                                Ok((DSASignature{ r, s }, rest))
-
-                            }
-                            _  =>
-                                Err(DSADecodeError::NegativeSigValues)
-                        }
+                         let r = N::from_num(rint).ok_or(DSADecodeError::InvalidRValue)?;
+                         let s = N::from_num(sint).ok_or(DSADecodeError::InvalidSValue)?;
+                         Ok((DSASignature{ r, s }, rest))
                     }
                     _ => Err(DSADecodeError::NoSignatureFound)
                 }
@@ -295,15 +288,15 @@ impl<N> FromASN1 for DSASignature<N>
 }
 
 impl<N> ToASN1 for DSASignature<N>
- where N: TranslateNums
+ where N: TranslateNums<BigInt>
 {
     type Error = ASN1EncodeErr;
 
     fn to_asn1_class(&self, c: ASN1Class)
         -> Result<Vec<ASN1Block>,ASN1EncodeErr>
     {
-        let rb = ASN1Block::Integer(c, 0, BigInt::from(self.r.to_num()));
-        let sb = ASN1Block::Integer(c, 0, BigInt::from(self.s.to_num()));
+        let rb = ASN1Block::Integer(c, 0, self.r.to_num());
+        let sb = ASN1Block::Integer(c, 0, self.s.to_num());
         Ok(vec![ASN1Block::Sequence(c, 0, vec![rb,sb])])
     }
 }
