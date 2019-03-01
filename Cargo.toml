@@ -9,13 +9,26 @@ license-file = "LICENSE"
 repository = "https://github.com/acw/simple_crypto"
 
 [dependencies]
-rand        = "^0.3"
+byteorder   = "^1.2.7"
+chrono      = "^0.4.6"
+cryptonum   = { path = "../cryptonum" }
+digest      = "^0.8.0"
+hmac        = "^0.7.0"
+num         = "^0.2.0"
+rand        = "^0.6.0"
+sha-1       = "^0.8.1"
+sha2        = "^0.8.0"
+simple_asn1 = "^0.2.0"
 
 [dev-dependencies]
-quickcheck = "^0.4.1"
+quickcheck = "^0.7.2"
+
+[profile.dev]
+opt-level = 1
+overflow-checks = false
 
 [profile.test]
 opt-level = 2
 debug = true
 debug-assertions = true
-
+overflow-checks = false

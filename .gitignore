@@ -11,3 +11,15 @@ Cargo.lock
 
 # And these are just annoying
 .DS_Store
+.vscode
+
+# Ignore testing files
+**/*.o
+**/*.hi
+**/gen
+**/.cabal-sandbox
+**/cabal.sandbox.config
+FlameGraph
+*.user_stacks
+**/.ghc.environment.*
+tests/rsa/dist*
