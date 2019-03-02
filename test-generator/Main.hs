@@ -8,6 +8,7 @@ import Crypto.Random(SystemDRG,getSystemDRG)
 import ECDSATesting(ecdsaTasks)
 import GHC.Conc(getNumCapabilities)
 import RFC6979(rfcTasks)
+import RSA(rsaTasks)
 import System.Console.AsciiProgress
 import Task(Task, runTask)
 
@@ -35,6 +36,6 @@ main = displayConsoleRegions $
     do 
        executors <- getNumCapabilities
        done <- newChan
-       tasks <- newMVar (ecdsaTasks ++ rfcTasks)
+       tasks <- newMVar (ecdsaTasks ++ rfcTasks ++ rsaTasks)
        replicateM_ executors (spawnExecutor tasks done)
        replicateM_ executors (void $ readChan done)

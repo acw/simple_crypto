@@ -27,7 +27,7 @@ generateNum (db, rng0) varname size =
 
 genSign :: (Integer, Database) -> (Integer, Database)
 genSign (x, (db, rng0)) =
-  let (n, rng1) = randomBytesGenerate 0 rng0
+  let (n, rng1) = randomBytesGenerate 1 rng0
       n' = integerize n 
   in if testBit n' 0 then (0 - x, (db, rng1)) else (x, (db, rng1))
 

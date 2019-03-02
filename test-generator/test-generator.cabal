@@ -20,7 +20,7 @@ extra-source-files:  CHANGELOG.md
 
 executable gen-tests
   main-is:             Main.hs
-  other-modules:       Database, ECDSATesting, Math, RFC6979, Task, Utils
+  other-modules:       Database, ECDSATesting, Math, RFC6979, RSA, Task, Utils
   -- other-extensions:
   build-depends:       base >=4.11 && < 4.14, ascii-progress, bytestring, containers, cryptonite, directory, filepath, integer-gmp, memory, random
   hs-source-dirs:      .

@@ -358,7 +358,7 @@ macro_rules! generate_tests {
 
             #[test]
             fn encode() {
-                let fname = format!("tests/rsa/rsa{}.test", $size);
+                let fname = format!("testdata/rsa/sign{}.test", $size);
                 run_test(fname.to_string(), 8, |case| {
                     let (neg0, nbytes) = case.get("n").unwrap();
                     let (neg1, ubytes) = case.get("u").unwrap();
@@ -381,7 +381,7 @@ macro_rules! generate_tests {
 
             #[test]
             fn verify() {
-                let fname = format!("tests/rsa/rsa{}.test", $size);
+                let fname = format!("testdata/rsa/sign{}.test", $size);
                 run_test(fname.to_string(), 8, |case| {
                     let (neg0, nbytes) = case.get("n").unwrap();
                     let (neg1, hbytes) = case.get("h").unwrap();
@@ -398,14 +398,14 @@ macro_rules! generate_tests {
                     let k = usize::from(bigk);
                     let e = $num::from(65537u64);
                     let pubkey = $rsa{ n: n, nu: $bar::from_components(k, n64, nu), e: e };
-                    let hashnum = ((hbytes[0] as u16)<<8) + (hbytes[1] as u16);
+                    let hashnum = u64::from($num::from_bytes(hbytes));
                     let sighash = match hashnum {
-                                    0x160 => &SIGNING_HASH_SHA1,
-                                    0x224 => &SIGNING_HASH_SHA224,
-                                    0x256 => &SIGNING_HASH_SHA256,
-                                    0x384 => &SIGNING_HASH_SHA384,
-                                    0x512 => &SIGNING_HASH_SHA512,
-                                    _     => panic!("Bad signing hash: {}", hashnum)
+                                    160 => &SIGNING_HASH_SHA1,
+                                    224 => &SIGNING_HASH_SHA224,
+                                    256 => &SIGNING_HASH_SHA256,
+                                    384 => &SIGNING_HASH_SHA384,
+                                    512 => &SIGNING_HASH_SHA512,
+                                    _   => panic!("Bad signing hash: {}", hashnum)
                                   };
                     assert!(pubkey.verify(sighash, &mbytes, &sbytes));
                 });
@@ -413,7 +413,7 @@ macro_rules! generate_tests {
 
             #[test]
             fn encrypt() {
-                let fname = format!("tests/rsa/rsa{}.test", $size);
+                let fname = format!("testdata/rsa/encrypt{}.test", $size);
                 run_test(fname.to_string(), 8, |case| {
                     let (neg0, nbytes) = case.get("n").unwrap();
                     let (neg1, hbytes) = case.get("h").unwrap();
