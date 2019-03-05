@@ -346,7 +346,7 @@ generate_rsa_public!(RSA8192Public,  U8192,  BarrettU8192,  Key8192,  8192);
 generate_rsa_public!(RSA15360Public, U15360, BarrettU15360, Key15360, 15360);
 
 macro_rules! generate_tests {
-    ( $( ($mod: ident, $rsa: ident, $num: ident, $bar: ident, $num64: ident, $size: expr) ),* ) => {
+    ( $( ($mod: ident, $rsa: ident, $priv: ident, $num: ident, $bar: ident, $num64: ident, $size: expr) ),* ) => {
         $(
         #[cfg(test)]
         #[allow(non_snake_case)]
@@ -354,19 +354,41 @@ macro_rules! generate_tests {
             use cryptonum::unsigned::Decoder;
             use super::*;
             use testing::run_test;
+            use rsa::private::*;
             use rsa::signing_hashes::*;
+            use sha2::{Sha224,Sha256,Sha384,Sha512};
 
             #[test]
-            fn encode() {
+            fn new() {
                 let fname = format!("testdata/rsa/sign{}.test", $size);
-                run_test(fname.to_string(), 8, |case| {
+                run_test(fname.to_string(), 7, |case| {
                     let (neg0, nbytes) = case.get("n").unwrap();
                     let (neg1, ubytes) = case.get("u").unwrap();
                     let (neg2, kbytes) = case.get("k").unwrap();
 
                     assert!(!neg0&&!neg1&&!neg2);
                     let n = $num::from_bytes(nbytes);
-                    println!("n:  {:X}", n);
+                    let n64 = $num64::from(&n);
+                    let nu = $num64::from_bytes(ubytes);
+                    let bigk = $num::from_bytes(kbytes);
+                    let k = usize::from(bigk);
+                    let e = $num::from(65537u64);
+                    let pubkey2 = $rsa::new(n.clone(), e.clone());
+                    let pubkey1 = $rsa{ n: n, nu: $bar::from_components(k, n64, nu), e: e };
+                    assert_eq!(pubkey1, pubkey2);
+                });
+            }
+
+            #[test]
+            fn encode() {
+                let fname = format!("testdata/rsa/sign{}.test", $size);
+                run_test(fname.to_string(), 7, |case| {
+                    let (neg0, nbytes) = case.get("n").unwrap();
+                    let (neg1, ubytes) = case.get("u").unwrap();
+                    let (neg2, kbytes) = case.get("k").unwrap();
+
+                    assert!(!neg0&&!neg1&&!neg2);
+                    let n = $num::from_bytes(nbytes);
                     let n64 = $num64::from(&n);
                     let nu = $num64::from_bytes(ubytes);
                     let bigk = $num::from_bytes(kbytes);
@@ -382,7 +404,7 @@ macro_rules! generate_tests {
             #[test]
             fn verify() {
                 let fname = format!("testdata/rsa/sign{}.test", $size);
-                run_test(fname.to_string(), 8, |case| {
+                run_test(fname.to_string(), 7, |case| {
                     let (neg0, nbytes) = case.get("n").unwrap();
                     let (neg1, hbytes) = case.get("h").unwrap();
                     let (neg2, mbytes) = case.get("m").unwrap();
@@ -414,32 +436,45 @@ macro_rules! generate_tests {
             #[test]
             fn encrypt() {
                 let fname = format!("testdata/rsa/encrypt{}.test", $size);
-                run_test(fname.to_string(), 8, |case| {
+                run_test(fname.to_string(), 9, |case| {
                     let (neg0, nbytes) = case.get("n").unwrap();
                     let (neg1, hbytes) = case.get("h").unwrap();
                     let (neg2, mbytes) = case.get("m").unwrap();
-                    let (neg3, sbytes) = case.get("s").unwrap();
+                    let (neg3, _bytes) = case.get("e").unwrap();
                     let (neg4, ubytes) = case.get("u").unwrap();
                     let (neg5, kbytes) = case.get("k").unwrap();
+                    let (neg6, dbytes) = case.get("d").unwrap();
+                    let (neg7, lbytes) = case.get("l").unwrap();
 
-                    assert!(!neg0 && !neg1 && !neg2 && !neg3 && !neg4 && !neg5);
+                    assert!(!neg0 && !neg1 && !neg2 && !neg3 && !neg4 && !neg5 && !neg6 && !neg7);
                     let n = $num::from_bytes(nbytes);
                     let n64 = $num64::from(&n);
                     let nu = $num64::from_bytes(ubytes);
                     let bigk = $num::from_bytes(kbytes);
                     let k = usize::from(bigk);
                     let e = $num::from(65537u64);
-                    let pubkey = $rsa{ n: n, nu: $bar::from_components(k, n64, nu), e: e };
-                    let hashnum = ((hbytes[0] as u16)<<8) + (hbytes[1] as u16);
-                    let sighash = match hashnum {
-                                    0x160 => &SIGNING_HASH_SHA1,
-                                    0x224 => &SIGNING_HASH_SHA224,
-                                    0x256 => &SIGNING_HASH_SHA256,
-                                    0x384 => &SIGNING_HASH_SHA384,
-                                    0x512 => &SIGNING_HASH_SHA512,
-                                    _     => panic!("Bad signing hash: {}", hashnum)
+                    let d = $num::from_bytes(dbytes);
+                    let nu = $bar::from_components(k, n64, nu);
+                    let pubkey = $rsa{ n: n.clone(), nu: nu.clone(), e: e };
+                    let privkey = $priv{ nu: nu, d: d };
+                    let lstr = String::from_utf8(lbytes.clone()).unwrap();
+                    let cipher = match usize::from($num::from_bytes(hbytes)) {
+                        224 => pubkey.encrypt(&OAEPParams::<Sha224>::new(lstr.clone()), mbytes),
+                        256 => pubkey.encrypt(&OAEPParams::<Sha256>::new(lstr.clone()), mbytes),
+                        384 => pubkey.encrypt(&OAEPParams::<Sha384>::new(lstr.clone()), mbytes),
+                        512 => pubkey.encrypt(&OAEPParams::<Sha512>::new(lstr.clone()), mbytes),
+                        x   => panic!("Unknown hash number: {}", x)
+                    };
+                    assert!(cipher.is_ok());
+                    let message = match usize::from($num::from_bytes(hbytes)) {
+                        224 => privkey.decrypt(&OAEPParams::<Sha224>::new(lstr), &cipher.unwrap()),
+                        256 => privkey.decrypt(&OAEPParams::<Sha256>::new(lstr), &cipher.unwrap()),
+                        384 => privkey.decrypt(&OAEPParams::<Sha384>::new(lstr), &cipher.unwrap()),
+                        512 => privkey.decrypt(&OAEPParams::<Sha512>::new(lstr), &cipher.unwrap()),
+                        x   => panic!("Unknown hash number: {}", x)
                                   };
-                    assert!(pubkey.verify(sighash, &mbytes, &sbytes));
+                    assert!(message.is_ok());
+                    assert_eq!(mbytes, &message.unwrap());
                 });
              }
         }
@@ -447,11 +482,11 @@ macro_rules! generate_tests {
     }
 }
 
-generate_tests!( (RSA512,   RSA512Public,   U512,   BarrettU512,   U576,   512),
-                 (RSA1024,  RSA1024Public,  U1024,  BarrettU1024,  U1088,  1024),
-                 (RSA2048,  RSA2048Public,  U2048,  BarrettU2048,  U2112,  2048),
-                 (RSA3072,  RSA3072Public,  U3072,  BarrettU3072,  U3136,  3072),
-                 (RSA4096,  RSA4096Public,  U4096,  BarrettU4096,  U4160,  4096),
-                 (RSA8192,  RSA8192Public,  U8192,  BarrettU8192,  U8256,  8192),
-                 (RSA15360, RSA15360Public, U15360, BarrettU15360, U15424, 15360)
+generate_tests!( (RSA512,   RSA512Public,   RSA512Private,   U512,   BarrettU512,   U576,   512),
+                 (RSA1024,  RSA1024Public,  RSA1024Private,  U1024,  BarrettU1024,  U1088,  1024),
+                 (RSA2048,  RSA2048Public,  RSA2048Private,  U2048,  BarrettU2048,  U2112,  2048),
+                 (RSA3072,  RSA3072Public,  RSA3072Private,  U3072,  BarrettU3072,  U3136,  3072),
+                 (RSA4096,  RSA4096Public,  RSA4096Private,  U4096,  BarrettU4096,  U4160,  4096),
+                 (RSA8192,  RSA8192Public,  RSA8192Private,  U8192,  BarrettU8192,  U8256,  8192),
+                 (RSA15360, RSA15360Public, RSA15360Private, U15360, BarrettU15360, U15424, 15360)
                );

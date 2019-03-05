@@ -171,8 +171,8 @@ macro_rules! generate_tests {
 
             #[test]
             fn sign() {
-                let fname = format!("tests/rsa/rsa{}.test", $size);
-                run_test(fname.to_string(), 8, |case| {
+                let fname = format!("testdata/rsa/sign{}.test", $size);
+                run_test(fname.to_string(), 7, |case| {
                     let (neg0, dbytes) = case.get("d").unwrap();
                     let (neg1, nbytes) = case.get("n").unwrap();
                     let (neg2, hbytes) = case.get("h").unwrap();
@@ -187,18 +187,16 @@ macro_rules! generate_tests {
                     let bigk = $num::from_bytes(kbytes);
                     let k = usize::from(bigk);
                     let d = $num::from_bytes(dbytes);
-                    let privkey = $rsa{ nu: $bar::from_components(k, n, nu), d: d };
-                    let hashnum = ((hbytes[0] as u16)<<8) + (hbytes[1] as u16);
-                    let sighash = match hashnum {
-                                    0x160 => &SIGNING_HASH_SHA1,
-                                    0x224 => &SIGNING_HASH_SHA224,
-                                    0x256 => &SIGNING_HASH_SHA256,
-                                    0x384 => &SIGNING_HASH_SHA384,
-                                    0x512 => &SIGNING_HASH_SHA512,
-                                    _     => panic!("Bad signing hash: {}", hashnum)
+                    let sighash = match usize::from($num::from_bytes(hbytes)) {
+                                    224 => &SIGNING_HASH_SHA224,
+                                    256 => &SIGNING_HASH_SHA256,
+                                    384 => &SIGNING_HASH_SHA384,
+                                    512 => &SIGNING_HASH_SHA512,
+                                    x     => panic!("Bad signing hash: {}", x)
                                   };
+                    let privkey = $rsa{ nu: $bar::from_components(k, n.clone(), nu), d: d };
                     let sig = privkey.sign(sighash, &mbytes);
-                    assert_eq!(sig, *sbytes);
+                    assert_eq!(*sbytes, sig);
                 });
             }
 
