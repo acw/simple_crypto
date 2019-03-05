@@ -8,9 +8,12 @@ import Crypto.PubKey.RSA
 import Crypto.PubKey.RSA.PKCS15(sign)
 import Crypto.PubKey.RSA.OAEP(OAEPParams(..),encrypt)
 import qualified Data.ByteString as BS
+import qualified Data.ByteString.Char8 as BSC
+import Data.Char(chr,isPrint)
 import Data.Map.Strict(Map)
 import qualified Data.Map.Strict as Map
 import Data.Maybe(fromMaybe,isJust)
+import Data.Word(Word8)
 import Database(Database)
 import Math(barrett,computeK,showX,showBin)
 import Task(Task(..))
@@ -84,13 +87,12 @@ encryptTest sz cnt = Task {
            msg <- getRandomBytes =<< ((fromIntegral . BS.head) `fmap` getRandomBytes 1)
            hash <- generateHash
            label <- do len <- BS.head `fmap` getRandomBytes 1
-                       let len' = fromIntegral (len `div` 2)
                        if odd len
                          then return Nothing
-                         else Just `fmap` getRandomBytes len'
-           let labelbstr = fromMaybe BS.empty label
+                         else Just `fmap` genASCII (len `div` 2)
+           let labelbstr = fromMaybe BS.empty (BSC.pack `fmap` label)
                labelAlive = if isJust label then 1 else (0 :: Integer)
-           res <- encryptWith hash label public msg
+           res <- encryptWith hash (BSC.pack `fmap` label) public msg
            case res of
              Left _ -> go2
              Right cipher ->
@@ -103,6 +105,15 @@ encryptTest sz cnt = Task {
                                        ("l", showBin labelbstr),
                                        ("e", showX labelAlive),
                                        ("c", showBin cipher)], n)
+
+genASCII :: MonadRandom m => Word8 -> m String
+genASCII 0 = return ""
+genASCII x =
+  do v <- (BS.head `fmap` getRandomBytes 1)
+     let c = chr (fromIntegral v)
+     if (v < 128) && isPrint c
+       then (c :) `fmap` genASCII (x - 1)
+       else genASCII x
 
 encryptWith :: MonadRandom m =>
                HashAlg -> Maybe BS.ByteString -> PublicKey -> BS.ByteString ->
