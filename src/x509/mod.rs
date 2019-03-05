@@ -59,21 +59,13 @@ fn decode_certificate(x: &ASN1Block)
     //
     match x {
         &ASN1Block::Sequence(_, _, ref b0) => {
-            println!("STEP1");
             let (version,  b1) = X509Version::from_asn1(b0)?;
-            println!("STEP2");
             let (serial,   b2) = X509Serial::from_asn1(b1)?;
-            println!("STEP3");
             let (ident,    b3) = AlgorithmIdentifier::from_asn1(b2)?;
-            println!("STEP4");
             let (issuer,   b4) = InfoBlock::from_asn1(b3)?;
-            println!("STEP5");
             let (validity, b5) = Validity::from_asn1(b4)?;
-            println!("STEP6");
             let (subject,  b6) = InfoBlock::from_asn1(b5)?;
-            println!("STEP7");
             let (subkey,   _ ) = X509PublicKey::from_asn1(b6)?;
-            println!("STEP8");
             Ok(GenericCertificate {
                 version: version,
                 serial: serial,

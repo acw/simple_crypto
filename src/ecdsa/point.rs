@@ -246,7 +246,6 @@ macro_rules! point_tests
             fn add_scale2() {
                 let fname = build_test_path("ecc/add_scale2",stringify!($curve));
                 run_test(fname.to_string(), 8, |case| {
-                    println!("-----------------------------------------------");
                     let (negx, xbytes) = case.get("x").unwrap();
                     let (negy, ybytes) = case.get("y").unwrap();
                     let (negp, pbytes) = case.get("p").unwrap();
@@ -258,25 +257,15 @@ macro_rules! point_tests
 
                     let x = $stype::new(*negx, $utype::from_bytes(xbytes));
                     let y = $stype::new(*negy, $utype::from_bytes(ybytes));
-                    println!("x1: {:X}", x);
-                    println!("y1: {:X}", y);
                     let p = $stype::new(*negp, $utype::from_bytes(pbytes));
                     let q = $stype::new(*negq, $utype::from_bytes(qbytes));
-                    println!("x2: {:X}", p);
-                    println!("y2: {:X}", q);
                     let n = $stype::new(*negn, $utype::from_bytes(nbytes));
-                    println!("n:  {:X}", n);
                     let m = $stype::new(*negm, $utype::from_bytes(mbytes));
-                    println!("m:  {:X}", m);
                     let r = $stype::new(*negr, $utype::from_bytes(rbytes));
                     let s = $stype::new(*negs, $utype::from_bytes(sbytes));
-                    println!("rx: {:X}", r);
-                    println!("ry: {:X}", s);
                     let p1  = Point::<$curve>{ x: x, y: y };
                     let p2  = Point::<$curve>{ x: p, y: q };
                     let res = Point::<$curve>::double_scalar_mult(&n, &p1, &m, &p2);
-                    println!("mx: {:X}", res.x);
-                    println!("my: {:X}", res.y);
                     assert_eq!(r, res.x, "x equivalence");
                     assert_eq!(s, res.y, "y equivalence");
                 });

@@ -102,8 +102,6 @@ impl FromASN1 for RSAPublic {
                 let nsize = n.bits();
                 let mut rsa_size = 512;
 
-                println!("n': {:X}", n);
-                println!("nsize: {}", nsize);
                 while rsa_size < nsize {
                     rsa_size = rsa_size + 256;
                 }
@@ -177,15 +175,6 @@ impl ToASN1 for RSAPublic {
         }
     }
 }
-
-// fn print_vector(name: &'static str, bytes: &[u8])
-// {
-//     print!("{}: (length {}) ", name, bytes.len());
-//     for x in bytes.iter() {
-//         print!("{:02X}", *x);
-//     }
-//     println!("");
-// }
 
 macro_rules! generate_rsa_public
 {
@@ -472,7 +461,7 @@ macro_rules! generate_tests {
                         384 => privkey.decrypt(&OAEPParams::<Sha384>::new(lstr), &cipher.unwrap()),
                         512 => privkey.decrypt(&OAEPParams::<Sha512>::new(lstr), &cipher.unwrap()),
                         x   => panic!("Unknown hash number: {}", x)
-                                  };
+                    };
                     assert!(message.is_ok());
                     assert_eq!(mbytes, &message.unwrap());
                 });

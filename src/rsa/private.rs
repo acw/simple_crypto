@@ -36,15 +36,6 @@ pub enum RSAPrivate {
     Key15360(RSA15360Private)
 }
 
-// fn print_vector(name: &'static str, bytes: &[u8])
-// {
-//     print!("{}: (length {}) ", name, bytes.len());
-//     for x in bytes.iter() {
-//         print!("{:02X}", *x);
-//     }
-//     println!("");
-// }
-
 macro_rules! generate_rsa_private
 {
     ($rsa: ident, $num: ident, $bar: ident, $size: expr) => {
