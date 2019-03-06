@@ -1,3 +1,4 @@
+{-# LANGUAGE PackageImports #-}
 module ECDSATesting(
           ecdsaTasks
        )
@@ -9,7 +10,7 @@ import Crypto.PubKey.ECC.ECDSA(PrivateKey(..),PublicKey(..),Signature(..),signWi
 import Crypto.PubKey.ECC.Generate(generate)
 import Crypto.PubKey.ECC.Prim(scalarGenerate,pointAdd,pointNegate,pointDouble,pointBaseMul,pointMul,pointAddTwoMuls)
 import Crypto.PubKey.ECC.Types(Curve,CurveName(..),Point(..),common_curve,curveSizeBits,ecc_n,getCurveByName)
-import Crypto.Random(DRG(..),getRandomBytes,withDRG)
+import "cryptonite" Crypto.Random(DRG(..),getRandomBytes,withDRG)
 import qualified Data.ByteString as S
 import qualified Data.Map.Strict as Map
 import Math(showX,showBin)

@@ -1,8 +1,9 @@
+{-# LANGUAGE PackageImports #-}
 module RSA(rsaTasks)
  where
 
 import Crypto.Hash(SHA224(..),SHA256(..),SHA384(..),SHA512(..))
-import Crypto.Random
+import "cryptonite" Crypto.Random
 import Crypto.PubKey.MaskGenFunction(mgf1)
 import Crypto.PubKey.RSA
 import Crypto.PubKey.RSA.PKCS15(sign)

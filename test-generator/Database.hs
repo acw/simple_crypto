@@ -1,3 +1,4 @@
+{-# LANGUAGE PackageImports #-}
 module Database(
          Database,
          emptyDatabase,
@@ -5,11 +6,11 @@ module Database(
        )
  where
 
-import           Crypto.Random(DRG(..),SystemDRG)
-import           Data.Bits(shiftL,testBit)
-import qualified Data.ByteString as S
-import           Data.Map.Strict(Map)
-import qualified Data.Map.Strict as Map
+import "cryptonite" Crypto.Random(DRG(..),SystemDRG)
+import              Data.Bits(shiftL,testBit)
+import qualified    Data.ByteString as S
+import              Data.Map.Strict(Map)
+import qualified    Data.Map.Strict as Map
 
 type Database = (Map String [Integer], SystemDRG)
 

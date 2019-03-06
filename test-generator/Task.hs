@@ -1,3 +1,4 @@
+{-# LANGUAGE PackageImports #-}
 module Task(
          Test,
          Task(..),
@@ -5,14 +6,14 @@ module Task(
        )
  where
 
-import           Control.Monad(foldM, forM_)
-import           Crypto.Random(SystemDRG)
-import qualified Data.Map.Strict as Map
-import           Database
-import           System.Console.AsciiProgress
-import           System.Directory(createDirectoryIfMissing,doesFileExist)
-import           System.FilePath(takeDirectory)
-import           System.IO(Handle,IOMode(..),hPutStrLn,withFile)
+import              Control.Monad(foldM, forM_)
+import "cryptonite" Crypto.Random(SystemDRG)
+import qualified    Data.Map.Strict as Map
+import              Database
+import              System.Console.AsciiProgress
+import              System.Directory(createDirectoryIfMissing,doesFileExist)
+import              System.FilePath(takeDirectory)
+import              System.IO(Handle,IOMode(..),hPutStrLn,withFile)
 
 type Test = Database -> (Map.Map String String, Integer, Database)
 

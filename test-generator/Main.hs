@@ -1,10 +1,12 @@
 {-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE PackageImports #-}
 import Control.Concurrent(forkIO)
 import Control.Concurrent.Chan(Chan,newChan,readChan,writeChan)
 import Control.Concurrent.MVar(MVar,newMVar,modifyMVar)
 import Control.Exception(SomeException,catch)
 import Control.Monad(replicateM_,void)
-import Crypto.Random(SystemDRG,getSystemDRG)
+import "cryptonite" Crypto.Random(SystemDRG,getSystemDRG)
+import DSA(dsaTasks)
 import ECDSATesting(ecdsaTasks)
 import GHC.Conc(getNumCapabilities)
 import RFC6979(rfcTasks)
@@ -36,6 +38,6 @@ main = displayConsoleRegions $
     do 
        executors <- getNumCapabilities
        done <- newChan
-       tasks <- newMVar (ecdsaTasks ++ rfcTasks ++ rsaTasks)
+       tasks <- newMVar (dsaTasks ++ ecdsaTasks ++ rfcTasks ++ rsaTasks)
        replicateM_ executors (spawnExecutor tasks done)
        replicateM_ executors (void $ readChan done)

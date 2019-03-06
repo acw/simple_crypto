@@ -1,3 +1,4 @@
+{-# LANGUAGE PackageImports #-}
 module RFC6979
 --       (
 --         rfcTasks
@@ -7,7 +8,7 @@ module RFC6979
 import Crypto.Hash(SHA224(..),SHA256(..),SHA384(..),SHA512(..))
 import Crypto.MAC.HMAC(HMAC,hmac)
 import Crypto.Number.Generate(generateBetween)
-import Crypto.Random(getRandomBytes,withDRG)
+import "cryptonite" Crypto.Random(getRandomBytes,withDRG)
 import Data.Bits(shiftL,shiftR,(.&.))
 import qualified Data.ByteArray as B
 import qualified Data.ByteString as S

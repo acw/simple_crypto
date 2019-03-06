@@ -1,9 +1,10 @@
+{-# LANGUAGE PackageImports #-}
 module Utils(HashAlg(..), generateHash, runHash, showHash)
  where
 
 import Crypto.Hash(Digest,SHA224(..),SHA256(..),SHA384(..),SHA512(..),hash)
 import Crypto.Number.Generate(generateBetween)
-import Crypto.Random(MonadRandom)
+import "cryptonite" Crypto.Random(MonadRandom)
 import qualified Data.ByteArray as B
 import qualified Data.ByteString as S
 import Math(showX)
