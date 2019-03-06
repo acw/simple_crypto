@@ -157,7 +157,6 @@ macro_rules! generate_tests {
             use super::*;
             use testing::run_test;
             use rsa::signing_hashes::*;
-            use sha1::Sha1;
             use sha2::{Sha224,Sha256,Sha384,Sha512};
 
             #[test]
@@ -193,58 +192,37 @@ macro_rules! generate_tests {
 
             #[test]
             fn decrypt() {
-                let fname = format!("tests/rsa/rsa{}.test", $size);
-                run_test(fname.to_string(), 8, |case| {
-                    let (neg0, dbytes) = case.get("d").unwrap();
-                    let (neg1, nbytes) = case.get("n").unwrap();
-                    let (neg2, hbytes) = case.get("h").unwrap();
-                    let (neg3, mbytes) = case.get("m").unwrap();
-                    let (neg4, cbytes) = case.get("c").unwrap();
-                    let (neg5, ubytes) = case.get("u").unwrap();
-                    let (neg6, kbytes) = case.get("k").unwrap();
+                let fname = format!("testdata/rsa/encrypt{}.test", $size);
+                run_test(fname.to_string(), 9, |case| {
+                    let (neg0, nbytes) = case.get("n").unwrap();
+                    let (neg1, hbytes) = case.get("h").unwrap();
+                    let (neg2, mbytes) = case.get("m").unwrap();
+                    let (neg3, _bytes) = case.get("e").unwrap();
+                    let (neg4, ubytes) = case.get("u").unwrap();
+                    let (neg5, kbytes) = case.get("k").unwrap();
+                    let (neg6, dbytes) = case.get("d").unwrap();
+                    let (neg7, lbytes) = case.get("l").unwrap();
+                    let (neg8, cbytes) = case.get("c").unwrap();
 
-                    assert!(!neg0&&!neg1&&!neg2&&!neg3&&!neg4&&!neg5&&!neg6);
-                    let n = $num64::from_bytes(nbytes);
+                    assert!(!neg0 && !neg1 && !neg2 && !neg3 && !neg4 && !neg5 && !neg6 && !neg7 && !neg8);
+                    let n = $num::from_bytes(nbytes);
+                    let n64 = $num64::from(&n);
                     let nu = $num64::from_bytes(ubytes);
                     let bigk = $num::from_bytes(kbytes);
                     let k = usize::from(bigk);
                     let d = $num::from_bytes(dbytes);
-                    let privkey = $rsa{ nu: $bar::from_components(k, n, nu), d: d };
-                    let hashnum = ((hbytes[0] as u16)<<8) + (hbytes[1] as u16);
-                    let empty = "".to_string();
-                    match hashnum {
-                        0x160 => {
-                            let oaep = OAEPParams::<Sha1>::new(empty);
-                            let plain = privkey.decrypt(&oaep, &cbytes);
-                            assert!(plain.is_ok());
-                            assert_eq!(*mbytes, plain.unwrap());
-                        }
-                        0x224 =>{
-                            let oaep = OAEPParams::<Sha224>::new(empty);
-                            let plain = privkey.decrypt(&oaep, &cbytes);
-                            assert!(plain.is_ok());
-                            assert_eq!(*mbytes, plain.unwrap());
-                        }
-                        0x256 => {
-                            let oaep = OAEPParams::<Sha256>::new(empty);
-                            let plain = privkey.decrypt(&oaep, &cbytes);
-                            assert!(plain.is_ok());
-                            assert_eq!(*mbytes, plain.unwrap());
-                        }
-                        0x384 => {
-                            let oaep = OAEPParams::<Sha384>::new(empty);
-                            let plain = privkey.decrypt(&oaep, &cbytes);
-                            assert!(plain.is_ok());
-                            assert_eq!(*mbytes, plain.unwrap());
-                        }
-                        0x512 => {
-                            let oaep = OAEPParams::<Sha512>::new(empty);
-                            let plain = privkey.decrypt(&oaep, &cbytes);
-                            assert!(plain.is_ok());
-                            assert_eq!(*mbytes, plain.unwrap());
-                        }
-                        _     => panic!("Bad signing hash: {}", hashnum)
+                    let nu = $bar::from_components(k, n64, nu);
+                    let privkey = $rsa{ nu: nu, d: d };
+                    let lstr = String::from_utf8(lbytes.clone()).unwrap();
+                    let message = match usize::from($num::from_bytes(hbytes)) {
+                        224 => privkey.decrypt(&OAEPParams::<Sha224>::new(lstr), &cbytes),
+                        256 => privkey.decrypt(&OAEPParams::<Sha256>::new(lstr), &cbytes),
+                        384 => privkey.decrypt(&OAEPParams::<Sha384>::new(lstr), &cbytes),
+                        512 => privkey.decrypt(&OAEPParams::<Sha512>::new(lstr), &cbytes),
+                        x   => panic!("Unknown hash number: {}", x)
                     };
+                    assert!(message.is_ok());
+                    assert_eq!(mbytes, &message.unwrap());
                 });
             }
         }
