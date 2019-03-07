@@ -3,7 +3,8 @@ module RSA(rsaTasks)
  where
 
 import Crypto.Hash(SHA224(..),SHA256(..),SHA384(..),SHA512(..))
-import "cryptonite" Crypto.Random
+import "cryptonite" Crypto.Random(MonadRandom,MonadPseudoRandom,getRandomBytes,withDRG)
+import "crypto-api" Crypto.Random(SystemRandom)
 import Crypto.PubKey.MaskGenFunction(mgf1)
 import Crypto.PubKey.RSA
 import Crypto.PubKey.RSA.PKCS15(sign)
@@ -61,7 +62,7 @@ signTest sz cnt = Task {
                                                   ("m", showBin msg),
                                                   ("s", showBin sig)], n)
 
-withDRG' :: Database -> MonadPseudoRandom SystemDRG (Map String String, Integer) ->
+withDRG' :: Database -> MonadPseudoRandom SystemRandom (Map String String, Integer) ->
             (Map String String, Integer, Database)
 withDRG' (memory, drg) action =
   let ((res, n), drg') = withDRG drg action

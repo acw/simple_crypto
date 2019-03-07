@@ -5,7 +5,7 @@ import Control.Concurrent.Chan(Chan,newChan,readChan,writeChan)
 import Control.Concurrent.MVar(MVar,newMVar,modifyMVar)
 import Control.Exception(SomeException,catch)
 import Control.Monad(replicateM_,void)
-import "cryptonite" Crypto.Random(SystemDRG,getSystemDRG)
+import "crypto-api" Crypto.Random(CryptoRandomGen(..),SystemRandom)
 import DSA(dsaTasks)
 import ECDSATesting(ecdsaTasks)
 import GHC.Conc(getNumCapabilities)
@@ -14,7 +14,7 @@ import RSA(rsaTasks)
 import System.Console.AsciiProgress
 import Task(Task, runTask)
 
-taskExecutor :: MVar [Task] -> Chan () -> SystemDRG -> IO SystemDRG
+taskExecutor :: MVar [Task] -> Chan () -> SystemRandom -> IO SystemRandom
 taskExecutor taskList done gen =
     do mnext <- modifyMVar taskList (\case
                                        [] -> return ([], Nothing)
@@ -27,7 +27,7 @@ taskExecutor taskList done gen =
 
 spawnExecutor :: MVar [Task] -> Chan () -> IO ()
 spawnExecutor tasks done =
-  do gen <- getSystemDRG
+  do gen <- newGenIO
      void (forkIO (catch (void (taskExecutor tasks done gen)) handler))
  where
   handler :: SomeException -> IO ()

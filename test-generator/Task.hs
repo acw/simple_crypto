@@ -7,7 +7,7 @@ module Task(
  where
 
 import              Control.Monad(foldM, forM_)
-import "cryptonite" Crypto.Random(SystemDRG)
+import "crypto-api" Crypto.Random(SystemRandom)
 import qualified    Data.Map.Strict as Map
 import              Database
 import              System.Console.AsciiProgress
@@ -24,7 +24,7 @@ data Task = Task {
     taskCount :: Int
 }
 
-runTask :: SystemDRG -> Task -> IO SystemDRG
+runTask :: SystemRandom -> Task -> IO SystemRandom
 runTask gen task =
   do createDirectoryIfMissing True (takeDirectory (taskFile task))
      alreadyDone <- doesFileExist (taskFile task)
