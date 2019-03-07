@@ -98,3 +98,62 @@ pubkey_impls!(L1024N160, U1024, U192, U384, U2048);
 pubkey_impls!(L2048N224, U2048, U256, U512, U4096);
 pubkey_impls!(L2048N256, U2048, U256, U512, U4096);
 pubkey_impls!(L3072N256, U3072, U256, U512, U6144);
+
+macro_rules! generate_tests {
+    ( $( ($mod: ident, $params: ident, $lt: ident, $nt: ident) ),* ) => {
+        $(
+        #[cfg(test)]
+        #[allow(non_snake_case)]
+        mod $mod {
+            use cryptonum::unsigned::Decoder;
+            use super::*;
+            use testing::run_test;
+            use sha2::{Sha224,Sha256,Sha384,Sha512};
+
+            #[test]
+            fn verify() {
+                let fname = format!("testdata/dsa/sign{}.test", stringify!($params));
+                run_test(fname.to_string(), 9, |case| {
+                    let (neg0, pbytes) = case.get("p").unwrap();
+                    let (neg1, qbytes) = case.get("q").unwrap();
+                    let (neg2, gbytes) = case.get("g").unwrap();
+                    let (neg3, ybytes) = case.get("y").unwrap();
+                    let (neg4, _bytes) = case.get("x").unwrap();
+                    let (neg5, mbytes) = case.get("m").unwrap();
+                    let (neg6, hbytes) = case.get("h").unwrap();
+                    let (neg7, rbytes) = case.get("r").unwrap();
+                    let (neg8, sbytes) = case.get("s").unwrap();
+
+                    assert!(!neg0 && !neg1 && !neg2 && !neg3 && !neg4 &&
+                            !neg5 && !neg6 && !neg7 && !neg8);
+                    let p = $lt::from_bytes(pbytes);
+                    let q = $nt::from_bytes(qbytes);
+                    let g = $lt::from_bytes(gbytes);
+                    //let x = $lt::from_bytes(xbytes);
+                    let y = $lt::from_bytes(ybytes);
+                    let h = usize::from($nt::from_bytes(hbytes));
+                    let r = $nt::from_bytes(rbytes);
+                    let s = $nt::from_bytes(sbytes);
+
+                    let params = $params::new(p,g,q);
+                    let public = DSAPubKey::<$params,$lt>::new(params, y);
+                    let sig = DSASignature::<$nt>::new(r, s);
+                    match h {
+                        224 => assert!(public.verify::<Sha224>(mbytes, &sig)),
+                        256 => assert!(public.verify::<Sha256>(mbytes, &sig)),
+                        384 => assert!(public.verify::<Sha384>(mbytes, &sig)),
+                        512 => assert!(public.verify::<Sha512>(mbytes, &sig)),
+                        _   => panic!("Unexpected hash {}", h)
+                    }
+                });
+            }
+        }
+        )*
+    }
+}
+
+generate_tests!( (DSA1024N160, L1024N160, U1024, U192),
+                 (DSA2048N224, L2048N224, U2048, U256),
+                 (DSA2048N256, L2048N256, U2048, U256),
+                 (DSA3072N256, L3072N256, U3072, U256)
+               );
