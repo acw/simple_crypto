@@ -5,27 +5,18 @@ module DSA(dsaTasks)
 import Codec.Crypto.DSA.Pure
 import Crypto.Hash(Digest, SHA256, hash)
 import "cryptonite" Crypto.Random(SystemDRG,DRG(..),getRandomBytes,withDRG)
-import "crypto-api" Crypto.Random(CryptoRandomGen(..))
+import "crypto-api" Crypto.Random(CryptoRandomGen(..), SystemRandom)
 import Data.ByteArray(convert)
 import qualified Data.ByteString as BS
 import Data.ByteString.Lazy(ByteString)
 import qualified Data.ByteString.Lazy as BSL
 import qualified Data.Map.Strict as Map
 import Math(showX,showBin)
+import System.IO.Unsafe(unsafePerformIO)
 import Task(Task(..),Test)
 import Utils(HashAlg(..),generateHash,showHash)
 
 import Debug.Trace
-
-instance CryptoRandomGen SystemDRG where
-  newGen _ = undefined
-  genSeedLength = undefined
-  genBytes l g = Right (randomBytesGenerate l g)
-  reseedInfo = undefined
-  reseedPeriod = undefined
-  genBytesWithEntropy l _ g = Right (randomBytesGenerate l g)
-  reseed = undefined
-  newGenIO = undefined
 
 dsaSizes :: [(ParameterSizes, Int)]
 dsaSizes = [(L1024_N160, 400),
@@ -49,22 +40,22 @@ signTest sz cnt = Task {
  where
   go :: Test
   go (memory, drg0) =
-    case generateProvablePrimes sz drg0 sha256 Nothing of
+    case generateProbablePrimes sz (unsafePerformIO (newGenIO :: IO SystemRandom)) sha256 Nothing of
       Left _ -> trace "generate primes" $ goAdvance memory drg0
-      Right (p, q, _, drg1) -> trace "got primes" $
+      Right (p, q, _, gen1) ->
         case generateUnverifiableGenerator p q of
-          Nothing -> trace "generate g" $ goAdvance memory drg1
-          Just g -> trace "got g" $
+          Nothing -> trace "generate g" $ goAdvance memory drg0
+          Just g ->
             let params = Params p g q
-            in case generateKeyPairWithParams params drg1 of
-                 Left _ -> trace "generate key" $ goAdvance memory drg1
-                 Right (pub, priv, drg2) -> trace "got keys" $
-                   let (msg, drg3) = withDRG drg2 $ getRandomBytes =<< ((fromIntegral . BS.head) `fmap` getRandomBytes 1)
-                       (hashf, drg4) = withDRG drg3 generateHash
-                   in case signMessage' (translateHash hashf) kViaRFC6979 drg4 priv (BSL.fromStrict msg) of
+            in case generateKeyPairWithParams params gen1 of
+                 Left _ -> trace "generate key" $ goAdvance memory drg0
+                 Right (pub, priv, gen1) ->
+                   let (msg, drg1) = withDRG drg0 $ getRandomBytes =<< ((fromIntegral . BS.head) `fmap` getRandomBytes 1)
+                       (hashf, drg2) = withDRG drg1 generateHash
+                   in case signMessage' (translateHash hashf) kViaRFC6979 gen1 priv (BSL.fromStrict msg) of
                         Left _ ->
-                          trace "sign failure" $ go (memory, drg4)
-                        Right (sig, drg5) -> trace "output!" $
+                          trace "sign failure" $ go (memory, drg2)
+                        Right (sig, _) ->
                           let res = Map.fromList [("p", showX p),
                                                   ("q", showX q),
                                                   ("g", showX g),
@@ -74,7 +65,7 @@ signTest sz cnt = Task {
                                                   ("h", showHash hashf),
                                                   ("r", showX (sign_r sig)),
                                                   ("s", showX (sign_s sig))]
-                          in (res, p, (memory, drg5))
+                          in (res, p, (memory, drg2))
   --
   goAdvance memory drg0 =
     let (bstr, drg1) = randomBytesGenerate 37 drg0
