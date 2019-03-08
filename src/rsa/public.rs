@@ -334,9 +334,136 @@ generate_rsa_public!(RSA4096Public,  U4096,  BarrettU4096,  Key4096,  4096);
 generate_rsa_public!(RSA8192Public,  U8192,  BarrettU8192,  Key8192,  8192);
 generate_rsa_public!(RSA15360Public, U15360, BarrettU15360, Key15360, 15360);
 
+#[cfg(test)]
+macro_rules! new_test_body {
+    ($mod: ident, $rsa: ident, $priv: ident, $num: ident, $bar: ident, $num64: ident, $size: expr) => {
+        let fname = format!("testdata/rsa/sign{}.test", $size);
+        run_test(fname.to_string(), 7, |case| {
+            let (neg0, nbytes) = case.get("n").unwrap();
+            let (neg1, ubytes) = case.get("u").unwrap();
+            let (neg2, kbytes) = case.get("k").unwrap();
+
+            assert!(!neg0&&!neg1&&!neg2);
+            let n = $num::from_bytes(nbytes);
+            let n64 = $num64::from(&n);
+            let nu = $num64::from_bytes(ubytes);
+            let bigk = $num::from_bytes(kbytes);
+            let k = usize::from(bigk);
+            let e = $num::from(65537u64);
+            let pubkey2 = $rsa::new(n.clone(), e.clone());
+            let pubkey1 = $rsa{ n: n, nu: $bar::from_components(k, n64, nu), e: e };
+            assert_eq!(pubkey1, pubkey2);
+        });
+    };
+}
+
+#[cfg(test)]
+macro_rules! encode_test_body {
+    ($mod: ident, $rsa: ident, $priv: ident, $num: ident, $bar: ident, $num64: ident, $size: expr) => {
+        let fname = format!("testdata/rsa/sign{}.test", $size);
+        run_test(fname.to_string(), 7, |case| {
+            let (neg0, nbytes) = case.get("n").unwrap();
+            let (neg1, ubytes) = case.get("u").unwrap();
+            let (neg2, kbytes) = case.get("k").unwrap();
+
+            assert!(!neg0&&!neg1&&!neg2);
+            let n = $num::from_bytes(nbytes);
+            let n64 = $num64::from(&n);
+            let nu = $num64::from_bytes(ubytes);
+            let bigk = $num::from_bytes(kbytes);
+            let k = usize::from(bigk);
+            let e = $num::from(65537u64);
+            let pubkey = $rsa{ n: n, nu: $bar::from_components(k, n64, nu), e: e };
+            let asn1 = pubkey.to_asn1().unwrap();
+            let (pubkey2, _) = $rsa::from_asn1(&asn1).unwrap();
+            assert_eq!(pubkey, pubkey2);
+        });
+    };
+}
+
+#[cfg(test)]
+macro_rules! verify_test_body {
+    ($mod: ident, $rsa: ident, $priv: ident, $num: ident, $bar: ident, $num64: ident, $size: expr) => {
+        let fname = format!("testdata/rsa/sign{}.test", $size);
+        run_test(fname.to_string(), 7, |case| {
+            let (neg0, nbytes) = case.get("n").unwrap();
+            let (neg1, hbytes) = case.get("h").unwrap();
+            let (neg2, mbytes) = case.get("m").unwrap();
+            let (neg3, sbytes) = case.get("s").unwrap();
+            let (neg4, ubytes) = case.get("u").unwrap();
+            let (neg5, kbytes) = case.get("k").unwrap();
+
+            assert!(!neg0 && !neg1 && !neg2 && !neg3 && !neg4 && !neg5);
+            let n = $num::from_bytes(nbytes);
+            let n64 = $num64::from(&n);
+            let nu = $num64::from_bytes(ubytes);
+            let bigk = $num::from_bytes(kbytes);
+            let k = usize::from(bigk);
+            let e = $num::from(65537u64);
+            let pubkey = $rsa{ n: n, nu: $bar::from_components(k, n64, nu), e: e };
+            let hashnum = u64::from($num::from_bytes(hbytes));
+            let sighash = match hashnum {
+                            160 => &SIGNING_HASH_SHA1,
+                            224 => &SIGNING_HASH_SHA224,
+                            256 => &SIGNING_HASH_SHA256,
+                            384 => &SIGNING_HASH_SHA384,
+                            512 => &SIGNING_HASH_SHA512,
+                            _   => panic!("Bad signing hash: {}", hashnum)
+                          };
+            assert!(pubkey.verify(sighash, &mbytes, &sbytes));
+        });
+    };
+}
+
+#[cfg(test)]
+macro_rules! encrypt_test_body {
+    ($mod: ident, $rsa: ident, $priv: ident, $num: ident, $bar: ident, $num64: ident, $size: expr) => {
+        let fname = format!("testdata/rsa/encrypt{}.test", $size);
+        run_test(fname.to_string(), 9, |case| {
+            let (neg0, nbytes) = case.get("n").unwrap();
+            let (neg1, hbytes) = case.get("h").unwrap();
+            let (neg2, mbytes) = case.get("m").unwrap();
+            let (neg3, _bytes) = case.get("e").unwrap();
+            let (neg4, ubytes) = case.get("u").unwrap();
+            let (neg5, kbytes) = case.get("k").unwrap();
+            let (neg6, dbytes) = case.get("d").unwrap();
+            let (neg7, lbytes) = case.get("l").unwrap();
+
+            assert!(!neg0 && !neg1 && !neg2 && !neg3 && !neg4 && !neg5 && !neg6 && !neg7);
+            let n = $num::from_bytes(nbytes);
+            let n64 = $num64::from(&n);
+            let nu = $num64::from_bytes(ubytes);
+            let bigk = $num::from_bytes(kbytes);
+            let k = usize::from(bigk);
+            let e = $num::from(65537u64);
+            let d = $num::from_bytes(dbytes);
+            let nu = $bar::from_components(k, n64, nu);
+            let pubkey = $rsa{ n: n.clone(), nu: nu.clone(), e: e };
+            let privkey = $priv{ nu: nu, d: d };
+            let lstr = String::from_utf8(lbytes.clone()).unwrap();
+            let cipher = match usize::from($num::from_bytes(hbytes)) {
+                224 => pubkey.encrypt(&OAEPParams::<Sha224>::new(lstr.clone()), mbytes),
+                256 => pubkey.encrypt(&OAEPParams::<Sha256>::new(lstr.clone()), mbytes),
+                384 => pubkey.encrypt(&OAEPParams::<Sha384>::new(lstr.clone()), mbytes),
+                512 => pubkey.encrypt(&OAEPParams::<Sha512>::new(lstr.clone()), mbytes),
+                x   => panic!("Unknown hash number: {}", x)
+            };
+            assert!(cipher.is_ok());
+            let message = match usize::from($num::from_bytes(hbytes)) {
+                224 => privkey.decrypt(&OAEPParams::<Sha224>::new(lstr), &cipher.unwrap()),
+                256 => privkey.decrypt(&OAEPParams::<Sha256>::new(lstr), &cipher.unwrap()),
+                384 => privkey.decrypt(&OAEPParams::<Sha384>::new(lstr), &cipher.unwrap()),
+                512 => privkey.decrypt(&OAEPParams::<Sha512>::new(lstr), &cipher.unwrap()),
+                x   => panic!("Unknown hash number: {}", x)
+            };
+            assert!(message.is_ok());
+            assert_eq!(mbytes, &message.unwrap());
+        });
+    };
+}
+
 macro_rules! generate_tests {
-    ( $( ($mod: ident, $rsa: ident, $priv: ident, $num: ident, $bar: ident, $num64: ident, $size: expr) ),* ) => {
-        $(
+    ($mod: ident, $rsa: ident, $priv: ident, $num: ident, $bar: ident, $num64: ident, $size: expr) => {
         #[cfg(test)]
         #[allow(non_snake_case)]
         mod $mod {
@@ -348,134 +475,46 @@ macro_rules! generate_tests {
             use sha2::{Sha224,Sha256,Sha384,Sha512};
 
             #[test]
-            fn new() {
-                let fname = format!("testdata/rsa/sign{}.test", $size);
-                run_test(fname.to_string(), 7, |case| {
-                    let (neg0, nbytes) = case.get("n").unwrap();
-                    let (neg1, ubytes) = case.get("u").unwrap();
-                    let (neg2, kbytes) = case.get("k").unwrap();
-
-                    assert!(!neg0&&!neg1&&!neg2);
-                    let n = $num::from_bytes(nbytes);
-                    let n64 = $num64::from(&n);
-                    let nu = $num64::from_bytes(ubytes);
-                    let bigk = $num::from_bytes(kbytes);
-                    let k = usize::from(bigk);
-                    let e = $num::from(65537u64);
-                    let pubkey2 = $rsa::new(n.clone(), e.clone());
-                    let pubkey1 = $rsa{ n: n, nu: $bar::from_components(k, n64, nu), e: e };
-                    assert_eq!(pubkey1, pubkey2);
-                });
-            }
-
+            fn new() { new_test_body!($mod, $rsa, $priv, $num, $bar, $num64, $size); }
             #[test]
-            fn encode() {
-                let fname = format!("testdata/rsa/sign{}.test", $size);
-                run_test(fname.to_string(), 7, |case| {
-                    let (neg0, nbytes) = case.get("n").unwrap();
-                    let (neg1, ubytes) = case.get("u").unwrap();
-                    let (neg2, kbytes) = case.get("k").unwrap();
-
-                    assert!(!neg0&&!neg1&&!neg2);
-                    let n = $num::from_bytes(nbytes);
-                    let n64 = $num64::from(&n);
-                    let nu = $num64::from_bytes(ubytes);
-                    let bigk = $num::from_bytes(kbytes);
-                    let k = usize::from(bigk);
-                    let e = $num::from(65537u64);
-                    let pubkey = $rsa{ n: n, nu: $bar::from_components(k, n64, nu), e: e };
-                    let asn1 = pubkey.to_asn1().unwrap();
-                    let (pubkey2, _) = $rsa::from_asn1(&asn1).unwrap();
-                    assert_eq!(pubkey, pubkey2);
-                });
-            }
-
+            fn encode() { encode_test_body!($mod, $rsa, $priv, $num, $bar, $num64, $size); }
             #[test]
-            fn verify() {
-                let fname = format!("testdata/rsa/sign{}.test", $size);
-                run_test(fname.to_string(), 7, |case| {
-                    let (neg0, nbytes) = case.get("n").unwrap();
-                    let (neg1, hbytes) = case.get("h").unwrap();
-                    let (neg2, mbytes) = case.get("m").unwrap();
-                    let (neg3, sbytes) = case.get("s").unwrap();
-                    let (neg4, ubytes) = case.get("u").unwrap();
-                    let (neg5, kbytes) = case.get("k").unwrap();
-
-                    assert!(!neg0 && !neg1 && !neg2 && !neg3 && !neg4 && !neg5);
-                    let n = $num::from_bytes(nbytes);
-                    let n64 = $num64::from(&n);
-                    let nu = $num64::from_bytes(ubytes);
-                    let bigk = $num::from_bytes(kbytes);
-                    let k = usize::from(bigk);
-                    let e = $num::from(65537u64);
-                    let pubkey = $rsa{ n: n, nu: $bar::from_components(k, n64, nu), e: e };
-                    let hashnum = u64::from($num::from_bytes(hbytes));
-                    let sighash = match hashnum {
-                                    160 => &SIGNING_HASH_SHA1,
-                                    224 => &SIGNING_HASH_SHA224,
-                                    256 => &SIGNING_HASH_SHA256,
-                                    384 => &SIGNING_HASH_SHA384,
-                                    512 => &SIGNING_HASH_SHA512,
-                                    _   => panic!("Bad signing hash: {}", hashnum)
-                                  };
-                    assert!(pubkey.verify(sighash, &mbytes, &sbytes));
-                });
-            }
-
+            fn verify() { verify_test_body!($mod, $rsa, $priv, $num, $bar, $num64, $size); }
             #[test]
-            fn encrypt() {
-                let fname = format!("testdata/rsa/encrypt{}.test", $size);
-                run_test(fname.to_string(), 9, |case| {
-                    let (neg0, nbytes) = case.get("n").unwrap();
-                    let (neg1, hbytes) = case.get("h").unwrap();
-                    let (neg2, mbytes) = case.get("m").unwrap();
-                    let (neg3, _bytes) = case.get("e").unwrap();
-                    let (neg4, ubytes) = case.get("u").unwrap();
-                    let (neg5, kbytes) = case.get("k").unwrap();
-                    let (neg6, dbytes) = case.get("d").unwrap();
-                    let (neg7, lbytes) = case.get("l").unwrap();
-
-                    assert!(!neg0 && !neg1 && !neg2 && !neg3 && !neg4 && !neg5 && !neg6 && !neg7);
-                    let n = $num::from_bytes(nbytes);
-                    let n64 = $num64::from(&n);
-                    let nu = $num64::from_bytes(ubytes);
-                    let bigk = $num::from_bytes(kbytes);
-                    let k = usize::from(bigk);
-                    let e = $num::from(65537u64);
-                    let d = $num::from_bytes(dbytes);
-                    let nu = $bar::from_components(k, n64, nu);
-                    let pubkey = $rsa{ n: n.clone(), nu: nu.clone(), e: e };
-                    let privkey = $priv{ nu: nu, d: d };
-                    let lstr = String::from_utf8(lbytes.clone()).unwrap();
-                    let cipher = match usize::from($num::from_bytes(hbytes)) {
-                        224 => pubkey.encrypt(&OAEPParams::<Sha224>::new(lstr.clone()), mbytes),
-                        256 => pubkey.encrypt(&OAEPParams::<Sha256>::new(lstr.clone()), mbytes),
-                        384 => pubkey.encrypt(&OAEPParams::<Sha384>::new(lstr.clone()), mbytes),
-                        512 => pubkey.encrypt(&OAEPParams::<Sha512>::new(lstr.clone()), mbytes),
-                        x   => panic!("Unknown hash number: {}", x)
-                    };
-                    assert!(cipher.is_ok());
-                    let message = match usize::from($num::from_bytes(hbytes)) {
-                        224 => privkey.decrypt(&OAEPParams::<Sha224>::new(lstr), &cipher.unwrap()),
-                        256 => privkey.decrypt(&OAEPParams::<Sha256>::new(lstr), &cipher.unwrap()),
-                        384 => privkey.decrypt(&OAEPParams::<Sha384>::new(lstr), &cipher.unwrap()),
-                        512 => privkey.decrypt(&OAEPParams::<Sha512>::new(lstr), &cipher.unwrap()),
-                        x   => panic!("Unknown hash number: {}", x)
-                    };
-                    assert!(message.is_ok());
-                    assert_eq!(mbytes, &message.unwrap());
-                });
-             }
+            fn encrypt() { encrypt_test_body!($mod, $rsa, $priv, $num, $bar, $num64, $size); }
         }
-        )*
-    }
+    };
+    (ignore $mod: ident, $rsa: ident, $priv: ident, $num: ident, $bar: ident, $num64: ident, $size: expr) => {
+        #[cfg(test)]
+        #[allow(non_snake_case)]
+        mod $mod {
+            use cryptonum::unsigned::Decoder;
+            use super::*;
+            use testing::run_test;
+            use rsa::private::*;
+            use rsa::signing_hashes::*;
+            use sha2::{Sha224,Sha256,Sha384,Sha512};
+
+            #[ignore]
+            #[test]
+            fn new() { new_test_body!($mod, $rsa, $priv, $num, $bar, $num64, $size); }
+            #[ignore]
+            #[test]
+            fn encode() { encode_test_body!($mod, $rsa, $priv, $num, $bar, $num64, $size); }
+            #[ignore]
+            #[test]
+            fn verify() { verify_test_body!($mod, $rsa, $priv, $num, $bar, $num64, $size); }
+            #[ignore]
+            #[test]
+            fn encrypt() { encrypt_test_body!($mod, $rsa, $priv, $num, $bar, $num64, $size); }
+        }
+    };
 }
 
-generate_tests!( (RSA512,   RSA512Public,   RSA512Private,   U512,   BarrettU512,   U576,   512),
-                 (RSA1024,  RSA1024Public,  RSA1024Private,  U1024,  BarrettU1024,  U1088,  1024),
-                 (RSA2048,  RSA2048Public,  RSA2048Private,  U2048,  BarrettU2048,  U2112,  2048),
-                 (RSA3072,  RSA3072Public,  RSA3072Private,  U3072,  BarrettU3072,  U3136,  3072),
-                 (RSA4096,  RSA4096Public,  RSA4096Private,  U4096,  BarrettU4096,  U4160,  4096),
-                 (RSA8192,  RSA8192Public,  RSA8192Private,  U8192,  BarrettU8192,  U8256,  8192),
-                 (RSA15360, RSA15360Public, RSA15360Private, U15360, BarrettU15360, U15424, 15360)
-               );
+generate_tests!(RSA512,   RSA512Public,   RSA512Private,   U512,   BarrettU512,   U576,   512);
+generate_tests!(RSA1024,  RSA1024Public,  RSA1024Private,  U1024,  BarrettU1024,  U1088,  1024);
+generate_tests!(RSA2048,  RSA2048Public,  RSA2048Private,  U2048,  BarrettU2048,  U2112,  2048);
+generate_tests!(RSA3072,  RSA3072Public,  RSA3072Private,  U3072,  BarrettU3072,  U3136,  3072);
+generate_tests!(RSA4096,  RSA4096Public,  RSA4096Private,  U4096,  BarrettU4096,  U4160,  4096);
+generate_tests!(ignore RSA8192,  RSA8192Public,  RSA8192Private,  U8192,  BarrettU8192,  U8256,  8192);
+generate_tests!(ignore RSA15360, RSA15360Public, RSA15360Private, U15360, BarrettU15360, U15424, 15360);

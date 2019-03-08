@@ -112,47 +112,62 @@ use sha2::{Sha224,Sha256,Sha384,Sha512};
 #[cfg(test)]
 use testing::*;
 
+#[cfg(test)]
+macro_rules! sign_test_body
+{
+    ($name: ident, $curve: ident, $base: ident) => {
+        let fname = build_test_path("ecc/sign",stringify!($curve));
+        run_test(fname.to_string(), 9, |case| {
+            let (negd, dbytes) = case.get("d").unwrap();
+            let (negk, _bytes) = case.get("k").unwrap();
+            let (negx, xbytes) = case.get("x").unwrap();
+            let (negy, ybytes) = case.get("y").unwrap();
+            let (negm, mbytes) = case.get("m").unwrap();
+            let (negh, hbytes) = case.get("h").unwrap();
+            let (negr, rbytes) = case.get("r").unwrap();
+            let (negs, sbytes) = case.get("s").unwrap();
+
+            assert!(!negd && !negk && !negx && !negy &&
+                    !negm && !negh && !negr && !negs);
+            let d = $base::from_bytes(dbytes);
+            let _ = $base::from_bytes(xbytes);
+            let _ = $base::from_bytes(ybytes);
+            let h = $base::from_bytes(hbytes);
+            let r = $base::from_bytes(rbytes);
+            let s = $base::from_bytes(sbytes);
+
+            let private = ECCPrivate::<$curve>::new(d);
+            let sig = match usize::from(h) {
+                        224 => private.sign::<Sha224>(mbytes),
+                        256 => private.sign::<Sha256>(mbytes),
+                        384 => private.sign::<Sha384>(mbytes),
+                        512 => private.sign::<Sha512>(mbytes),
+                        x   => panic!("Unknown hash algorithm {}", x)
+            };
+            assert_eq!(r, sig.r, "r signature check");
+            assert_eq!(s, sig.s, "s signature check");
+        });
+    }
+}
+
 macro_rules! generate_tests {
     ($name: ident, $curve: ident, $base: ident) => {
         #[test]
         fn $name() {
-            let fname = build_test_path("ecc/sign",stringify!($curve));
-            run_test(fname.to_string(), 9, |case| {
-                let (negd, dbytes) = case.get("d").unwrap();
-                let (negk, _bytes) = case.get("k").unwrap();
-                let (negx, xbytes) = case.get("x").unwrap();
-                let (negy, ybytes) = case.get("y").unwrap();
-                let (negm, mbytes) = case.get("m").unwrap();
-                let (negh, hbytes) = case.get("h").unwrap();
-                let (negr, rbytes) = case.get("r").unwrap();
-                let (negs, sbytes) = case.get("s").unwrap();
-
-                assert!(!negd && !negk && !negx && !negy &&
-                        !negm && !negh && !negr && !negs);
-                let d = $base::from_bytes(dbytes);
-                let _ = $base::from_bytes(xbytes);
-                let _ = $base::from_bytes(ybytes);
-                let h = $base::from_bytes(hbytes);
-                let r = $base::from_bytes(rbytes);
-                let s = $base::from_bytes(sbytes);
-
-                let private = ECCPrivate::<$curve>::new(d);
-                let sig = match usize::from(h) {
-                            224 => private.sign::<Sha224>(mbytes),
-                            256 => private.sign::<Sha256>(mbytes),
-                            384 => private.sign::<Sha384>(mbytes),
-                            512 => private.sign::<Sha512>(mbytes),
-                            x   => panic!("Unknown hash algorithm {}", x)
-                };
-                assert_eq!(r, sig.r, "r signature check");
-                assert_eq!(s, sig.s, "s signature check");
-            });
-        }
+            sign_test_body!($name, $curve, $base);
+       }
+    };
+    (ignore $name: ident, $curve: ident, $base: ident) => {
+        #[ignore]
+        #[test]
+        fn $name() {
+            sign_test_body!($name, $curve, $base);
+       }
     };
 }
 
 generate_tests!(p192_sign, P192, U192);
-generate_tests!(p224_sign, P224, U256);
-generate_tests!(p256_sign, P256, U256);
-generate_tests!(p384_sign, P384, U384);
-generate_tests!(p521_sign, P521, U576);
+generate_tests!(ignore p224_sign, P224, U256);
+generate_tests!(ignore p256_sign, P256, U256);
+generate_tests!(ignore p384_sign, P384, U384);
+generate_tests!(ignore p521_sign, P521, U576);

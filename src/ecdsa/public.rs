@@ -176,47 +176,62 @@ use sha2::{Sha224,Sha256,Sha384,Sha512};
 #[cfg(test)]
 use testing::*;
 
+#[cfg(test)]
+macro_rules! verify_test_body
+{
+    ($name: ident, $curve: ident, $un: ident, $si: ident) => {
+        let fname = build_test_path("ecc/sign",stringify!($curve));
+        run_test(fname.to_string(), 9, |case| {
+            let (negd, dbytes) = case.get("d").unwrap();
+            let (negk, _bytes) = case.get("k").unwrap();
+            let (negx, xbytes) = case.get("x").unwrap();
+            let (negy, ybytes) = case.get("y").unwrap();
+            let (negm, mbytes) = case.get("m").unwrap();
+            let (negh, hbytes) = case.get("h").unwrap();
+            let (negr, rbytes) = case.get("r").unwrap();
+            let (negs, sbytes) = case.get("s").unwrap();
+
+            assert!(!negd && !negk && !negx && !negy &&
+                    !negm && !negh && !negr && !negs);
+            let _ = $un::from_bytes(dbytes);
+            let x = $un::from_bytes(xbytes);
+            let y = $un::from_bytes(ybytes);
+            let h = $un::from_bytes(hbytes);
+            let r = $un::from_bytes(rbytes);
+            let s = $un::from_bytes(sbytes);
+
+            let point = Point::<$curve>{ x: $si::from(x), y: $si::from(y) };
+            let public = ECCPubKey::<$curve>::new(point);
+            let sig = DSASignature::new(r, s);
+            match usize::from(h) {
+                224 => assert!(public.verify::<Sha224>(mbytes, &sig)),
+                256 => assert!(public.verify::<Sha256>(mbytes, &sig)),
+                384 => assert!(public.verify::<Sha384>(mbytes, &sig)),
+                512 => assert!(public.verify::<Sha512>(mbytes, &sig)),
+                x   => panic!("Unknown hash algorithm {}", x)
+            };
+        });
+    }
+}
+
 macro_rules! test_impl {
     ($name: ident, $curve: ident, $un: ident, $si: ident) => {
         #[test]
         fn $name() {
-            let fname = build_test_path("ecc/sign",stringify!($curve));
-            run_test(fname.to_string(), 9, |case| {
-                let (negd, dbytes) = case.get("d").unwrap();
-                let (negk, _bytes) = case.get("k").unwrap();
-                let (negx, xbytes) = case.get("x").unwrap();
-                let (negy, ybytes) = case.get("y").unwrap();
-                let (negm, mbytes) = case.get("m").unwrap();
-                let (negh, hbytes) = case.get("h").unwrap();
-                let (negr, rbytes) = case.get("r").unwrap();
-                let (negs, sbytes) = case.get("s").unwrap();
-
-                assert!(!negd && !negk && !negx && !negy &&
-                        !negm && !negh && !negr && !negs);
-                let _ = $un::from_bytes(dbytes);
-                let x = $un::from_bytes(xbytes);
-                let y = $un::from_bytes(ybytes);
-                let h = $un::from_bytes(hbytes);
-                let r = $un::from_bytes(rbytes);
-                let s = $un::from_bytes(sbytes);
-
-                let point = Point::<$curve>{ x: $si::from(x), y: $si::from(y) };
-                let public = ECCPubKey::<$curve>::new(point);
-                let sig = DSASignature::new(r, s);
-                match usize::from(h) {
-                    224 => assert!(public.verify::<Sha224>(mbytes, &sig)),
-                    256 => assert!(public.verify::<Sha256>(mbytes, &sig)),
-                    384 => assert!(public.verify::<Sha384>(mbytes, &sig)),
-                    512 => assert!(public.verify::<Sha512>(mbytes, &sig)),
-                    x   => panic!("Unknown hash algorithm {}", x)
-                };
-            });
-        }
+            verify_test_body!($name, $curve, $un, $si);
+       }
+    };
+    (ignore $name: ident, $curve: ident, $un: ident, $si: ident) => {
+        #[ignore]
+        #[test]
+        fn $name() {
+            verify_test_body!($name, $curve, $un, $si);
+       }
     };
 }
 
 test_impl!(p192,P192,U192,I192);
 test_impl!(p224,P224,U256,I256);
-test_impl!(p256,P256,U256,I256);
-test_impl!(p384,P384,U384,I384);
-test_impl!(p521,P521,U576,I576);
+test_impl!(ignore p256,P256,U256,I256);
+test_impl!(ignore p384,P384,U384,I384);
+test_impl!(ignore p521,P521,U576,I576);
