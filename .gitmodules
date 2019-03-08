@@ -1,0 +1,3 @@
+[submodule "cryptonum"]
+	path = cryptonum
+	url = https://github.com/acw/cryptonum.git
