@@ -35,6 +35,9 @@ pub mod dsa;
 /// The `ecdsa` module provides bare-bones support for ECDSA signing,
 /// verification, and key generation.
 pub mod ecdsa;
+/// The `ssh` module provides support for parsing OpenSSH-formatted SSH keys,
+/// both public and private.
+pub mod ssh;
 /// The `x509` module supports parsing and generating x.509 certificates, as
 /// used by TLS and others.
 pub mod x509;
