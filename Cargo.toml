@@ -9,6 +9,7 @@ license-file = "LICENSE"
 repository = "https://github.com/acw/simple_crypto"
 
 [dependencies]
+base64      = "^0.10.1"
 byteorder   = "^1.2.7"
 chrono      = "^0.4.6"
 cryptonum   = { path = "cryptonum" }

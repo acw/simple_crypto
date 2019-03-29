@@ -9,6 +9,7 @@
 //! that a new user should use, along with documentation regarding how and
 //! when they should use it, and examples. For now, it mostly just fowards
 //! off to more detailed modules. Help requested!
+extern crate base64;
 extern crate byteorder;
 extern crate chrono;
 extern crate cryptonum;
