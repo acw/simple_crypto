@@ -23,7 +23,7 @@ pub trait DSAParameters : ToASN1
 
 macro_rules! generate_parameters {
     ($name: ident, $ltype: ident, $ntype: ident, $l: expr, $n: expr) => {
-        #[derive(Clone)]
+        #[derive(Clone,PartialEq)]
         pub struct $name {
             pub p: $ltype,
             pub g: $ltype,

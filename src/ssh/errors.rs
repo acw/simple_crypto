@@ -19,7 +19,8 @@ pub enum SSHKeyParseError
     PrivateKeyCorruption,
     InconsistentKeyTypes(String,String),
     InconsistentPublicKeyValue,
-    InvalidPrivateKeyValue
+    InvalidPrivateKeyValue,
+    InvalidPadding
 }
 
 impl From<ASN1DecodeErr> for SSHKeyParseError {

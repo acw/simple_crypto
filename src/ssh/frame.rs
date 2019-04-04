@@ -1,5 +1,6 @@
 use base64::{decode,encode};
 use byteorder::{BigEndian,ReadBytesExt,WriteBytesExt};
+use cryptonum::unsigned::{Decoder,Encoder};
 use ssh::errors::{SSHKeyParseError,SSHKeyRenderError};
 use std::io::Cursor;
 #[cfg(test)]
@@ -140,6 +141,30 @@ pub fn render_openssh_buffer<O: Write>(output: &mut O, b: &[u8]) -> Result<(),SS
 
 //------------------------------------------------------------------------------
 
+pub fn parse_openssh_number<I,D>(input: &mut I) -> Result<D,SSHKeyParseError>
+ where
+  I: Read,
+  D: Decoder
+{
+    let mut buffer = parse_openssh_buffer(input)?;
+    while buffer[0] == 0 { buffer.remove(0); }
+    Ok(D::from_bytes(&buffer))
+}
+
+pub fn render_openssh_number<O,D>(output: &mut O, n: &D) -> Result<(),SSHKeyRenderError>
+ where
+  O: Write,
+  D: Encoder
+{
+    let mut bytes = n.to_bytes();
+    render_openssh_buffer(output, &bytes)
+}
+
+//------------------------------------------------------------------------------
+
+#[cfg(test)]
+use cryptonum::unsigned::{U192,U1024,U2048,U4096};
+
 #[cfg(test)]
 quickcheck! {
     fn bytes_roundtrip(x: Vec<u8>) -> bool {
@@ -193,6 +218,38 @@ quickcheck! {
         let mut cursor = Cursor::new(buffer);
         let check = parse_openssh_buffer(&mut cursor).unwrap();
         os == check
+    }
+
+    fn u192(x: U192) -> bool {
+        let mut buffer = vec![];
+        render_openssh_number(&mut buffer, &x).unwrap();
+        let mut cursor = Cursor::new(buffer);
+        let check: U192 = parse_openssh_number(&mut cursor).unwrap();
+        check == x
+    }
+
+    fn u1024(x: U1024) -> bool {
+        let mut buffer = vec![];
+        render_openssh_number(&mut buffer, &x).unwrap();
+        let mut cursor = Cursor::new(buffer);
+        let check: U1024 = parse_openssh_number(&mut cursor).unwrap();
+        check == x
+    }
+
+    fn u2048(x: U2048) -> bool {
+        let mut buffer = vec![];
+        render_openssh_number(&mut buffer, &x).unwrap();
+        let mut cursor = Cursor::new(buffer);
+        let check: U2048 = parse_openssh_number(&mut cursor).unwrap();
+        check == x
+    }
+
+    fn u4096(x: U4096) -> bool {
+        let mut buffer = vec![];
+        render_openssh_number(&mut buffer, &x).unwrap();
+        let mut cursor = Cursor::new(buffer);
+        let check: U4096 = parse_openssh_number(&mut cursor).unwrap();
+        check == x
     }
 }
 

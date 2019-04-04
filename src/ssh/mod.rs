@@ -70,42 +70,12 @@ impl SSHKey for DSAKeyPair<L1024N160,U1024,U192> {
             return Err(SSHKeyParseError::UnknownKeyType(pubkey_type));
         }
 
-        let mut pbytes = parse_openssh_buffer(&mut pubkey_cursor)?;
-        while pbytes[0] == 0 { pbytes.remove(0); }
-        if pbytes.len() > (1024 / 8) {
-            println!("pbytes.len() = {}", pbytes.len());
-            println!("pbytes = {:?}", pbytes);
-            return Err(SSHKeyParseError::InvalidPublicKeyMaterial);
-        }
-
-        let mut qbytes = parse_openssh_buffer(&mut pubkey_cursor)?;
-        while qbytes[0] == 0 { qbytes.remove(0); }
-        if qbytes.len() > (160 / 8) {
-            println!("qbytes.len() = {}", qbytes.len());
-            return Err(SSHKeyParseError::InvalidPublicKeyMaterial);
-        }
-
-        let mut gbytes = parse_openssh_buffer(&mut pubkey_cursor)?;
-        while gbytes[0] == 0 { gbytes.remove(0); }
-        if gbytes.len() > (1024 / 8) {
-            println!("gbytes.len() = {}", gbytes.len());
-            return Err(SSHKeyParseError::InvalidPublicKeyMaterial);
-        }
-
-        let mut ybytes = parse_openssh_buffer(&mut pubkey_cursor)?;
-        while ybytes[0] == 0 { ybytes.remove(0); }
-        if ybytes.len() > (1024 / 8) {
-            println!("ybytes.len() = {}", ybytes.len());
-            return Err(SSHKeyParseError::InvalidPublicKeyMaterial);
-        }
-
-        // Finally, we can turn this into a key
-        let p = U1024::from_bytes(&pbytes);
-        let g = U1024::from_bytes(&gbytes);
-        let q = U192::from_bytes(&qbytes);
-        let params = L1024N160::new(p, g, q);
-        let y = U1024::from_bytes(&ybytes);
-        let pubkey = DSAPubKey::<L1024N160,U1024>::new(params, y);
+        let pubp = parse_openssh_number(&mut pubkey_cursor)?;
+        let pubq = parse_openssh_number(&mut pubkey_cursor)?;
+        let pubg = parse_openssh_number(&mut pubkey_cursor)?;
+        let pubparams = L1024N160::new(pubp, pubg, pubq);
+        let puby: U1024 = parse_openssh_number(&mut pubkey_cursor)?;
+        let pubkey = DSAPubKey::<L1024N160,U1024>::new(pubparams.clone(), puby.clone());
 
         // And now we can look at the private key!
         let mut privkey_cursor = Cursor::new(privkeys);
@@ -120,52 +90,23 @@ impl SSHKey for DSAKeyPair<L1024N160,U1024,U192> {
             return Err(SSHKeyParseError::InconsistentKeyTypes(pubkey_type, privkey_type));
         }
 
-        let mut pdata = parse_openssh_buffer(&mut privkey_cursor)?;
-        while pdata[0] == 0 { pdata.remove(0); }
-        if pdata != pbytes {
+        let privp = parse_openssh_number(&mut privkey_cursor)?;
+        let privq = parse_openssh_number(&mut privkey_cursor)?;
+        let privg = parse_openssh_number(&mut privkey_cursor)?;
+        let privparams = L1024N160::new(privp, privg, privq);
+        let privy = parse_openssh_number(&mut privkey_cursor)?;
+        let privx = parse_openssh_number(&mut privkey_cursor)?;
+        if (pubparams != privparams) || (puby != privy) {
             return Err(SSHKeyParseError::InconsistentPublicKeyValue);
         }
-        println!("p consistent");
-        let p = U1024::from_bytes(&pdata);
 
-        let mut qdata = parse_openssh_buffer(&mut privkey_cursor)?;
-        while qdata[0] == 0 { qdata.remove(0); }
-        if qdata != qbytes {
-            return Err(SSHKeyParseError::InconsistentPublicKeyValue);
-        }
-        let q = U192::from_bytes(&qdata);
-        println!("q consistent");
-
-        let mut gdata = parse_openssh_buffer(&mut privkey_cursor)?;
-        while gdata[0] == 0 { gdata.remove(0); }
-        if gdata != gbytes {
-            return Err(SSHKeyParseError::InconsistentPublicKeyValue);
-        }
-        let g = U1024::from_bytes(&gdata);
-        println!("g consistent");
-
-        let params = L1024N160::new(p, g, q);
-
-        // We don't need this, but it's good cross-validation
-        let mut ydata = parse_openssh_buffer(&mut privkey_cursor)?;
-        while ydata[0] == 0 { ydata.remove(0); }
-        if ydata != ybytes {
-            return Err(SSHKeyParseError::InconsistentPublicKeyValue);
-        }
-        println!("y consistent");
-
-        // Finally, what we actually
-        let mut xdata = parse_openssh_buffer(&mut privkey_cursor)?;
-        while xdata[0] == 0 { xdata.remove(0); }
-        if xdata.len() > (192 / 8) {
-            // FIXME: Should this test for too small a value?
-            return Err(SSHKeyParseError::InvalidPrivateKeyValue);
-        }
-        let x = U192::from_bytes(&xdata);
-        println!("x: {:X}", x);
-        let privkey = DSAPrivKey::<L1024N160,U192>::new(params, x);
+        let privkey = DSAPrivKey::<L1024N160,U192>::new(pubparams, privx);
         let comment = parse_openssh_string(&mut privkey_cursor)?;
-        println!("comment[{}] = {:?}", comment.len(), comment);
+        for (idx,byte) in privkey_cursor.bytes().enumerate() {
+            if ((idx+1) as u8) != byte? {
+                return Err(SSHKeyParseError::InvalidPadding);
+            }
+        }
 
         let result = DSAKeyPair{ public: pubkey, private: privkey };
         Ok(result)
