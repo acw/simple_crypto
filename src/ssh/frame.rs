@@ -1,11 +1,12 @@
 use base64::{decode,encode};
+use byteorder::{BigEndian,ReadBytesExt,WriteBytesExt};
 use ssh::errors::{SSHKeyParseError,SSHKeyRenderError};
 use std::io::Cursor;
 #[cfg(test)]
 use std::fs::File;
-#[cfg(test)]
 use std::io::Read;
 use std::io::Write;
+use std::iter::Iterator;
 
 const OPENER: &'static str = "-----BEGIN OPENSSH PRIVATE KEY-----\n";
 const CLOSER: &'static str = "-----END OPENSSH PRIVATE KEY-----";
@@ -47,15 +48,24 @@ pub fn render_ssh_private_key_data(bytes: &[u8]) -> String
 //------------------------------------------------------------------------------
 
 const OPENSSH_MAGIC_HEADER: &'static str = "openssh-key-v1\0";
+const OPENSSH_MAGIC_HEADER_LEN: usize = 15;
 
-pub fn parse_openssh_header(input: &mut Cursor<Vec<u8>>) -> Result<(),SSHKeyParseError>
+pub fn parse_openssh_header<R: Read>(input: &mut R) -> Result<(),SSHKeyParseError>
 {
-    let input_header = input.take(OPENSSH_MAGIC_HEADER.len()).bytes();
-    if input_header.eq(OPENSSH_MAGIC_HEADER.as_bytes().iter()) {
-        Ok(())
-    } else {
-        Err(SSHKeyParseError::NoOpenSSHMagicHeader)
+    let mut limited_input_header = input.take(OPENSSH_MAGIC_HEADER_LEN as u64);
+    let mut header: [u8; OPENSSH_MAGIC_HEADER_LEN] = [0; OPENSSH_MAGIC_HEADER_LEN];
+
+    assert_eq!(OPENSSH_MAGIC_HEADER.len(), OPENSSH_MAGIC_HEADER_LEN);
+    limited_input_header.read_exact(&mut header);
+
+    for (left, right) in OPENSSH_MAGIC_HEADER.bytes().zip(header.iter()) {
+        if left != *right {
+            return Err(SSHKeyParseError::NoOpenSSHMagicHeader)
+        }
+
     }
+
+    Ok(())
 }
 
 pub fn render_openssh_header<O: Write>(output: &mut O) -> Result<(),SSHKeyRenderError>
@@ -65,16 +75,67 @@ pub fn render_openssh_header<O: Write>(output: &mut O) -> Result<(),SSHKeyRender
 
 //------------------------------------------------------------------------------
 
-pub fn parse_openssh_u32(input: &mut Cursor<Vec<u8>>) -> Result<u32,SSHKeyParseError>
+pub fn parse_openssh_u32<I: Read>(input: &mut I) -> Result<u32,SSHKeyParseError>
 {
+    let mut limited_input_header = input.take(4);
+    let res = limited_input_header.read_u32::<BigEndian>()?;
+    Ok(res)
+}
 
+pub fn render_openssh_u32<O: Write>(output: &mut O, val: u32) -> Result<(),SSHKeyRenderError>
+{
+    Ok(output.write_u32::<BigEndian>(val)?)
 }
 
 //------------------------------------------------------------------------------
 
-pub fn parse_openssh_string(input: &mut Cursor<Vec<u8>>) -> Result<(),SSHKeyParseError>
+pub fn parse_openssh_string<I: Read>(input: &mut I) -> Result<String,SSHKeyParseError>
 {
-    panic!("string")
+    let length = parse_openssh_u32(input)?;
+    println!("len: {:X}", length);
+    let mut limited_input = input.take(length as u64);
+    let mut result = String::new();
+    limited_input.read_to_string(&mut result)?;
+    Ok(result)
+}
+
+pub fn render_openssh_string<O: Write>(output: &mut O, v: &str) -> Result<(),SSHKeyRenderError>
+{
+    let vbytes: Vec<u8> = v.bytes().collect();
+    let len = vbytes.len();
+    
+    if len > 0xFFFFFFFF {
+        return Err(SSHKeyRenderError::StringTooLong);
+    }
+
+    render_openssh_u32(output, vbytes.len() as u32)?;
+    output.write_all(&vbytes)?;
+    Ok(())
+}
+
+//------------------------------------------------------------------------------
+
+pub fn parse_openssh_buffer<I: Read>(input: &mut I) -> Result<Vec<u8>,SSHKeyParseError>
+{
+    let length = parse_openssh_u32(input)?;
+    let mut limited_input = input.take(length as u64);
+    let mut res = Vec::with_capacity(length as usize);
+    limited_input.read_to_end(&mut res);
+    Ok(res)
+}
+
+pub fn render_openssh_buffer<O: Write>(output: &mut O, b: &[u8]) -> Result<(),SSHKeyRenderError>
+{
+    if b.len() > 0xFFFFFFFF {
+        return Err(SSHKeyRenderError::BufferTooLarge);
+    }
+
+    render_openssh_u32(output, b.len() as u32)?;
+    if b.len() > 0 {
+        output.write_all(b)?;
+    }
+
+    Ok(())
 }
 
 //------------------------------------------------------------------------------
@@ -96,6 +157,42 @@ quickcheck! {
         }
 
         is_ok
+    }
+
+    fn u32s_roundtrip_rp(x: u32) -> bool {
+        let mut buffer = vec![];
+        render_openssh_u32(&mut buffer, x).unwrap();
+        let mut cursor = Cursor::new(buffer);
+        let check = parse_openssh_u32(&mut cursor).unwrap();
+        x == check
+    }
+
+    fn u32s_roundtrip_pr(a: u8, b: u8, c: u8, d: u8) -> bool {
+        let block = [a,b,c,d];
+        let mut cursor = Cursor::new(block);
+        let base = parse_openssh_u32(&mut cursor).unwrap();
+        let mut rendered = vec![];
+        render_openssh_u32(&mut rendered, base).unwrap();
+        (block[0] == rendered[0]) &&
+        (block[1] == rendered[1]) &&
+        (block[2] == rendered[2]) &&
+        (block[3] == rendered[3])
+    }
+
+    fn string_roundtrip(s: String) -> bool {
+        let mut buffer = vec![];
+        render_openssh_string(&mut buffer, &s).unwrap();
+        let mut cursor = Cursor::new(buffer);
+        let check = parse_openssh_string(&mut cursor).unwrap();
+        s == check
+    }
+
+    fn buffer(os: Vec<u8>) -> bool {
+        let mut buffer = vec![];
+        render_openssh_buffer(&mut buffer, &os).unwrap();
+        let mut cursor = Cursor::new(buffer);
+        let check = parse_openssh_buffer(&mut cursor).unwrap();
+        os == check
     }
 }
 
@@ -130,5 +227,6 @@ fn pregenerated_reencode() {
 fn header_roundtrips() {
     let mut vec = Vec::new();
     assert!(render_openssh_header(&mut vec).is_ok());
-    assert!(parse_openssh_header(&mut vec.iter()).is_ok());
+    let mut cursor = Cursor::new(vec);
+    assert!(parse_openssh_header(&mut cursor).is_ok());
 }

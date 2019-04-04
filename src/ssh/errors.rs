@@ -9,7 +9,17 @@ pub enum SSHKeyParseError
     DecodeError(DecodeError),
     IOError(io::Error),
     NoBeginBannerFound, NoEndBannerFound,
-    NoOpenSSHMagicHeader
+    NoOpenSSHMagicHeader,
+    UnknownKeyCipher(String),
+    UnknownKDF(String), UnexpectedKDFOptions,
+    InvalidNumberOfKeys(u32),
+    UnknownTrailingData,
+    UnknownKeyType(String),
+    InvalidPublicKeyMaterial,
+    PrivateKeyCorruption,
+    InconsistentKeyTypes(String,String),
+    InconsistentPublicKeyValue,
+    InvalidPrivateKeyValue
 }
 
 impl From<ASN1DecodeErr> for SSHKeyParseError {
@@ -31,8 +41,11 @@ impl From<io::Error> for SSHKeyParseError {
     }
 }
 
+#[derive(Debug)]
 pub enum SSHKeyRenderError {
     IOError(io::Error),
+    StringTooLong,
+    BufferTooLarge
 }
 
 impl From<io::Error> for SSHKeyRenderError {
