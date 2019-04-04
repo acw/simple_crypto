@@ -20,27 +20,27 @@ pub trait DSAPublicKey {
       where Hash: Digest;
 }
 
-pub struct DSAPubKey<Params,L> {
+pub struct DSAPubKey<Params: DSAParameters> {
     pub(crate) params: Params,
-    pub(crate) y: L
+    pub(crate) y: Params::L
 }
 
 pub enum DSAPublic {
-    DSAPublicL1024N160(DSAPubKey<L1024N160,U1024>),
-    DSAPublicL2048N224(DSAPubKey<L2048N224,U2048>),
-    DSAPublicL2048N256(DSAPubKey<L2048N256,U2048>),
-    DSAPublicL3072N256(DSAPubKey<L3072N256,U3072>)
+    DSAPublicL1024N160(DSAPubKey<L1024N160>),
+    DSAPublicL2048N224(DSAPubKey<L2048N224>),
+    DSAPublicL2048N256(DSAPubKey<L2048N256>),
+    DSAPublicL3072N256(DSAPubKey<L3072N256>)
 }
 
 macro_rules! pubkey_impls {
     ($ptype: ident, $ltype: ident, $ntype: ident, $dbl: ident, $bdbl: ident) => {
-        impl DSAPublicKey for DSAPubKey<$ptype,$ltype>
+        impl DSAPublicKey for DSAPubKey<$ptype>
         {
             type Params = $ptype;
             type L = $ltype;
             type N = $ntype;
 
-            fn new(params: $ptype, y: $ltype) -> DSAPubKey<$ptype,$ltype>
+            fn new(params: $ptype, y: $ltype) -> DSAPubKey<$ptype>
             {
                 DSAPubKey{ params, y }
             }
@@ -80,7 +80,7 @@ macro_rules! pubkey_impls {
             }
         }
 
-        impl ToASN1 for DSAPubKey<$ptype,$ltype> {
+        impl ToASN1 for DSAPubKey<$ptype> {
             type Error = ASN1EncodeErr;
 
             fn to_asn1_class(&self, c: ASN1Class)
@@ -136,7 +136,7 @@ macro_rules! generate_tests {
                     let s = $nt::from_bytes(sbytes);
 
                     let params = $params::new(p,g,q);
-                    let public = DSAPubKey::<$params,$lt>::new(params, y);
+                    let public = DSAPubKey::<$params>::new(params, y);
                     let sig = DSASignature::<$nt>::new(r, s);
                     match h {
                         224 => assert!(public.verify::<Sha224>(mbytes, &sig)),

@@ -14,10 +14,10 @@ use cryptonum::unsigned::*;
 use rand::Rng;
 use rand::distributions::Standard;
 
-pub struct DSAKeyPair<P,L,N>
+pub struct DSAKeyPair<P: DSAParameters>
 {
-    pub private: DSAPrivKey<P,N>,
-    pub public: DSAPubKey<P,L>
+    pub private: DSAPrivKey<P>,
+    pub public: DSAPubKey<P>
 }
 
 pub trait DSAKeyGeneration
@@ -29,7 +29,7 @@ pub trait DSAKeyGeneration
 
 macro_rules! generate_dsa_pair {
     ($ptype: ident, $ltype: ident, $ntype: ident, $nbig: ident) => {
-        impl DSAKeyGeneration for DSAKeyPair<$ptype,$ltype,$ntype>
+        impl DSAKeyGeneration for DSAKeyPair<$ptype>
         {
             type Params = $ptype;
 

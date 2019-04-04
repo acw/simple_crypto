@@ -99,8 +99,8 @@ fn appendix_a21() {
     let params = L1024N160::new(p, g, q);
     let x = U192::from_bytes(&xbytes);
     let y = U1024::from_bytes(&ybytes);
-    let private = DSAPrivKey::new(params.clone(), x);
-    let public = DSAPubKey::<L1024N160,U1024>::new(params.clone(), y);
+    let private = DSAPrivKey::<L1024N160>::new(params.clone(), x);
+    let public = DSAPubKey::<L1024N160>::new(params.clone(), y);
     //
     let sample: [u8; 6] = [115, 97, 109, 112, 108, 101]; // "sample", ASCII
     let test:   [u8; 4] = [116, 101, 115, 116]; // "test", ASCII
@@ -359,8 +359,8 @@ fn appendix_a22() {
     let params = L2048N256::new(p, g, q);
     let x = U256::from_bytes(&xbytes);
     let y = U2048::from_bytes(&ybytes);
-    let private = DSAPrivKey::<L2048N256,U256>::new(params.clone(), x);
-    let public = DSAPubKey::<L2048N256,U2048>::new(params.clone(), y);
+    let private = DSAPrivKey::<L2048N256>::new(params.clone(), x);
+    let public = DSAPubKey::<L2048N256>::new(params.clone(), y);
     //
     let sample: [u8; 6] = [115, 97, 109, 112, 108, 101]; // "sample", ASCII
     let test:   [u8; 4] = [116, 101, 115, 116]; // "test", ASCII

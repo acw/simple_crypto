@@ -31,7 +31,7 @@ pub trait SSHKey: Sized {
 }
 
 
-impl SSHKey for DSAKeyPair<L1024N160,U1024,U192> {
+impl SSHKey for DSAKeyPair<L1024N160> {
     fn decode_ssh_private_key(x: &str) -> Result<(Self,String),SSHKeyParseError>
     {
         let bytes = parse_ssh_private_key_data(x)?;
@@ -74,7 +74,7 @@ impl SSHKey for DSAKeyPair<L1024N160,U1024,U192> {
         let pubg = parse_openssh_number(&mut pubkey_cursor)?;
         let pubparams = L1024N160::new(pubp, pubg, pubq);
         let puby: U1024 = parse_openssh_number(&mut pubkey_cursor)?;
-        let pubkey = DSAPubKey::<L1024N160,U1024>::new(pubparams.clone(), puby.clone());
+        let pubkey = DSAPubKey::<L1024N160>::new(pubparams.clone(), puby.clone());
 
         // And now we can look at the private key!
         let mut privkey_cursor = Cursor::new(privkeys);
@@ -99,7 +99,7 @@ impl SSHKey for DSAKeyPair<L1024N160,U1024,U192> {
             return Err(SSHKeyParseError::InconsistentPublicKeyValue);
         }
 
-        let privkey = DSAPrivKey::<L1024N160,U192>::new(pubparams, privx);
+        let privkey = DSAPrivKey::<L1024N160>::new(pubparams, privx);
         let comment = parse_openssh_string(&mut privkey_cursor)?;
         for (idx,byte) in privkey_cursor.bytes().enumerate() {
             if ((idx+1) as u8) != byte? {
@@ -161,7 +161,7 @@ fn read_dsa_examples() {
 
     for file in test_files.iter() {
         let path = format!("testdata/ssh/{}",file);
-        let mkeypair = DSAKeyPair::<L1024N160,U1024,U192>::read_ssh_private_key_file(path);
+        let mkeypair = DSAKeyPair::<L1024N160>::read_ssh_private_key_file(path);
         match mkeypair {
             Err(e) => assert!(false, format!("reading error: {:?}", e)),
             Ok((keypair,comment)) => {
@@ -173,7 +173,7 @@ fn read_dsa_examples() {
                 match keypair.encode_ssh_private_key(&comment) {
                     Err(e2) => assert!(false, format!("render error: {:?}", e2)),
                     Ok(encodedstr) => {
-                        match DSAKeyPair::<L1024N160,U1024,U192>::decode_ssh_private_key(&encodedstr) {
+                        match DSAKeyPair::<L1024N160>::decode_ssh_private_key(&encodedstr) {
                             Err(e3) => assert!(false, format!("reparse error: {:?}", e3)),
                             Ok((keypair2,comment2)) => {
                                 assert_eq!(keypair.public.params.p,keypair2.public.params.p,"failed to reparse key pair (p)");

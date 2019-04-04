@@ -21,28 +21,28 @@ pub trait DSAPrivateKey {
       Hmac<Hash>: Mac;
 }
 
-pub struct DSAPrivKey<Params,N>
+pub struct DSAPrivKey<Params: DSAParameters>
 {
     pub(crate) params: Params,
-    pub(crate) x: N
+    pub(crate) x: Params::N
 }
 
 pub enum DSAPrivate {
-    DSA1024Private(DSAPrivKey<L1024N160,U192>),
-    DSA2048SmallPrivate(DSAPrivKey<L2048N224,U256>),
-    DSA2048Private(DSAPrivKey<L2048N256,U256>),
-    DSA3072Private(DSAPrivKey<L3072N256,U256>)
+    DSA1024Private(DSAPrivKey<L1024N160>),
+    DSA2048SmallPrivate(DSAPrivKey<L2048N224>),
+    DSA2048Private(DSAPrivKey<L2048N256>),
+    DSA3072Private(DSAPrivKey<L3072N256>)
 }
 
 macro_rules! privkey_impls {
     ($ptype: ident, $ltype: ident, $ntype: ident, $big: ident, $bigger: ident, $biggest: ident) => {
-       impl DSAPrivateKey for DSAPrivKey<$ptype,$ntype>
+       impl DSAPrivateKey for DSAPrivKey<$ptype>
        {
            type Params = $ptype;
            type L = $ltype;
            type N = $ntype;
 
-           fn new(params: $ptype, x: $ntype) -> DSAPrivKey<$ptype,$ntype>
+           fn new(params: $ptype, x: $ntype) -> DSAPrivKey<$ptype>
            {
                DSAPrivKey{ params, x }
            }
@@ -155,7 +155,7 @@ macro_rules! generate_tests {
                     let s = $nt::from_bytes(sbytes);
 
                     let params = $params::new(p,g,q);
-                    let private = DSAPrivKey::<$params,$nt>::new(params, x);
+                    let private = DSAPrivKey::<$params>::new(params, x);
                     let sig = match h {
                         224 => private.sign::<Sha224>(mbytes),
                         256 => private.sign::<Sha256>(mbytes),

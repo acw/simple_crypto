@@ -174,7 +174,7 @@ fn decode_dsa_key(info: ASN1Block, key: &ASN1Block) -> Result<DSAPublic,X509Pars
                 let (iblk,_) = blocks.split_first().ok_or(X509ParseError::InvalidDSAKey)?;
                 if let ASN1Block::Integer(_,_,ynum) = iblk {
                     let y = U3072::from_num(ynum).ok_or(X509ParseError::InvalidDSAKey)?;
-                    let key = DSAPubKey::<L3072N256,U3072>::new(params, y);
+                    let key = DSAPubKey::<L3072N256>::new(params, y);
                     let reskey = DSAPublic::DSAPublicL3072N256(key);
                     return Ok(reskey);
                 }
@@ -195,7 +195,7 @@ fn decode_dsa_key(info: ASN1Block, key: &ASN1Block) -> Result<DSAPublic,X509Pars
                     let (iblk,_) = blocks.split_first().ok_or(X509ParseError::InvalidDSAKey)?;
                     if let ASN1Block::Integer(_,_,ynum) = iblk {
                         let y = U2048::from_num(ynum).ok_or(X509ParseError::InvalidDSAKey)?;
-                        let key = DSAPubKey::<L2048N256,U2048>::new(params, y);
+                        let key = DSAPubKey::<L2048N256>::new(params, y);
                         let reskey = DSAPublic::DSAPublicL2048N256(key);
                         return Ok(reskey);
                     }
@@ -213,7 +213,7 @@ fn decode_dsa_key(info: ASN1Block, key: &ASN1Block) -> Result<DSAPublic,X509Pars
                     let (iblk,_) = blocks.split_first().ok_or(X509ParseError::InvalidDSAKey)?;
                     if let ASN1Block::Integer(_,_,ynum) = iblk {
                         let y = U2048::from_num(ynum).ok_or(X509ParseError::InvalidDSAKey)?;
-                        let key = DSAPubKey::<L2048N224,U2048>::new(params, y);
+                        let key = DSAPubKey::<L2048N224>::new(params, y);
                         let reskey = DSAPublic::DSAPublicL2048N224(key);
                         return Ok(reskey);
                     }
@@ -233,7 +233,7 @@ fn decode_dsa_key(info: ASN1Block, key: &ASN1Block) -> Result<DSAPublic,X509Pars
             let (iblk,_) = blocks.split_first().ok_or(X509ParseError::InvalidDSAKey)?;
             if let ASN1Block::Integer(_,_,ynum) = iblk {
                 let y = U1024::from_num(ynum).ok_or(X509ParseError::InvalidDSAKey)?;
-                let key = DSAPubKey::<L1024N160,U1024>::new(params, y);
+                let key = DSAPubKey::<L1024N160>::new(params, y);
                 let reskey = DSAPublic::DSAPublicL1024N160(key);
                 return Ok(reskey);
             }
