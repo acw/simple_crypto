@@ -1,39 +1,38 @@
 mod errors;
 mod frame;
 
-pub use self::errors::SSHKeyParseError;
+pub use self::errors::{SSHKeyParseError,SSHKeyRenderError};
 
 use cryptonum::unsigned::*;
 use dsa::{DSAKeyPair,DSAParameters,DSAPubKey,DSAPublicKey,DSAPrivKey,DSAPrivateKey,L1024N160};
 use self::frame::*;
-use simple_asn1::from_der;
 use std::fs::File;
-use std::io;
 use std::io::{Cursor,Read,Write};
 use std::path::Path;
 
 pub trait SSHKey: Sized {
-    fn decode_ssh_private_key(x: &str) -> Result<Self,SSHKeyParseError>;
-    fn read_ssh_private_key_file<P: AsRef<Path>>(path: P) -> Result<Self,SSHKeyParseError> {
+    fn decode_ssh_private_key(x: &str) -> Result<(Self,String),SSHKeyParseError>;
+    fn read_ssh_private_key_file<P: AsRef<Path>>(path: P) -> Result<(Self,String),SSHKeyParseError> {
         let mut file = File::open(path)?;
         let mut contents = String::new();
         file.read_to_string(&mut contents)?;
         Self::decode_ssh_private_key(&contents)
     }
 
-    fn encode_ssh_private_key(&self) -> String;
-    fn write_ssh_private_key_file<P: AsRef<Path>>(&self, path: P) -> Result<(),io::Error> {
+    fn encode_ssh_private_key(&self, comment: &str) -> Result<String,SSHKeyRenderError>;
+    fn write_ssh_private_key_file<P: AsRef<Path>>(&self, path: P, comment: &str) -> Result<(),SSHKeyRenderError> {
         let mut file = File::create(path)?;
-        let contents = self.encode_ssh_private_key();
+        let contents = self.encode_ssh_private_key(comment)?;
         let bytes = contents.into_bytes();
         file.write_all(&bytes)?;
-        file.sync_all()
+        file.sync_all()?;
+        Ok(())
     }
 }
 
 
 impl SSHKey for DSAKeyPair<L1024N160,U1024,U192> {
-    fn decode_ssh_private_key(x: &str) -> Result<Self,SSHKeyParseError>
+    fn decode_ssh_private_key(x: &str) -> Result<(Self,String),SSHKeyParseError>
     {
         let bytes = parse_ssh_private_key_data(x)?;
         let data_size = bytes.len() as u64;
@@ -109,11 +108,46 @@ impl SSHKey for DSAKeyPair<L1024N160,U1024,U192> {
         }
 
         let result = DSAKeyPair{ public: pubkey, private: privkey };
-        Ok(result)
+        Ok((result,comment))
     }
 
-    fn encode_ssh_private_key(&self) -> String {
-        panic!("encode")
+    fn encode_ssh_private_key(&self, comment: &str) -> Result<String,SSHKeyRenderError> {
+        // render the public key
+        let mut pubkeybin = Vec::with_capacity(4096);
+        render_openssh_string(&mut pubkeybin, "ssh-dss")?;
+        render_openssh_number(&mut pubkeybin, &self.public.params.p)?;
+        render_openssh_number(&mut pubkeybin, &self.public.params.q)?;
+        render_openssh_number(&mut pubkeybin, &self.public.params.g)?;
+        render_openssh_number(&mut pubkeybin, &self.public.y)?;
+
+        // render the private key
+        let mut privkeybin = Vec::with_capacity(4096);
+        render_openssh_u32(&mut privkeybin, 0xDEADBEEF)?; // FIXME: Any reason for this to be random?
+        render_openssh_u32(&mut privkeybin, 0xDEADBEEF)?; // ditto
+        render_openssh_string(&mut privkeybin, "ssh-dss")?;
+        render_openssh_number(&mut privkeybin, &self.private.params.p)?;
+        render_openssh_number(&mut privkeybin, &self.private.params.q)?;
+        render_openssh_number(&mut privkeybin, &self.private.params.g)?;
+        render_openssh_number(&mut privkeybin, &self.public.y)?;
+        render_openssh_number(&mut privkeybin, &self.private.x)?;
+        render_openssh_string(&mut privkeybin, comment)?;
+        // add some padding (not quite sure why)
+        let mut i = 1;
+        while (privkeybin.len() % 16) != 0 {
+            privkeybin.push(i);
+            i += 1;
+        }
+
+        let mut binary = Vec::with_capacity(16384);
+        render_openssh_header(&mut binary)?;
+        render_openssh_string(&mut binary, "none")?; // ciphername
+        render_openssh_string(&mut binary, "none")?; // kdfname
+        render_openssh_buffer(&mut binary, &[])?; // kdfoptions
+        render_openssh_u32(&mut binary, 1)?; // numkeys
+        render_openssh_buffer(&mut binary, &pubkeybin)?;
+        render_openssh_buffer(&mut binary, &privkeybin)?;
+
+        Ok(render_ssh_private_key_data(&binary))
     }
 }
 
@@ -130,12 +164,31 @@ fn read_dsa_examples() {
         let mkeypair = DSAKeyPair::<L1024N160,U1024,U192>::read_ssh_private_key_file(path);
         match mkeypair {
             Err(e) => assert!(false, format!("reading error: {:?}", e)),
-            Ok(keypair) => {
+            Ok((keypair,comment)) => {
                 let buffer = [0,1,2,3,4,6,2];
                 let sig = keypair.private.sign::<Sha256>(&buffer);
                 assert!(keypair.public.verify::<Sha256>(&buffer, &sig));
                 let buffer2 = [0,1,2,3,4,6,5];
                 assert!(!keypair.public.verify::<Sha256>(&buffer2, &sig));
+                match keypair.encode_ssh_private_key(&comment) {
+                    Err(e2) => assert!(false, format!("render error: {:?}", e2)),
+                    Ok(encodedstr) => {
+                        match DSAKeyPair::<L1024N160,U1024,U192>::decode_ssh_private_key(&encodedstr) {
+                            Err(e3) => assert!(false, format!("reparse error: {:?}", e3)),
+                            Ok((keypair2,comment2)) => {
+                                assert_eq!(keypair.public.params.p,keypair2.public.params.p,"failed to reparse key pair (p)");
+                                assert_eq!(keypair.public.params.q,keypair2.public.params.q,"failed to reparse key pair (q)");
+                                assert_eq!(keypair.public.params.g,keypair2.public.params.g,"failed to reparse key pair (g)");
+                                assert_eq!(keypair.private.params.p,keypair2.private.params.p,"failed to reparse key pair (p)");
+                                assert_eq!(keypair.private.params.q,keypair2.private.params.q,"failed to reparse key pair (q)");
+                                assert_eq!(keypair.private.params.g,keypair2.private.params.g,"failed to reparse key pair (g)");
+                                assert_eq!(keypair.public.y,keypair2.public.y,"failed to reparse key pair (y)");
+                                assert_eq!(keypair.private.x,keypair2.private.x,"failed to reparse key pair (x)");
+                                assert_eq!(comment,comment2,"failed to reparse comment");
+                            }
+                        }
+                    }
+                }
             }
         }
     }

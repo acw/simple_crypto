@@ -2,6 +2,7 @@ use base64::{decode,encode};
 use byteorder::{BigEndian,ReadBytesExt,WriteBytesExt};
 use cryptonum::unsigned::{Decoder,Encoder};
 use ssh::errors::{SSHKeyParseError,SSHKeyRenderError};
+#[cfg(test)]
 use std::io::Cursor;
 #[cfg(test)]
 use std::fs::File;
@@ -57,7 +58,7 @@ pub fn parse_openssh_header<R: Read>(input: &mut R) -> Result<(),SSHKeyParseErro
     let mut header: [u8; OPENSSH_MAGIC_HEADER_LEN] = [0; OPENSSH_MAGIC_HEADER_LEN];
 
     assert_eq!(OPENSSH_MAGIC_HEADER.len(), OPENSSH_MAGIC_HEADER_LEN);
-    limited_input_header.read_exact(&mut header);
+    limited_input_header.read_exact(&mut header)?;
 
     for (left, right) in OPENSSH_MAGIC_HEADER.bytes().zip(header.iter()) {
         if left != *right {
@@ -121,7 +122,7 @@ pub fn parse_openssh_buffer<I: Read>(input: &mut I) -> Result<Vec<u8>,SSHKeyPars
     let length = parse_openssh_u32(input)?;
     let mut limited_input = input.take(length as u64);
     let mut res = Vec::with_capacity(length as usize);
-    limited_input.read_to_end(&mut res);
+    limited_input.read_to_end(&mut res)?;
     Ok(res)
 }
 
@@ -156,7 +157,7 @@ pub fn render_openssh_number<O,D>(output: &mut O, n: &D) -> Result<(),SSHKeyRend
   O: Write,
   D: Encoder
 {
-    let mut bytes = n.to_bytes();
+    let bytes = n.to_bytes();
     render_openssh_buffer(output, &bytes)
 }
 
