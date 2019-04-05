@@ -4,6 +4,7 @@ mod frame;
 
 pub use self::errors::{SSHKeyParseError,SSHKeyRenderError};
 
+use base64::{decode,encode};
 use self::frame::*;
 use std::fs::File;
 use std::io::{Cursor,Read,Write};
@@ -11,6 +12,8 @@ use std::path::Path;
 use super::KeyPair;
 
 pub trait SSHKey: Sized + KeyPair {
+    fn valid_keytype(s: &str) -> bool;
+
     fn parse_ssh_public_info<I: Read>(inp: &mut I) -> Result<Self::Public,SSHKeyParseError>;
     fn parse_ssh_private_info<I: Read>(inp: &mut I) -> Result<(Self::Private,String),SSHKeyParseError>;
 
@@ -55,6 +58,27 @@ pub fn decode_ssh<KP: SSHKey>(x: &str) -> Result<(KP, String),SSHKeyParseError>
     Ok((KP::new(public, private), comment))
 }
 
+pub fn decode_ssh_pubkey<KP: SSHKey>(s: &str) -> Result<(KP::Public, String),SSHKeyParseError>
+{
+    let mut splitter = s.split_whitespace();
+
+    match (splitter.next(), splitter.next(), splitter.next(), splitter.next()) {
+        (Some(keytype), Some(keymaterial), Some(comment), None) => {
+            if !KP::valid_keytype(keytype) {
+                return Err(SSHKeyParseError::InvalidPublicKeyType);
+            }
+
+            let bytes = decode(keymaterial)?;
+            let mut byte_cursor = Cursor::new(bytes);
+            let key = KP::parse_ssh_public_info(&mut byte_cursor)?;
+
+            Ok((key, comment.to_string()))
+        }
+        _ =>
+            Err(SSHKeyParseError::BrokenPublicKeyLine)
+    }
+}
+
 pub fn load_ssh_keyfile<KP,P>(path: P) -> Result<(KP, String),SSHKeyParseError>
  where
   KP: SSHKey,
@@ -64,6 +88,23 @@ pub fn load_ssh_keyfile<KP,P>(path: P) -> Result<(KP, String),SSHKeyParseError>
     let mut contents = String::new();
     file.read_to_string(&mut contents)?;
     decode_ssh(&contents)
+}
+
+pub fn load_ssh_pubkeys<KP,P>(path: P) -> Result<Vec<(KP::Public, String)>,SSHKeyParseError>
+ where
+  KP: SSHKey,
+  P: AsRef<Path>
+{
+    let mut file = File::open(path)?;
+    let mut contents = String::new();
+    file.read_to_string(&mut contents)?;
+    let mut result = Vec::new();
+
+    for line in contents.lines() {
+        result.push( decode_ssh_pubkey::<KP>(line)? );
+    }
+
+    Ok(result)
 }
 
 pub fn encode_ssh<KP: SSHKey>(x: &KP, comment: &str) -> Result<String,SSHKeyRenderError>
@@ -101,7 +142,7 @@ pub fn write_ssh_keyfile<KP,P>(path: P, x: &KP, comment: &str) -> Result<(),SSHK
 
 
 #[cfg(test)]
-use dsa::{DSAKeyPair,DSAPublicKey,DSAPrivateKey,L1024N160};
+use dsa::{DSAKeyPair,DSAPublicKey,DSAPrivateKey,DSAPubKey,L1024N160};
 #[cfg(test)]
 use sha2::Sha256;
 
@@ -138,6 +179,20 @@ fn read_dsa_examples() {
                                 assert_eq!(keypair.public.y,keypair2.public.y,"failed to reparse key pair (y)");
                                 assert_eq!(keypair.private.x,keypair2.private.x,"failed to reparse key pair (x)");
                                 assert_eq!(comment,comment2,"failed to reparse comment");
+                                let ppath = format!("testdata/ssh/{}.pub",file);
+                                match load_ssh_pubkeys::<DSAKeyPair<L1024N160>,String>(ppath) {
+                                    Err(e4) => assert!(false, format!("pubkey error: {:?}", e4)),
+                                    Ok(pubkeys) => {
+                                        let _ : Vec<(DSAPubKey<L1024N160>,String)> = pubkeys;
+                                        for (pubkey, comment3) in pubkeys {
+                                            assert_eq!(pubkey.params.p, keypair.public.params.p, "public key check (p)");
+                                            assert_eq!(pubkey.params.q, keypair.public.params.q, "public key check (q)");
+                                            assert_eq!(pubkey.params.g, keypair.public.params.g, "public key check (g)");
+                                            assert_eq!(pubkey.y,        keypair.public.y,        "public key check (y)");
+                                            assert_eq!(comment,         comment3,                "public key check comment")
+                                        }
+                                    }
+                                }
                             }
                         }
                     }

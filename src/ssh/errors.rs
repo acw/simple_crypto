@@ -18,7 +18,9 @@ pub enum SSHKeyParseError
     InconsistentKeyTypes(String,String),
     InconsistentPublicKeyValue,
     InvalidPrivateKeyValue,
-    InvalidPadding
+    InvalidPadding,
+    InvalidPublicKeyType,
+    BrokenPublicKeyLine
 }
 
 impl From<DecodeError> for SSHKeyParseError {

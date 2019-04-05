@@ -6,10 +6,14 @@ use ssh::frame::*;
 use ssh::SSHKey;
 
 impl SSHKey for DSAKeyPair<L1024N160> {
+    fn valid_keytype(s: &str) -> bool {
+        (s == "ssh-dss") || (s == "dss")
+    }
+
     fn parse_ssh_public_info<I: Read>(inp: &mut I) -> Result<Self::Public,SSHKeyParseError>
     {
         let pubkey_type = parse_openssh_string(inp)?;
-        if pubkey_type != "ssh-dss" {
+        if !Self::valid_keytype(&pubkey_type) {
             return Err(SSHKeyParseError::UnknownKeyType(pubkey_type));
         }
         let pubp = parse_openssh_number(inp)?;
@@ -29,7 +33,7 @@ impl SSHKey for DSAKeyPair<L1024N160> {
             return Err(SSHKeyParseError::PrivateKeyCorruption);
         }
         let privkey_type = parse_openssh_string(inp)?;
-        if privkey_type != "ssh-dss" {
+        if !Self::valid_keytype(&privkey_type) {
             return Err(SSHKeyParseError::InconsistentKeyTypes("ssh-dss".to_string(), privkey_type));
         }
         let privp = parse_openssh_number(inp)?;
