@@ -13,11 +13,23 @@ pub use self::public::*;
 use cryptonum::unsigned::*;
 use rand::Rng;
 use rand::distributions::Standard;
+use super::KeyPair;
 
 pub struct DSAKeyPair<P: DSAParameters>
 {
     pub private: DSAPrivKey<P>,
     pub public: DSAPubKey<P>
+}
+
+impl<P: DSAParameters> KeyPair for DSAKeyPair<P>
+{
+    type Private = DSAPrivKey<P>;
+    type Public = DSAPubKey<P>;
+
+    fn new(public: DSAPubKey<P>, private: DSAPrivKey<P>) -> DSAKeyPair<P>
+    {
+        DSAKeyPair{ private, public }
+    }
 }
 
 pub trait DSAKeyGeneration

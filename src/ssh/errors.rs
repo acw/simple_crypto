@@ -1,11 +1,9 @@
 use base64::DecodeError;
-use simple_asn1::ASN1DecodeErr;
 use std::io;
 
 #[derive(Debug)]
 pub enum SSHKeyParseError
 {
-    ASN1Error(ASN1DecodeErr),
     DecodeError(DecodeError),
     IOError(io::Error),
     NoBeginBannerFound, NoEndBannerFound,
@@ -21,13 +19,6 @@ pub enum SSHKeyParseError
     InconsistentPublicKeyValue,
     InvalidPrivateKeyValue,
     InvalidPadding
-}
-
-impl From<ASN1DecodeErr> for SSHKeyParseError {
-    fn from(e: ASN1DecodeErr) -> SSHKeyParseError {
-        println!("asn1 error: {:?}", e);
-        SSHKeyParseError::ASN1Error(e)
-    }
 }
 
 impl From<DecodeError> for SSHKeyParseError {

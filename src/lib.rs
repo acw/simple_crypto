@@ -43,6 +43,13 @@ pub mod ssh;
 /// used by TLS and others.
 pub mod x509;
 
+pub trait KeyPair {
+    type Public;
+    type Private;
+
+    fn new(pbl: Self::Public, prv: Self::Private) -> Self;
+}
+
 #[cfg(test)]
 mod testing;
 mod utils;
