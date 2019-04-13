@@ -6,7 +6,7 @@ mod name;
 mod publickey;
 mod validity;
 
-use dsa::{DSAPublic,DSAPublicKey};
+use dsa::DSAPublic;
 use ecdsa::{ECDSAPublic,ECCPublicKey};
 use rsa::{SIGNING_HASH_SHA1,SIGNING_HASH_SHA224,SIGNING_HASH_SHA256,SIGNING_HASH_SHA384,SIGNING_HASH_SHA512};
 use sha1::Sha1;

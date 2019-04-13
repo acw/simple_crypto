@@ -1,5 +1,5 @@
 use cryptonum::unsigned::*;
-use dsa::{DSAKeyPair,DSAParameters,DSAPubKey,DSAPublicKey,DSAPrivKey,DSAPrivateKey,L1024N160};
+use dsa::{DSAKeyPair,DSAParameters,DSAPublicKey,DSAPrivateKey,L1024N160};
 use std::io::{Read,Write};
 use ssh::errors::{SSHKeyParseError,SSHKeyRenderError};
 use ssh::frame::*;
@@ -22,7 +22,7 @@ impl SSHKey for DSAKeyPair<L1024N160> {
         let pubparams = L1024N160::new(pubp, pubg, pubq);
         let puby: U1024 = parse_openssh_number(inp)?;
         for _ in inp.bytes() { return Err(SSHKeyParseError::UnknownTrailingData); }
-        Ok(DSAPubKey::<L1024N160>::new(pubparams.clone(), puby.clone()))
+        Ok(DSAPublicKey::<L1024N160>::new(pubparams.clone(), puby.clone()))
     }
 
     fn parse_ssh_private_info<I: Read>(inp: &mut I) -> Result<(Self::Private,String),SSHKeyParseError>
@@ -43,7 +43,7 @@ impl SSHKey for DSAKeyPair<L1024N160> {
         let _     = parse_openssh_buffer(inp)?; // a copy of y we don't need
         let privx = parse_openssh_number(inp)?;
 
-        let privkey = DSAPrivKey::<L1024N160>::new(privparams, privx);
+        let privkey = DSAPrivateKey::<L1024N160>::new(privparams, privx);
         let comment = parse_openssh_string(inp)?;
         for (idx,byte) in inp.bytes().enumerate() {
             if ((idx+1) as u8) != byte? {

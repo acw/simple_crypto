@@ -142,7 +142,7 @@ pub fn write_ssh_keyfile<KP,P>(path: P, x: &KP, comment: &str) -> Result<(),SSHK
 
 
 #[cfg(test)]
-use dsa::{DSAKeyPair,DSAPublicKey,DSAPrivateKey,DSAPubKey,L1024N160};
+use dsa::{DSAKeyPair,DSAPublicKey,L1024N160};
 #[cfg(test)]
 use sha2::Sha256;
 
@@ -183,7 +183,7 @@ fn read_dsa_examples() {
                                 match load_ssh_pubkeys::<DSAKeyPair<L1024N160>,String>(ppath) {
                                     Err(e4) => assert!(false, format!("pubkey error: {:?}", e4)),
                                     Ok(pubkeys) => {
-                                        let _ : Vec<(DSAPubKey<L1024N160>,String)> = pubkeys;
+                                        let _ : Vec<(DSAPublicKey<L1024N160>,String)> = pubkeys;
                                         for (pubkey, comment3) in pubkeys {
                                             assert_eq!(pubkey.params.p, keypair.public.params.p, "public key check (p)");
                                             assert_eq!(pubkey.params.q, keypair.public.params.q, "public key check (q)");

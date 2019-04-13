@@ -17,16 +17,16 @@ use super::KeyPair;
 
 pub struct DSAKeyPair<P: DSAParameters>
 {
-    pub private: DSAPrivKey<P>,
-    pub public: DSAPubKey<P>
+    pub private: DSAPrivateKey<P>,
+    pub public: DSAPublicKey<P>
 }
 
 impl<P: DSAParameters> KeyPair for DSAKeyPair<P>
 {
-    type Private = DSAPrivKey<P>;
-    type Public = DSAPubKey<P>;
+    type Private = DSAPrivateKey<P>;
+    type Public = DSAPublicKey<P>;
 
-    fn new(public: DSAPubKey<P>, private: DSAPrivKey<P>) -> DSAKeyPair<P>
+    fn new(public: DSAPublicKey<P>, private: DSAPrivateKey<P>) -> DSAKeyPair<P>
     {
         DSAKeyPair{ private, public }
     }
@@ -67,8 +67,8 @@ macro_rules! generate_dsa_pair {
                 // 7. y = g^x mod p
                 let y = params.g.modexp(&$ltype::from(&x), &params.p);
                 // 8. Return SUCCESS, x, and y.
-                let private = DSAPrivKey::new(params.clone(), x);
-                let public  = DSAPubKey::new(params.clone(), y);
+                let private = DSAPrivateKey::<$ptype>::new(params.clone(), x);
+                let public  = DSAPublicKey::<$ptype>::new(params.clone(), y);
                 DSAKeyPair { private, public }
             }
         }

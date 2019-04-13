@@ -4,8 +4,8 @@ use sha1::Sha1;
 use sha2::{Sha224,Sha256,Sha384,Sha512};
 use simple_asn1::{der_decode,der_encode};
 use dsa::params::{DSAParameters,L1024N160,L2048N256};
-use dsa::private::{DSAPrivateKey,DSAPrivKey};
-use dsa::public::{DSAPublicKey,DSAPubKey};
+use dsa::private::DSAPrivateKey;
+use dsa::public::DSAPublicKey;
 use dsa::rfc6979::KIterator;
 
 macro_rules! run_rfc6979_test {
@@ -99,8 +99,8 @@ fn appendix_a21() {
     let params = L1024N160::new(p, g, q);
     let x = U192::from_bytes(&xbytes);
     let y = U1024::from_bytes(&ybytes);
-    let private = DSAPrivKey::<L1024N160>::new(params.clone(), x);
-    let public = DSAPubKey::<L1024N160>::new(params.clone(), y);
+    let private = DSAPrivateKey::<L1024N160>::new(params.clone(), x);
+    let public = DSAPublicKey::<L1024N160>::new(params.clone(), y);
     //
     let sample: [u8; 6] = [115, 97, 109, 112, 108, 101]; // "sample", ASCII
     let test:   [u8; 4] = [116, 101, 115, 116]; // "test", ASCII
@@ -359,8 +359,8 @@ fn appendix_a22() {
     let params = L2048N256::new(p, g, q);
     let x = U256::from_bytes(&xbytes);
     let y = U2048::from_bytes(&ybytes);
-    let private = DSAPrivKey::<L2048N256>::new(params.clone(), x);
-    let public = DSAPubKey::<L2048N256>::new(params.clone(), y);
+    let private = DSAPrivateKey::<L2048N256>::new(params.clone(), x);
+    let public = DSAPublicKey::<L2048N256>::new(params.clone(), y);
     //
     let sample: [u8; 6] = [115, 97, 109, 112, 108, 101]; // "sample", ASCII
     let test:   [u8; 4] = [116, 101, 115, 116]; // "test", ASCII
