@@ -8,27 +8,16 @@ use hmac::{Hmac,Mac};
 use simple_asn1::{ASN1Block,ASN1Class,ASN1DecodeErr,ASN1EncodeErr,FromASN1,ToASN1};
 use std::cmp::min;
 
-pub struct ECCPubKey<Curve: EllipticCurve> {
+pub struct ECCPublicKey<Curve: EllipticCurve> {
     q: Point<Curve>
 }
 
 pub enum ECDSAPublic {
-    ECCPublicP192(ECCPubKey<P192>),
-    ECCPublicP224(ECCPubKey<P224>),
-    ECCPublicP256(ECCPubKey<P256>),
-    ECCPublicP384(ECCPubKey<P384>),
-    ECCPublicP521(ECCPubKey<P521>),
-}
-
-pub trait ECCPublicKey {
-    type Curve : EllipticCurve;
-    type Unsigned;
-
-    fn new(d: Point<Self::Curve>) -> Self;
-    fn verify<Hash>(&self, m: &[u8], sig: &DSASignature<Self::Unsigned>) -> bool
-      where
-       Hash: BlockInput + Clone + Default + Digest + FixedOutput + Input + Reset,
-       Hmac<Hash>: Mac;
+    ECCPublicP192(ECCPublicKey<P192>),
+    ECCPublicP224(ECCPublicKey<P224>),
+    ECCPublicP256(ECCPublicKey<P256>),
+    ECCPublicP384(ECCPublicKey<P384>),
+    ECCPublicP521(ECCPublicKey<P521>),
 }
 
 pub enum ECDSAEncodeErr {
@@ -58,17 +47,14 @@ impl From<ASN1DecodeErr> for ECDSADecodeErr {
 
 macro_rules! public_impl {
     ($curve: ident, $un: ident, $si: ident) => {
-        impl ECCPublicKey for ECCPubKey<$curve>
+        impl ECCPublicKey<$curve>
         {
-            type Curve = $curve;
-            type Unsigned = $un;
-
-            fn new(q: Point<$curve>) -> ECCPubKey<$curve>
+            pub fn new(q: Point<$curve>) -> ECCPublicKey<$curve>
             {
-                ECCPubKey{ q }
+                ECCPublicKey{ q }
             }
 
-            fn verify<Hash>(&self, m: &[u8], sig: &DSASignature<Self::Unsigned>) -> bool
+            pub fn verify<Hash>(&self, m: &[u8], sig: &DSASignature<$un>) -> bool
               where
                Hash: BlockInput + Clone + Default + Digest + FixedOutput + Input + Reset,
                Hmac<Hash>: Mac
@@ -103,7 +89,7 @@ macro_rules! public_impl {
             }
         }
 
-        impl ToASN1 for ECCPubKey<$curve> {
+        impl ToASN1 for ECCPublicKey<$curve> {
             type Error = ECDSAEncodeErr;
 
             fn to_asn1_class(&self, c: ASN1Class) -> Result<Vec<ASN1Block>,ECDSAEncodeErr>
@@ -136,10 +122,10 @@ macro_rules! public_impl {
             }
         }
 
-        impl FromASN1 for ECCPubKey<$curve> {
+        impl FromASN1 for ECCPublicKey<$curve> {
             type Error = ECDSADecodeErr;
 
-            fn from_asn1(bs: &[ASN1Block]) -> Result<(ECCPubKey<$curve>,&[ASN1Block]),ECDSADecodeErr>
+            fn from_asn1(bs: &[ASN1Block]) -> Result<(ECCPublicKey<$curve>,&[ASN1Block]),ECDSADecodeErr>
             {
                 let (x, rest) = bs.split_first().ok_or(ECDSADecodeErr::NoKeyFound)?;
                 if let ASN1Block::BitString(_, _, _, target) = x {
@@ -155,7 +141,7 @@ macro_rules! public_impl {
                     let x = $un::from_bytes(xbstr);
                     let y = $un::from_bytes(ybstr);
                     let point = Point::<$curve>{ x: $si::from(x), y: $si::from(y) };
-                    let res = ECCPubKey::<$curve>::new(point);
+                    let res = ECCPublicKey::<$curve>::new(point);
                     Ok((res, rest))
                 } else {
                     Err(ECDSADecodeErr::InvalidKeyFormat)
@@ -201,7 +187,7 @@ macro_rules! verify_test_body
             let s = $un::from_bytes(sbytes);
 
             let point = Point::<$curve>{ x: $si::from(x), y: $si::from(y) };
-            let public = ECCPubKey::<$curve>::new(point);
+            let public = ECCPublicKey::<$curve>::new(point);
             let sig = DSASignature::new(r, s);
             match usize::from(h) {
                 224 => assert!(public.verify::<Sha224>(mbytes, &sig)),

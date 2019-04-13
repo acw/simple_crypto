@@ -1,7 +1,7 @@
 use cryptonum::unsigned::{U3072,U2048,U1024,U256,U192};
 use dsa::{DSAPublic,DSAPublicKey,DSAParameters};
 use dsa::{L3072N256,L2048N256,L2048N224,L1024N160};
-use ecdsa::{ECDSAEncodeErr,ECDSAPublic,ECCPubKey};
+use ecdsa::{ECDSAEncodeErr,ECDSAPublic,ECCPublicKey};
 use ecdsa::curve::{P192,P224,P256,P384,P521};
 use num::BigUint;
 use rsa::RSAPublic;
@@ -271,27 +271,27 @@ fn decode_ecdsa_key(info: ASN1Block, keybls: &[ASN1Block]) -> Result<ECDSAPublic
 {
     if let ASN1Block::ObjectIdentifier(_, _, oid) = info {
         if oid == oid!(1,2,840,10045,3,1,1) {
-            let (res, _) = ECCPubKey::<P192>::from_asn1(keybls)?;
+            let (res, _) = ECCPublicKey::<P192>::from_asn1(keybls)?;
             return Ok(ECDSAPublic::ECCPublicP192(res));
         }
 
         if oid == oid!(1,3,132,0,33) {
-            let (res, _) = ECCPubKey::<P224>::from_asn1(keybls)?;
+            let (res, _) = ECCPublicKey::<P224>::from_asn1(keybls)?;
             return Ok(ECDSAPublic::ECCPublicP224(res));
         }
 
         if oid == oid!(1,2,840,10045,3,1,7) {
-            let (res, _) = ECCPubKey::<P256>::from_asn1(keybls)?;
+            let (res, _) = ECCPublicKey::<P256>::from_asn1(keybls)?;
             return Ok(ECDSAPublic::ECCPublicP256(res));
         }
 
         if oid == oid!(1,3,132,0,34) {
-            let (res, _) = ECCPubKey::<P384>::from_asn1(keybls)?;
+            let (res, _) = ECCPublicKey::<P384>::from_asn1(keybls)?;
             return Ok(ECDSAPublic::ECCPublicP384(res));
         }
 
         if oid == oid!(1,3,132,0,35) {
-            let (res, _) = ECCPubKey::<P521>::from_asn1(keybls)?;
+            let (res, _) = ECCPublicKey::<P521>::from_asn1(keybls)?;
             return Ok(ECDSAPublic::ECCPublicP521(res));
         }
     }
