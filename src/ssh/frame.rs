@@ -94,7 +94,6 @@ pub fn render_openssh_u32<O: Write>(output: &mut O, val: u32) -> Result<(),SSHKe
 pub fn parse_openssh_string<I: Read>(input: &mut I) -> Result<String,SSHKeyParseError>
 {
     let length = parse_openssh_u32(input)?;
-    println!("len: {:X}", length);
     let mut limited_input = input.take(length as u64);
     let mut result = String::new();
     limited_input.read_to_string(&mut result)?;
