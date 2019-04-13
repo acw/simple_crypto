@@ -1,56 +1,36 @@
 use cryptonum::unsigned::*;
 use digest::{Digest,FixedOutput};
-use rsa::core::{drop0s,pkcs1_pad,xor_vecs};
+use rsa::core::{RSAMode,drop0s,pkcs1_pad,xor_vecs};
 use rsa::errors::RSAError;
 use rsa::oaep::OAEPParams;
 use rsa::signing_hashes::SigningHash;
 
-pub trait RSAPrivateKey<N> {
-    /// Generate a new private key using the given modulus and private
-    /// exponent. You probably don't want to use this function directly
-    /// unless you're writing your own key generation routine or key
-    /// parsing library.
-    fn new(n: N, d: N) -> Self;
-
-    /// Sign the given message with the given private key.
-    fn sign(&self, signhash: &SigningHash, msg: &[u8]) -> Vec<u8>;
-
-    /// Decrypt the provided message using the given OAEP parameters. As
-    /// mentioned in the comment for encryption, RSA decryption is really,
-    /// really slow. So if your plaintext is larger than about half the
-    /// bit size of the key, it's almost certainly a better idea to generate
-    /// a fresh symmetric encryption key, encrypt only the key with RSA, and
-    /// then encrypt the message with that key.
-    fn decrypt<H>(&self, oaep: &OAEPParams<H>, msg: &[u8])
-        -> Result<Vec<u8>,RSAError>
-     where H: Default + Digest + FixedOutput;
+pub struct RSAPrivateKey<R: RSAMode>
+{
+    pub(crate) nu: R::Barrett,
+    pub(crate) d:  R
 }
 
 pub enum RSAPrivate {
-    Key512(RSA512Private),
-    Key1024(RSA1024Private),
-    Key2048(RSA2048Private),
-    Key3072(RSA3072Private),
-    Key4096(RSA4096Private),
-    Key8192(RSA8192Private),
-    Key15360(RSA15360Private)
+    Key512(RSAPrivateKey<U512>),
+    Key1024(RSAPrivateKey<U1024>),
+    Key2048(RSAPrivateKey<U2048>),
+    Key3072(RSAPrivateKey<U3072>),
+    Key4096(RSAPrivateKey<U4096>),
+    Key8192(RSAPrivateKey<U8192>),
+    Key15360(RSAPrivateKey<U15360>)
 }
 
 macro_rules! generate_rsa_private
 {
-    ($rsa: ident, $num: ident, $bar: ident, $size: expr) => {
-        pub struct $rsa {
-            pub(crate) nu: $bar,
-            pub(crate) d:  $num
-        }
-
-        impl RSAPrivateKey<$num> for $rsa {
-            fn new(n: $num, d: $num) -> $rsa {
+    ($num: ident, $bar: ident, $size: expr) => {
+        impl RSAPrivateKey<$num> {
+            pub fn new(n: $num, d: $num) -> RSAPrivateKey<$num> {
                 let nu = $bar::new(n.clone());
-                $rsa { nu: nu, d: d }
+                RSAPrivateKey{ nu: nu, d: d }
             }
 
-            fn sign(&self, signhash: &SigningHash, msg: &[u8])
+            pub fn sign(&self, signhash: &SigningHash, msg: &[u8])
                 -> Vec<u8>
             {
                 let hash = (signhash.run)(msg);
@@ -61,7 +41,7 @@ macro_rules! generate_rsa_private
                 sig
             }
 
-            fn decrypt<H>(&self, oaep: &OAEPParams<H>, msg: &[u8])
+            pub fn decrypt<H>(&self, oaep: &OAEPParams<H>, msg: &[u8])
                 -> Result<Vec<u8>,RSAError>
              where H: Default + Digest + FixedOutput
             {
@@ -74,9 +54,7 @@ macro_rules! generate_rsa_private
 
                 Ok(res)
             }
-        }
 
-        impl $rsa {
             fn sp1(&self, m: &$num) -> $num {
                 m.modexp(&self.d, &self.nu)
             }
@@ -139,17 +117,17 @@ macro_rules! generate_rsa_private
     }
 }
 
-generate_rsa_private!(RSA512Private,   U512,   BarrettU512,   512);
-generate_rsa_private!(RSA1024Private,  U1024,  BarrettU1024,  1024);
-generate_rsa_private!(RSA2048Private,  U2048,  BarrettU2048,  2048);
-generate_rsa_private!(RSA3072Private,  U3072,  BarrettU3072,  3072);
-generate_rsa_private!(RSA4096Private,  U4096,  BarrettU4096,  4096);
-generate_rsa_private!(RSA8192Private,  U8192,  BarrettU8192,  8192);
-generate_rsa_private!(RSA15360Private, U15360, BarrettU15360, 15360);
+generate_rsa_private!(U512,   BarrettU512,   512);
+generate_rsa_private!(U1024,  BarrettU1024,  1024);
+generate_rsa_private!(U2048,  BarrettU2048,  2048);
+generate_rsa_private!(U3072,  BarrettU3072,  3072);
+generate_rsa_private!(U4096,  BarrettU4096,  4096);
+generate_rsa_private!(U8192,  BarrettU8192,  8192);
+generate_rsa_private!(U15360, BarrettU15360, 15360);
 
 #[cfg(test)]
 macro_rules! sign_test_body {
-    ($mod: ident, $rsa: ident, $num: ident, $bar: ident, $num64: ident, $size: expr) => {
+    ($mod: ident, $num: ident, $bar: ident, $num64: ident, $size: expr) => {
         let fname = format!("testdata/rsa/sign{}.test", $size);
         run_test(fname.to_string(), 7, |case| {
             let (neg0, dbytes) = case.get("d").unwrap();
@@ -173,7 +151,7 @@ macro_rules! sign_test_body {
                             512 => &SIGNING_HASH_SHA512,
                             x     => panic!("Bad signing hash: {}", x)
                           };
-            let privkey = $rsa{ nu: $bar::from_components(k, n.clone(), nu), d: d };
+            let privkey = RSAPrivateKey{ nu: $bar::from_components(k, n.clone(), nu), d: d };
             let sig = privkey.sign(sighash, &mbytes);
             assert_eq!(*sbytes, sig);
         });
@@ -182,7 +160,7 @@ macro_rules! sign_test_body {
 
 #[cfg(test)]
 macro_rules! decrypt_test_body {
-    ($mod: ident, $rsa: ident, $num: ident, $bar: ident, $num64: ident, $size: expr) => {
+    ($mod: ident, $num: ident, $bar: ident, $num64: ident, $size: expr) => {
         let fname = format!("testdata/rsa/encrypt{}.test", $size);
         run_test(fname.to_string(), 9, |case| {
             let (neg0, nbytes) = case.get("n").unwrap();
@@ -203,7 +181,7 @@ macro_rules! decrypt_test_body {
             let k = usize::from(bigk);
             let d = $num::from_bytes(dbytes);
             let nu = $bar::from_components(k, n64, nu);
-            let privkey = $rsa{ nu: nu, d: d };
+            let privkey = RSAPrivateKey{ nu: nu, d: d };
             let lstr = String::from_utf8(lbytes.clone()).unwrap();
             let message = match usize::from($num::from_bytes(hbytes)) {
                 224 => privkey.decrypt(&OAEPParams::<Sha224>::new(lstr), &cbytes),
@@ -219,7 +197,7 @@ macro_rules! decrypt_test_body {
 }
 
 macro_rules! generate_tests {
-    ($mod: ident, $rsa: ident, $num: ident, $bar: ident, $num64: ident, $size: expr) => {
+    ($mod: ident, $num: ident, $bar: ident, $num64: ident, $size: expr) => {
         #[cfg(test)]
         #[allow(non_snake_case)]
         mod $mod {
@@ -231,16 +209,16 @@ macro_rules! generate_tests {
 
             #[test]
             fn sign() {
-                sign_test_body!($mod, $rsa, $num, $bar, $num64, $size);
+                sign_test_body!($mod, $num, $bar, $num64, $size);
             }
 
             #[test]
             fn decrypt() {
-                decrypt_test_body!($mod, $rsa, $num, $bar, $num64, $size);
+                decrypt_test_body!($mod, $num, $bar, $num64, $size);
             }
         }
     };
-    (ignore $mod: ident, $rsa: ident, $num: ident, $bar: ident, $num64: ident, $size: expr) => {
+    (ignore $mod: ident, $num: ident, $bar: ident, $num64: ident, $size: expr) => {
         #[cfg(test)]
         #[allow(non_snake_case)]
         mod $mod {
@@ -253,22 +231,22 @@ macro_rules! generate_tests {
             #[ignore]
             #[test]
             fn sign() {
-                sign_test_body!($mod, $rsa, $num, $bar, $num64, $size);
+                sign_test_body!($mod, $num, $bar, $num64, $size);
             }
 
             #[ignore]
             #[test]
             fn decrypt() {
-                decrypt_test_body!($mod, $rsa, $num, $bar, $num64, $size);
+                decrypt_test_body!($mod, $num, $bar, $num64, $size);
             }
         }
     }
 }
 
-generate_tests!(RSA512,   RSA512Private,   U512,   BarrettU512,   U576,   512);
-generate_tests!(RSA1024,  RSA1024Private,  U1024,  BarrettU1024,  U1088,  1024);
-generate_tests!(RSA2048,  RSA2048Private,  U2048,  BarrettU2048,  U2112,  2048);
-generate_tests!(RSA3072,  RSA3072Private,  U3072,  BarrettU3072,  U3136,  3072);
-generate_tests!(RSA4096,  RSA4096Private,  U4096,  BarrettU4096,  U4160,  4096);
-generate_tests!(ignore RSA8192,  RSA8192Private,  U8192,  BarrettU8192,  U8256,  8192);
-generate_tests!(ignore RSA15360, RSA15360Private, U15360, BarrettU15360, U15424, 15360);
+generate_tests!(       RSA512,   U512,   BarrettU512,   U576,   512);
+generate_tests!(       RSA1024,  U1024,  BarrettU1024,  U1088,  1024);
+generate_tests!(       RSA2048,  U2048,  BarrettU2048,  U2112,  2048);
+generate_tests!(       RSA3072,  U3072,  BarrettU3072,  U3136,  3072);
+generate_tests!(       RSA4096,  U4096,  BarrettU4096,  U4160,  4096);
+generate_tests!(ignore RSA8192,  U8192,  BarrettU8192,  U8256,  8192);
+generate_tests!(ignore RSA15360, U15360, BarrettU15360, U15424, 15360);

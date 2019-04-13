@@ -24,6 +24,7 @@ mod private;
 mod public;
 mod signing_hashes;
 
+pub use self::core::RSAMode;
 pub use self::errors::RSAError;
 pub use self::signing_hashes::{SigningHash,
                                SIGNING_HASH_NULL,
@@ -33,15 +34,8 @@ pub use self::signing_hashes::{SigningHash,
                                SIGNING_HASH_SHA384,
                                SIGNING_HASH_SHA512};
 pub use self::oaep::OAEPParams;
-pub use self::private::{RSAPrivate, RSAPrivateKey,
-                        RSA512Private, RSA1024Private, RSA2048Private,
-                        RSA3072Private, RSA4096Private, RSA8192Private,
-                        RSA15360Private};
-pub use self::public::{RSAPublic, RSAPublicKey,
-                       RSA512Public, RSA1024Public, RSA2048Public,
-                       RSA3072Public, RSA4096Public, RSA8192Public,
-                       RSA15360Public};
-
+pub use self::private::{RSAPrivate, RSAPrivateKey};
+pub use self::public::{RSAPublic, RSAPublicKey};
 use cryptonum::signed::{EGCD,ModInv};
 use cryptonum::unsigned::{CryptoNum,PrimeGen};
 use cryptonum::unsigned::{U256,U512,U1024,U1536,U2048,U3072,U4096,U7680,U8192,U15360};
@@ -60,38 +54,38 @@ fn diff<T>(a: &T, b: &T) -> T
     }
 }
 
+pub struct RSAKeyPair<R: RSAMode> {
+    pub public:  RSAPublicKey<R>,
+    pub private: RSAPrivateKey<R>
+}
+
 macro_rules! generate_rsa_pair
 {
-    ($pair: ident, $pub: ident, $priv: ident, $uint: ident, $half: ident, $iterations: expr) => {
-        pub struct $pair {
-            pub public: $pub,
-            pub private: $priv
-        }
-
-        impl $pair {
-            pub fn new(pu: $pub, pr: $priv) -> $pair {
-                $pair {
+    ($uint: ident, $half: ident, $iterations: expr) => {
+        impl RSAKeyPair<$uint> {
+            pub fn new(pu: RSAPublicKey<$uint>, pr: RSAPrivateKey<$uint>) -> RSAKeyPair<$uint> {
+                RSAKeyPair {
                     public: pu,
                     private: pr
                 }
             }
 
-            pub fn generate<G>(rng: &mut G) -> $pair
+            pub fn generate<G>(rng: &mut G) -> RSAKeyPair<$uint>
              where G: RngCore
             {
                 loop {
                     let ebase = 65537u32;
                     let e = $uint::from(ebase);
-                    let (p, q) = $pair::generate_pq(rng, &$half::from(ebase));
+                    let (p, q) = RSAKeyPair::<$uint>::generate_pq(rng, &$half::from(ebase));
                     let one = $half::from(1u32);
                     let pminus1 = &p - &one;
                     let qminus1 = &q - &one;
                     let phi = pminus1 * qminus1;
                     let n = &p * &q;
                     if let Some(d) = e.modinv(&phi) {
-                        let public = $pub::new(n.clone(), e);
-                        let private = $priv::new(n, d);
-                        return $pair::new(public, private);
+                        let public = RSAPublicKey::<$uint>::new(n.clone(), e);
+                        let private = RSAPrivateKey::<$uint>::new(n, d);
+                        return RSAKeyPair::<$uint>::new(public, private);
                     }
                 }
             }
@@ -129,13 +123,13 @@ macro_rules! generate_rsa_pair
     }
 }
 
-generate_rsa_pair!(RSA512KeyPair,   RSA512Public,   RSA512Private,   U512,   U256,  7);
-generate_rsa_pair!(RSA1024KeyPair,  RSA1024Public,  RSA1024Private,  U1024,  U512,  7);
-generate_rsa_pair!(RSA2048KeyPair,  RSA2048Public,  RSA2048Private,  U2048,  U1024, 4);
-generate_rsa_pair!(RSA3072KeyPair,  RSA3072Public,  RSA3072Private,  U3072,  U1536, 3);
-generate_rsa_pair!(RSA4096KeyPair,  RSA4096Public,  RSA4096Private,  U4096,  U2048, 3);
-generate_rsa_pair!(RSA8192KeyPair,  RSA8192Public,  RSA8192Private,  U8192,  U4096, 3);
-generate_rsa_pair!(RSA15360KeyPair, RSA15360Public, RSA15360Private, U15360, U7680, 3);
+generate_rsa_pair!(U512,   U256,  7);
+generate_rsa_pair!(U1024,  U512,  7);
+generate_rsa_pair!(U2048,  U1024, 4);
+generate_rsa_pair!(U3072,  U1536, 3);
+generate_rsa_pair!(U4096,  U2048, 3);
+generate_rsa_pair!(U8192,  U4096, 3);
+generate_rsa_pair!(U15360, U7680, 3);
 
 #[cfg(test)]
 mod generation {
@@ -143,15 +137,15 @@ mod generation {
     use std::fmt;
     use super::*;
 
-    impl Clone for RSA512KeyPair {
-        fn clone(&self) -> RSA512KeyPair {
-            RSA512KeyPair{
-                public: RSA512Public {
+    impl Clone for RSAKeyPair<U512> {
+        fn clone(&self) -> RSAKeyPair<U512> {
+            RSAKeyPair {
+                public: RSAPublicKey {
                     n: self.public.n.clone(),
                     nu: self.public.nu.clone(),
                     e: self.public.e.clone(),
                 },
-                private: RSA512Private {
+                private: RSAPrivateKey {
                     nu: self.private.nu.clone(),
                     d: self.private.d.clone()
                 }
@@ -159,7 +153,7 @@ mod generation {
         }
     }
 
-    impl fmt::Debug for RSA512KeyPair {
+    impl fmt::Debug for RSAKeyPair<U512> {
         fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
             f.debug_struct("RSA512KeyPair")
              .field("n", &self.public.n)
@@ -169,14 +163,14 @@ mod generation {
         }
     }
 
-    impl Arbitrary for RSA512KeyPair {
-        fn arbitrary<G: Gen>(g: &mut G) -> RSA512KeyPair {
-            RSA512KeyPair::generate(g)
+    impl Arbitrary for RSAKeyPair<U512> {
+        fn arbitrary<G: Gen>(g: &mut G) -> RSAKeyPair<U512> {
+            RSAKeyPair::<U512>::generate(g)
         }
     }
 
     quickcheck! {
-        fn generate_and_sign(keypair: RSA512KeyPair, msg: Vec<u8>) -> bool {
+        fn generate_and_sign(keypair: RSAKeyPair<U512>, msg: Vec<u8>) -> bool {
             let sig = keypair.private.sign(&SIGNING_HASH_SHA256, &msg);
             keypair.public.verify(&SIGNING_HASH_SHA256, &msg, &sig)
         }
