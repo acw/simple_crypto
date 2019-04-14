@@ -1,6 +1,7 @@
 mod dsa;
 mod errors;
 mod frame;
+mod rsa;
 
 pub use self::errors::{SSHKeyParseError,SSHKeyRenderError};
 
@@ -142,7 +143,11 @@ pub fn write_ssh_keyfile<KP,P>(path: P, x: &KP, comment: &str) -> Result<(),SSHK
 
 
 #[cfg(test)]
+use cryptonum::unsigned::{U1024};
+#[cfg(test)]
 use dsa::{DSAKeyPair,DSAPublicKey,L1024N160};
+#[cfg(test)]
+use rsa::{RSAKeyPair,RSAPublicKey,SIGNING_HASH_SHA256};
 #[cfg(test)]
 use sha2::Sha256;
 
@@ -189,6 +194,56 @@ fn read_dsa_examples() {
                                             assert_eq!(pubkey.params.q, keypair.public.params.q, "public key check (q)");
                                             assert_eq!(pubkey.params.g, keypair.public.params.g, "public key check (g)");
                                             assert_eq!(pubkey.y,        keypair.public.y,        "public key check (y)");
+                                            assert_eq!(comment,         comment3,                "public key check comment")
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+#[cfg(test)]
+#[test]
+fn read_rsa_examples() {
+    let test_files = ["rsa1024-1", "rsa1024-2", "rsa1024-3"];
+
+    for file in test_files.iter() {
+        let path = format!("testdata/ssh/{}",file);
+        let mkeypair = load_ssh_keyfile(path);
+        match mkeypair {
+            Err(e) => assert!(false, format!("reading error: {:?}", e)),
+            Ok((keypair, comment)) => {
+                let buffer = [0,1,2,3,4,6,2];
+                let _ : RSAKeyPair<U1024> = keypair;
+                let sig = keypair.private.sign(&SIGNING_HASH_SHA256, &buffer);
+                assert!(keypair.public.verify(&SIGNING_HASH_SHA256, &buffer, &sig));
+                let buffer2 = [0,1,2,3,4,6,5];
+                assert!(!keypair.public.verify(&SIGNING_HASH_SHA256, &buffer2, &sig));
+                match encode_ssh(&keypair, &comment) {
+                    Err(e2) => assert!(false, format!("render error: {:?}", e2)),
+                    Ok(encodedstr) => {
+                        match decode_ssh(&encodedstr) {
+                            Err(e3) => assert!(false, format!("reparse error: {:?}", e3)),
+                            Ok((keypair2,comment2)) => {
+                                let _ : RSAKeyPair<U1024> = keypair2;
+                                assert_eq!(keypair.public.n,keypair2.public.n,"failed to reparse key pair (n)");
+                                assert_eq!(keypair.public.e,keypair2.public.e,"failed to reparse key pair (e)");
+                                assert_eq!(keypair.private.nu,keypair2.private.nu,"failed to reparse key pair (n)");
+                                assert_eq!(keypair.private.d,keypair2.private.d,"failed to reparse key pair (d)");
+                                assert_eq!(comment,comment2,"failed to reparse comment");
+                                let ppath = format!("testdata/ssh/{}.pub",file);
+                                match load_ssh_pubkeys::<RSAKeyPair<U1024>,String>(ppath) {
+                                    Err(e4) => assert!(false, format!("pubkey error: {:?}", e4)),
+                                    Ok(pubkeys) => {
+                                        let _ : Vec<(RSAPublicKey<U1024>,String)> = pubkeys;
+                                        for (pubkey, comment3) in pubkeys {
+                                            assert_eq!(pubkey.n,        keypair.public.n,        "public key check (n)");
+                                            assert_eq!(pubkey.e,        keypair.public.e,        "public key check (e)");
                                             assert_eq!(comment,         comment3,                "public key check comment")
                                         }
                                     }
