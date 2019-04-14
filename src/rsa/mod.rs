@@ -41,6 +41,7 @@ use cryptonum::unsigned::{CryptoNum,PrimeGen};
 use cryptonum::unsigned::{U256,U512,U1024,U1536,U2048,U3072,U4096,U7680,U8192,U15360};
 use rand::RngCore;
 use std::ops::Sub;
+use super::KeyPair;
 
 fn diff<T>(a: &T, b: &T) -> T
  where
@@ -62,14 +63,19 @@ pub struct RSAKeyPair<R: RSAMode> {
 macro_rules! generate_rsa_pair
 {
     ($uint: ident, $half: ident, $iterations: expr) => {
-        impl RSAKeyPair<$uint> {
-            pub fn new(pu: RSAPublicKey<$uint>, pr: RSAPrivateKey<$uint>) -> RSAKeyPair<$uint> {
+        impl KeyPair for RSAKeyPair<$uint> {
+            type Public = RSAPublicKey<$uint>;
+            type Private = RSAPrivateKey<$uint>;
+
+            fn new(pu: RSAPublicKey<$uint>, pr: RSAPrivateKey<$uint>) -> RSAKeyPair<$uint> {
                 RSAKeyPair {
                     public: pu,
                     private: pr
                 }
             }
+        }
 
+        impl RSAKeyPair<$uint> {
             pub fn generate<G>(rng: &mut G) -> RSAKeyPair<$uint>
              where G: RngCore
             {

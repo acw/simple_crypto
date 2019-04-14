@@ -13,6 +13,7 @@ use self::point::{ECCPoint,Point};
 pub use self::private::ECCPrivateKey;
 pub use self::public::{ECDSAPublic,ECCPublicKey};
 pub use self::public::{ECDSADecodeErr,ECDSAEncodeErr};
+use super::KeyPair;
 
 pub struct ECDSAKeyPair<Curve: EllipticCurve> {
     pub public: ECCPublicKey<Curve>,
@@ -21,6 +22,15 @@ pub struct ECDSAKeyPair<Curve: EllipticCurve> {
 
 macro_rules! generate_impl {
     ($curve: ident, $un: ident, $si: ident) => {
+        impl KeyPair for ECDSAKeyPair<$curve> {
+            type Public = ECCPublicKey<$curve>;
+            type Private = ECCPrivateKey<$curve>;
+
+            fn new(public: ECCPublicKey<$curve>, private: ECCPrivateKey<$curve>) -> ECDSAKeyPair<$curve>
+            {
+                ECDSAKeyPair{ public, private }
+            }
+        }
         impl ECDSAKeyPair<$curve> {
             pub fn generate<G: Rng>(rng: &mut G) -> ECDSAKeyPair<$curve>
             {
