@@ -40,6 +40,8 @@ use cryptonum::signed::{EGCD,ModInv};
 use cryptonum::unsigned::{CryptoNum,PrimeGen};
 use cryptonum::unsigned::{U256,U512,U1024,U1536,U2048,U3072,U4096,U7680,U8192,U15360};
 use rand::RngCore;
+#[cfg(test)]
+use std::fmt;
 use std::ops::Sub;
 use super::KeyPair;
 
@@ -58,6 +60,114 @@ fn diff<T>(a: &T, b: &T) -> T
 pub struct RSAKeyPair<R: RSAMode> {
     pub public:  RSAPublicKey<R>,
     pub private: RSAPrivateKey<R>
+}
+
+#[derive(PartialEq)]
+pub enum RSAPair {
+    R512(RSAPublicKey<U512>,     RSAPrivateKey<U512>),
+    R1024(RSAPublicKey<U1024>,   RSAPrivateKey<U1024>),
+    R2048(RSAPublicKey<U2048>,   RSAPrivateKey<U2048>),
+    R3072(RSAPublicKey<U3072>,   RSAPrivateKey<U3072>),
+    R4096(RSAPublicKey<U4096>,   RSAPrivateKey<U4096>),
+    R8192(RSAPublicKey<U8192>,   RSAPrivateKey<U8192>),
+    R15360(RSAPublicKey<U15360>, RSAPrivateKey<U15360>),
+}
+
+#[cfg(test)]
+impl fmt::Debug for RSAPair {
+    fn fmt(&self, f: &mut fmt::Formatter) -> Result<(), fmt::Error> 
+    {
+        match self {
+            RSAPair::R512(_,_) => f.write_str("512-bit RSA key pair"),
+            RSAPair::R1024(_,_) => f.write_str("1024-bit RSA key pair"),
+            RSAPair::R2048(_,_) => f.write_str("2048-bit RSA key pair"),
+            RSAPair::R3072(_,_) => f.write_str("3072-bit RSA key pair"),
+            RSAPair::R4096(_,_) => f.write_str("4096-bit RSA key pair"),
+            RSAPair::R8192(_,_) => f.write_str("8192-bit RSA key pair"),
+            RSAPair::R15360(_,_) => f.write_str("15360-bit RSA key pair"),
+        }
+    }
+}
+
+impl KeyPair for RSAPair {
+    type Public = RSAPublic;
+    type Private = RSAPrivate;
+
+    fn new(pu: RSAPublic, pr: RSAPrivate) -> RSAPair
+    {
+        match (pu, pr) {
+            (RSAPublic::Key512(pbl), RSAPrivate::Key512(prv)) =>
+                RSAPair::R512(pbl, prv),
+            (RSAPublic::Key1024(pbl), RSAPrivate::Key1024(prv)) =>
+                RSAPair::R1024(pbl, prv),
+            (RSAPublic::Key2048(pbl), RSAPrivate::Key2048(prv)) =>
+                RSAPair::R2048(pbl, prv),
+            (RSAPublic::Key3072(pbl), RSAPrivate::Key3072(prv)) =>
+                RSAPair::R3072(pbl, prv),
+            (RSAPublic::Key4096(pbl), RSAPrivate::Key4096(prv)) =>
+                RSAPair::R4096(pbl, prv),
+            (RSAPublic::Key8192(pbl), RSAPrivate::Key8192(prv)) =>
+                RSAPair::R8192(pbl, prv),
+            (RSAPublic::Key15360(pbl), RSAPrivate::Key15360(prv)) =>
+                RSAPair::R15360(pbl, prv),
+            _ =>
+                panic!("Unmatched public/private arguments to RSAPair::new()")
+        }
+    }
+}
+
+impl RSAPair {
+    pub fn sign(&self, signhash: &SigningHash, msg: &[u8]) -> Vec<u8>
+    {
+        match self {
+            RSAPair::R512(_,prv) => prv.sign(signhash, msg),
+            RSAPair::R1024(_,prv) => prv.sign(signhash, msg),
+            RSAPair::R2048(_,prv) => prv.sign(signhash, msg),
+            RSAPair::R3072(_,prv) => prv.sign(signhash, msg),
+            RSAPair::R4096(_,prv) => prv.sign(signhash, msg),
+            RSAPair::R8192(_,prv) => prv.sign(signhash, msg),
+            RSAPair::R15360(_,prv) => prv.sign(signhash, msg),
+        }
+    }
+    
+    pub fn verify(&self, signhash: &SigningHash, msg: &[u8], sig: &[u8]) -> bool
+    {
+        match self {
+            RSAPair::R512(pbl,_) => pbl.verify(signhash, msg, sig),
+            RSAPair::R1024(pbl,_) => pbl.verify(signhash, msg, sig),
+            RSAPair::R2048(pbl,_) => pbl.verify(signhash, msg, sig),
+            RSAPair::R3072(pbl,_) => pbl.verify(signhash, msg, sig),
+            RSAPair::R4096(pbl,_) => pbl.verify(signhash, msg, sig),
+            RSAPair::R8192(pbl,_) => pbl.verify(signhash, msg, sig),
+            RSAPair::R15360(pbl,_) => pbl.verify(signhash, msg, sig),
+        }
+    }
+
+    pub fn public(&self) -> RSAPublic
+    {
+        match self {
+            &RSAPair::R512(ref pbl,_)   => RSAPublic::Key512(pbl.clone()),
+            &RSAPair::R1024(ref pbl,_)  => RSAPublic::Key1024(pbl.clone()),
+            &RSAPair::R2048(ref pbl,_)  => RSAPublic::Key2048(pbl.clone()),
+            &RSAPair::R3072(ref pbl,_)  => RSAPublic::Key3072(pbl.clone()),
+            &RSAPair::R4096(ref pbl,_)  => RSAPublic::Key4096(pbl.clone()),
+            &RSAPair::R8192(ref pbl,_)  => RSAPublic::Key8192(pbl.clone()),
+            &RSAPair::R15360(ref pbl,_) => RSAPublic::Key15360(pbl.clone()),
+        }
+     }
+
+    pub fn private(&self) -> RSAPrivate
+    {
+        match self {
+            &RSAPair::R512(_,ref prv)   => RSAPrivate::Key512(prv.clone()),
+            &RSAPair::R1024(_,ref prv)  => RSAPrivate::Key1024(prv.clone()),
+            &RSAPair::R2048(_,ref prv)  => RSAPrivate::Key2048(prv.clone()),
+            &RSAPair::R3072(_,ref prv)  => RSAPrivate::Key3072(prv.clone()),
+            &RSAPair::R4096(_,ref prv)  => RSAPrivate::Key4096(prv.clone()),
+            &RSAPair::R8192(_,ref prv)  => RSAPrivate::Key8192(prv.clone()),
+            &RSAPair::R15360(_,ref prv) => RSAPrivate::Key15360(prv.clone()),
+        }
+     }
 }
 
 macro_rules! generate_rsa_pair

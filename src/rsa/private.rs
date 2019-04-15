@@ -5,12 +5,14 @@ use rsa::errors::RSAError;
 use rsa::oaep::OAEPParams;
 use rsa::signing_hashes::SigningHash;
 
+#[derive(Clone,PartialEq)]
 pub struct RSAPrivateKey<R: RSAMode>
 {
     pub(crate) nu: R::Barrett,
     pub(crate) d:  R
 }
 
+#[derive(Clone,PartialEq)]
 pub enum RSAPrivate {
     Key512(RSAPrivateKey<U512>),
     Key1024(RSAPrivateKey<U1024>),

@@ -12,13 +12,14 @@ use simple_asn1::{ASN1Block,ASN1DecodeErr,ASN1EncodeErr,
 use std::fmt;
 use utils::TranslateNums;
 
-#[derive(PartialEq)]
+#[derive(Clone,PartialEq)]
 pub struct RSAPublicKey<R: RSAMode> {
     pub(crate) n:  R,
     pub(crate) nu: R::Barrett,
     pub(crate) e:  R 
 }
 
+#[derive(Clone,PartialEq)]
 pub enum RSAPublic {
     Key512(  RSAPublicKey<U512>),
     Key1024( RSAPublicKey<U1024>),
@@ -135,6 +136,21 @@ impl ToASN1 for RSAPublic {
     }
 }
 
+#[cfg(test)]
+impl fmt::Debug for RSAPublic {
+    fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            RSAPublic::Key512(x)   => write!(fmt, "RSA:{:?}", x),
+            RSAPublic::Key1024(x)  => write!(fmt, "RSA:{:?}", x),
+            RSAPublic::Key2048(x)  => write!(fmt, "RSA:{:?}", x),
+            RSAPublic::Key3072(x)  => write!(fmt, "RSA:{:?}", x),
+            RSAPublic::Key4096(x)  => write!(fmt, "RSA:{:?}", x),
+            RSAPublic::Key8192(x)  => write!(fmt, "RSA:{:?}", x),
+            RSAPublic::Key15360(x) => write!(fmt, "RSA:{:?}", x)
+        }
+    }
+}
+ 
 macro_rules! generate_rsa_public
 {
     ($num: ident, $bar: ident, $var: ident, $size: expr) => {
