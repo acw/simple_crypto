@@ -5,49 +5,29 @@ use dsa::params::*;
 use dsa::rfc6979::*;
 use hmac::{Hmac,Mac};
 
-pub trait DSAPrivateKey {
-    type Params;
-    type L;
-    type N;
-
-    /// Generate a new private key using the given DSA parameters and private
-    /// key value.
-    fn new(params: Self::Params, x: Self::N) -> Self;
-    /// Generate a DSA signature for the given message, using the appropriate
-    /// hash included in the type invocation.
-    fn sign<Hash>(&self, m: &[u8]) -> DSASignature<Self::N>
-     where
-      Hash: BlockInput + Clone + Default + Digest + FixedOutput + Input + Reset,
-      Hmac<Hash>: Mac;
-}
-
-pub struct DSAPrivKey<Params: DSAParameters>
+pub struct DSAPrivateKey<Params: DSAParameters>
 {
     pub(crate) params: Params,
     pub(crate) x: Params::N
 }
 
 pub enum DSAPrivate {
-    DSA1024Private(DSAPrivKey<L1024N160>),
-    DSA2048SmallPrivate(DSAPrivKey<L2048N224>),
-    DSA2048Private(DSAPrivKey<L2048N256>),
-    DSA3072Private(DSAPrivKey<L3072N256>)
+    DSA1024Private(DSAPrivateKey<L1024N160>),
+    DSA2048SmallPrivate(DSAPrivateKey<L2048N224>),
+    DSA2048Private(DSAPrivateKey<L2048N256>),
+    DSA3072Private(DSAPrivateKey<L3072N256>)
 }
 
 macro_rules! privkey_impls {
     ($ptype: ident, $ltype: ident, $ntype: ident, $big: ident, $bigger: ident, $biggest: ident) => {
-       impl DSAPrivateKey for DSAPrivKey<$ptype>
+       impl DSAPrivateKey<$ptype>
        {
-           type Params = $ptype;
-           type L = $ltype;
-           type N = $ntype;
-
-           fn new(params: $ptype, x: $ntype) -> DSAPrivKey<$ptype>
+           pub fn new(params: $ptype, x: $ntype) -> DSAPrivateKey<$ptype>
            {
-               DSAPrivKey{ params, x }
+               DSAPrivateKey{ params, x }
            }
 
-           fn sign<Hash>(&self, m: &[u8]) -> DSASignature<$ntype>
+           pub fn sign<Hash>(&self, m: &[u8]) -> DSASignature<$ntype>
              where
               Hash: BlockInput + Clone + Default + Digest + FixedOutput + Input + Reset,
               Hmac<Hash>: Mac
@@ -155,7 +135,7 @@ macro_rules! generate_tests {
                     let s = $nt::from_bytes(sbytes);
 
                     let params = $params::new(p,g,q);
-                    let private = DSAPrivKey::<$params>::new(params, x);
+                    let private = DSAPrivateKey::<$params>::new(params, x);
                     let sig = match h {
                         224 => private.sign::<Sha224>(mbytes),
                         256 => private.sign::<Sha256>(mbytes),

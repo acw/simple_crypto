@@ -6,33 +6,21 @@ use ecdsa::curve::{EllipticCurve,P192,P224,P256,P384,P521};
 use ecdsa::point::{ECCPoint,Point};
 use hmac::{Hmac,Mac};
 
-pub struct ECCPrivate<Curve: EllipticCurve> {
+pub struct ECCPrivateKey<Curve: EllipticCurve> {
     d: Curve::Unsigned
-}
-
-pub trait ECCPrivateKey {
-    type Unsigned;
-
-    fn new(d: Self::Unsigned) -> Self;
-    fn sign<Hash>(&self, m: &[u8]) -> DSASignature<Self::Unsigned>
-      where
-        Hash: BlockInput + Clone + Default + Digest + FixedOutput + Input + Reset,
-        Hmac<Hash>: Mac;
 }
 
 macro_rules! generate_privates
 {
     ($curve: ident, $base: ident, $sig: ident, $dbl: ident, $quad: ident) => {
-        impl ECCPrivateKey for ECCPrivate<$curve>
+        impl ECCPrivateKey<$curve>
         {
-            type Unsigned = $base;
-        
-            fn new(d: $base) -> ECCPrivate<$curve>
+            pub fn new(d: $base) -> ECCPrivateKey<$curve>
             {
-                ECCPrivate{ d }
+                ECCPrivateKey{ d }
             }
         
-            fn sign<Hash>(&self, m: &[u8]) -> DSASignature<$base>
+            pub fn sign<Hash>(&self, m: &[u8]) -> DSASignature<$base>
               where
                 Hash: BlockInput + Clone + Default + Digest + FixedOutput + Input + Reset,
                 Hmac<Hash>: Mac
@@ -136,7 +124,7 @@ macro_rules! sign_test_body
             let r = $base::from_bytes(rbytes);
             let s = $base::from_bytes(sbytes);
 
-            let private = ECCPrivate::<$curve>::new(d);
+            let private = ECCPrivateKey::<$curve>::new(d);
             let sig = match usize::from(h) {
                         224 => private.sign::<Sha224>(mbytes),
                         256 => private.sign::<Sha256>(mbytes),

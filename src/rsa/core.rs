@@ -1,6 +1,20 @@
+use cryptonum::unsigned::*;
 use num::bigint::BigUint;
 use rsa::errors::RSAError;
 use simple_asn1::{ASN1Block,ASN1DecodeErr};
+
+pub trait RSAMode {
+    type Barrett;
+}
+
+impl RSAMode for U512     { type Barrett = BarrettU512;   }
+impl RSAMode for U1024    { type Barrett = BarrettU1024;  }
+impl RSAMode for U2048    { type Barrett = BarrettU2048;  }
+impl RSAMode for U3072    { type Barrett = BarrettU3072;  }
+impl RSAMode for U4096    { type Barrett = BarrettU4096;  }
+impl RSAMode for U8192    { type Barrett = BarrettU8192;  }
+impl RSAMode for U15360   { type Barrett = BarrettU15360; }
+
 
 pub fn pkcs1_pad(ident: &[u8], hash: &[u8], keylen: usize) -> Vec<u8>
 {

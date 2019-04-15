@@ -2,7 +2,7 @@ use cryptonum::unsigned::*;
 use digest::{Digest,FixedOutput};
 use rand::Rng;
 use rand::rngs::OsRng;
-use rsa::core::{decode_biguint,pkcs1_pad,xor_vecs};
+use rsa::core::{RSAMode,decode_biguint,pkcs1_pad,xor_vecs};
 use rsa::errors::RSAError;
 use rsa::oaep::OAEPParams;
 use rsa::signing_hashes::SigningHash;
@@ -12,62 +12,21 @@ use simple_asn1::{ASN1Block,ASN1DecodeErr,ASN1EncodeErr,
 use std::fmt;
 use utils::TranslateNums;
 
-pub trait RSAPublicKey<N> {
-    /// Generate a new public key pair for the given modulus and
-    /// exponent. You should probably not call this directly unless
-    /// you're writing a key generation function or writing your own
-    /// public key parser.
-    fn new(n: N, e: N) -> Self;
-
-    /// Verify that the provided signature is valid; that the private
-    /// key associated with this public key sent exactly this message.
-    /// The hash used here must exactly match the hash used to sign
-    /// the message, including its ASN.1 metadata.
-    fn verify(&self, signhash: &SigningHash, msg: &[u8], sig: &[u8]) -> bool;
-
-    /// Encrypt the message with a hash function, given the appropriate
-    /// label. Please note that RSA encryption is not particularly fast,
-    /// and decryption is very slow indeed. Thus, most crypto systems that
-    /// need asymmetric encryption should generate a symmetric key, encrypt
-    /// that key with RSA encryption, and then encrypt the actual message
-    /// with that symmetric key.
-    ///
-    /// In this variant of the function, we use an explicit random number
-    /// generator, just in case you have one you really like. It better be
-    /// cryptographically strong, though, as some of the padding protections
-    /// are relying on it.
-    fn encrypt_rng<G,H>(&self, g: &mut G, oaep: &OAEPParams<H>, msg: &[u8])
-        -> Result<Vec<u8>,RSAError>
-     where
-      G: Rng,
-      H: Default + Digest + FixedOutput;
-
-    /// Encrypt the message with a hash function, given the appropriate
-    /// label. Please note that RSA encryption is not particularly fast,
-    /// and decryption is very slow indeed. Thus, most crypto systems that
-    /// need asymmetric encryption should generate a symmetric key, encrypt
-    /// that key with RSA encryption, and then encrypt the actual message
-    /// with that symmetric key.
-    ///
-    /// This variant will just use the system RNG for its randomness.
-    fn encrypt<H>(&self,oaep:&OAEPParams<H>,msg:&[u8])
-        -> Result<Vec<u8>,RSAError>
-     where
-      H: Default + Digest + FixedOutput
-    {
-        let mut g = OsRng::new()?;
-        self.encrypt_rng(&mut g, oaep, msg)
-    }
+#[derive(PartialEq)]
+pub struct RSAPublicKey<R: RSAMode> {
+    pub(crate) n:  R,
+    pub(crate) nu: R::Barrett,
+    pub(crate) e:  R 
 }
 
 pub enum RSAPublic {
-    Key512(RSA512Public),
-    Key1024(RSA1024Public),
-    Key2048(RSA2048Public),
-    Key3072(RSA3072Public),
-    Key4096(RSA4096Public),
-    Key8192(RSA8192Public),
-    Key15360(RSA15360Public)
+    Key512(  RSAPublicKey<U512>),
+    Key1024( RSAPublicKey<U1024>),
+    Key2048( RSAPublicKey<U2048>),
+    Key3072( RSAPublicKey<U3072>),
+    Key4096( RSAPublicKey<U4096>),
+    Key8192( RSAPublicKey<U8192>),
+    Key15360(RSAPublicKey<U15360>)
 }
 
 impl RSAPublic {
@@ -109,43 +68,43 @@ impl FromASN1 for RSAPublic {
                     512    => {
                         let n2 = U512::from_num(&n).ok_or(RSAError::InvalidKey)?;
                         let e2 = U512::from_num(&e).ok_or(RSAError::InvalidKey)?;
-                        let res = RSA512Public::new(n2, e2);
+                        let res = RSAPublicKey::<U512>::new(n2, e2);
                         Ok((RSAPublic::Key512(res), rest))
                     }
                     1024    => {
                         let n2 = U1024::from_num(&n).ok_or(RSAError::InvalidKey)?;
                         let e2 = U1024::from_num(&e).ok_or(RSAError::InvalidKey)?;
-                        let res = RSA1024Public::new(n2, e2);
+                        let res = RSAPublicKey::<U1024>::new(n2, e2);
                         Ok((RSAPublic::Key1024(res), rest))
                     }
                     2048    => {
                         let n2 = U2048::from_num(&n).ok_or(RSAError::InvalidKey)?;
                         let e2 = U2048::from_num(&e).ok_or(RSAError::InvalidKey)?;
-                        let res = RSA2048Public::new(n2, e2);
+                        let res = RSAPublicKey::<U2048>::new(n2, e2);
                         Ok((RSAPublic::Key2048(res), rest))
                     }
                     3072    => {
                         let n2 = U3072::from_num(&n).ok_or(RSAError::InvalidKey)?;
                         let e2 = U3072::from_num(&e).ok_or(RSAError::InvalidKey)?;
-                        let res = RSA3072Public::new(n2, e2);
+                        let res = RSAPublicKey::<U3072>::new(n2, e2);
                         Ok((RSAPublic::Key3072(res), rest))
                     }
                     4096    => {
                         let n2 = U4096::from_num(&n).ok_or(RSAError::InvalidKey)?;
                         let e2 = U4096::from_num(&e).ok_or(RSAError::InvalidKey)?;
-                        let res = RSA4096Public::new(n2, e2);
+                        let res = RSAPublicKey::<U4096>::new(n2, e2);
                         Ok((RSAPublic::Key4096(res), rest))
                     }
                     8192    => {
                         let n2 = U8192::from_num(&n).ok_or(RSAError::InvalidKey)?;
                         let e2 = U8192::from_num(&e).ok_or(RSAError::InvalidKey)?;
-                        let res = RSA8192Public::new(n2, e2);
+                        let res = RSAPublicKey::<U8192>::new(n2, e2);
                         Ok((RSAPublic::Key8192(res), rest))
                     }
                     15360    => {
                         let n2 = U15360::from_num(&n).ok_or(RSAError::InvalidKey)?;
                         let e2 = U15360::from_num(&e).ok_or(RSAError::InvalidKey)?;
-                        let res = RSA15360Public::new(n2, e2);
+                        let res = RSAPublicKey::<U15360>::new(n2, e2);
                         Ok((RSAPublic::Key15360(res), rest))
                     }
                     _      =>
@@ -178,21 +137,22 @@ impl ToASN1 for RSAPublic {
 
 macro_rules! generate_rsa_public
 {
-    ($rsa: ident, $num: ident, $bar: ident, $var: ident, $size: expr) => {
-        #[derive(PartialEq)]
-        pub struct $rsa {
-            pub(crate) n:  $num,
-            pub(crate) nu: $bar,
-            pub(crate) e:  $num
-        }
-
-        impl RSAPublicKey<$num> for $rsa {
-            fn new(n: $num, e: $num) -> $rsa {
+    ($num: ident, $bar: ident, $var: ident, $size: expr) => {
+        impl RSAPublicKey<$num> {
+            /// Generate a new public key pair for the given modulus and
+            /// exponent. You should probably not call this directly unless
+            /// you're writing a key generation function or writing your own
+            /// public key parser.
+            pub fn new(n: $num, e: $num) -> RSAPublicKey<$num> {
                 let nu = $bar::new(n.clone());
-                $rsa { n: n, nu: nu, e: e }
+                RSAPublicKey{ n: n, nu: nu, e: e }
             }
 
-            fn verify(&self, signhash: &SigningHash, msg: &[u8], sig: &[u8])
+            /// Verify that the provided signature is valid; that the private
+            /// key associated with this public key sent exactly this message.
+            /// The hash used here must exactly match the hash used to sign
+            /// the message, including its ASN.1 metadata.
+            pub fn verify(&self, signhash: &SigningHash, msg: &[u8], sig: &[u8])
                 -> bool
             {
                 let hash: Vec<u8> = (signhash.run)(msg);
@@ -203,7 +163,18 @@ macro_rules! generate_rsa_public
                 em == em_
             }
 
-            fn encrypt_rng<G,H>(&self,g: &mut G,oaep: &OAEPParams<H>,msg: &[u8])
+            /// Encrypt the message with a hash function, given the appropriate
+            /// label. Please note that RSA encryption is not particularly fast,
+            /// and decryption is very slow indeed. Thus, most crypto systems that
+            /// need asymmetric encryption should generate a symmetric key, encrypt
+            /// that key with RSA encryption, and then encrypt the actual message
+            /// with that symmetric key.
+            ///
+            /// In this variant of the function, we use an explicit random number
+            /// generator, just in case you have one you really like. It better be
+            /// cryptographically strong, though, as some of the padding protections
+            /// are relying on it.
+            pub fn encrypt_rng<G,H>(&self,g: &mut G,oaep: &OAEPParams<H>,msg: &[u8])
                 -> Result<Vec<u8>,RSAError>
              where
               G: Rng,
@@ -222,9 +193,24 @@ macro_rules! generate_rsa_public
 
                 Ok(res)
             }
-        }
 
-        impl $rsa {
+            /// Encrypt the message with a hash function, given the appropriate
+            /// label. Please note that RSA encryption is not particularly fast,
+            /// and decryption is very slow indeed. Thus, most crypto systems that
+            /// need asymmetric encryption should generate a symmetric key, encrypt
+            /// that key with RSA encryption, and then encrypt the actual message
+            /// with that symmetric key.
+            ///
+            /// This variant will just use the system RNG for its randomness.
+            pub fn encrypt<H>(&self,oaep:&OAEPParams<H>,msg:&[u8])
+                -> Result<Vec<u8>,RSAError>
+             where
+              H: Default + Digest + FixedOutput
+            {
+                let mut g = OsRng::new()?;
+                self.encrypt_rng(&mut g, oaep, msg)
+            }
+
             fn vp1(&self, s: &$num) -> $num {
                 s.modexp(&self.e, &self.nu)
             }
@@ -283,11 +269,11 @@ macro_rules! generate_rsa_public
             }
         }
 
-        impl FromASN1 for $rsa {
+        impl FromASN1 for RSAPublicKey<$num> {
             type Error = RSAError;
 
             fn from_asn1(bs: &[ASN1Block])
-                -> Result<($rsa,&[ASN1Block]),RSAError>
+                -> Result<(RSAPublicKey<$num>,&[ASN1Block]),RSAError>
             {
                 let (core, rest) = RSAPublic::from_asn1(bs)?;
 
@@ -298,7 +284,7 @@ macro_rules! generate_rsa_public
             }
         }
 
-        impl ToASN1 for $rsa {
+        impl ToASN1 for RSAPublicKey<$num> {
             type Error = ASN1EncodeErr;
 
             fn to_asn1_class(&self, c: ASN1Class)
@@ -314,7 +300,7 @@ macro_rules! generate_rsa_public
         }
 
         #[cfg(test)]
-        impl fmt::Debug for $rsa {
+        impl fmt::Debug for RSAPublicKey<$num> {
             fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
                 fmt.debug_struct(stringify!($rsa))
                    .field("n", &self.n)
@@ -326,17 +312,17 @@ macro_rules! generate_rsa_public
     }
 }
 
-generate_rsa_public!(RSA512Public,   U512,   BarrettU512,   Key512,   512);
-generate_rsa_public!(RSA1024Public,  U1024,  BarrettU1024,  Key1024,  1024);
-generate_rsa_public!(RSA2048Public,  U2048,  BarrettU2048,  Key2048,  2048);
-generate_rsa_public!(RSA3072Public,  U3072,  BarrettU3072,  Key3072,  3072);
-generate_rsa_public!(RSA4096Public,  U4096,  BarrettU4096,  Key4096,  4096);
-generate_rsa_public!(RSA8192Public,  U8192,  BarrettU8192,  Key8192,  8192);
-generate_rsa_public!(RSA15360Public, U15360, BarrettU15360, Key15360, 15360);
+generate_rsa_public!(U512,   BarrettU512,   Key512,   512);
+generate_rsa_public!(U1024,  BarrettU1024,  Key1024,  1024);
+generate_rsa_public!(U2048,  BarrettU2048,  Key2048,  2048);
+generate_rsa_public!(U3072,  BarrettU3072,  Key3072,  3072);
+generate_rsa_public!(U4096,  BarrettU4096,  Key4096,  4096);
+generate_rsa_public!(U8192,  BarrettU8192,  Key8192,  8192);
+generate_rsa_public!(U15360, BarrettU15360, Key15360, 15360);
 
 #[cfg(test)]
 macro_rules! new_test_body {
-    ($mod: ident, $rsa: ident, $priv: ident, $num: ident, $bar: ident, $num64: ident, $size: expr) => {
+    ($mod: ident, $num: ident, $bar: ident, $num64: ident, $size: expr) => {
         let fname = format!("testdata/rsa/sign{}.test", $size);
         run_test(fname.to_string(), 7, |case| {
             let (neg0, nbytes) = case.get("n").unwrap();
@@ -350,8 +336,8 @@ macro_rules! new_test_body {
             let bigk = $num::from_bytes(kbytes);
             let k = usize::from(bigk);
             let e = $num::from(65537u64);
-            let pubkey2 = $rsa::new(n.clone(), e.clone());
-            let pubkey1 = $rsa{ n: n, nu: $bar::from_components(k, n64, nu), e: e };
+            let pubkey2 = RSAPublicKey::<$num>::new(n.clone(), e.clone());
+            let pubkey1 = RSAPublicKey{ n: n, nu: $bar::from_components(k, n64, nu), e: e };
             assert_eq!(pubkey1, pubkey2);
         });
     };
@@ -359,7 +345,7 @@ macro_rules! new_test_body {
 
 #[cfg(test)]
 macro_rules! encode_test_body {
-    ($mod: ident, $rsa: ident, $priv: ident, $num: ident, $bar: ident, $num64: ident, $size: expr) => {
+    ($mod: ident, $num: ident, $bar: ident, $num64: ident, $size: expr) => {
         let fname = format!("testdata/rsa/sign{}.test", $size);
         run_test(fname.to_string(), 7, |case| {
             let (neg0, nbytes) = case.get("n").unwrap();
@@ -373,9 +359,9 @@ macro_rules! encode_test_body {
             let bigk = $num::from_bytes(kbytes);
             let k = usize::from(bigk);
             let e = $num::from(65537u64);
-            let pubkey = $rsa{ n: n, nu: $bar::from_components(k, n64, nu), e: e };
+            let pubkey = RSAPublicKey{ n: n, nu: $bar::from_components(k, n64, nu), e: e };
             let asn1 = pubkey.to_asn1().unwrap();
-            let (pubkey2, _) = $rsa::from_asn1(&asn1).unwrap();
+            let (pubkey2, _) = RSAPublicKey::from_asn1(&asn1).unwrap();
             assert_eq!(pubkey, pubkey2);
         });
     };
@@ -383,7 +369,7 @@ macro_rules! encode_test_body {
 
 #[cfg(test)]
 macro_rules! verify_test_body {
-    ($mod: ident, $rsa: ident, $priv: ident, $num: ident, $bar: ident, $num64: ident, $size: expr) => {
+    ($mod: ident, $num: ident, $bar: ident, $num64: ident, $size: expr) => {
         let fname = format!("testdata/rsa/sign{}.test", $size);
         run_test(fname.to_string(), 7, |case| {
             let (neg0, nbytes) = case.get("n").unwrap();
@@ -400,7 +386,7 @@ macro_rules! verify_test_body {
             let bigk = $num::from_bytes(kbytes);
             let k = usize::from(bigk);
             let e = $num::from(65537u64);
-            let pubkey = $rsa{ n: n, nu: $bar::from_components(k, n64, nu), e: e };
+            let pubkey = RSAPublicKey{ n: n, nu: $bar::from_components(k, n64, nu), e: e };
             let hashnum = u64::from($num::from_bytes(hbytes));
             let sighash = match hashnum {
                             160 => &SIGNING_HASH_SHA1,
@@ -417,7 +403,7 @@ macro_rules! verify_test_body {
 
 #[cfg(test)]
 macro_rules! encrypt_test_body {
-    ($mod: ident, $rsa: ident, $priv: ident, $num: ident, $bar: ident, $num64: ident, $size: expr) => {
+    ($mod: ident, $num: ident, $bar: ident, $num64: ident, $size: expr) => {
         let fname = format!("testdata/rsa/encrypt{}.test", $size);
         run_test(fname.to_string(), 9, |case| {
             let (neg0, nbytes) = case.get("n").unwrap();
@@ -438,8 +424,8 @@ macro_rules! encrypt_test_body {
             let e = $num::from(65537u64);
             let d = $num::from_bytes(dbytes);
             let nu = $bar::from_components(k, n64, nu);
-            let pubkey = $rsa{ n: n.clone(), nu: nu.clone(), e: e };
-            let privkey = $priv{ nu: nu, d: d };
+            let pubkey = RSAPublicKey{ n: n.clone(), nu: nu.clone(), e: e };
+            let privkey = RSAPrivateKey{ nu: nu, d: d };
             let lstr = String::from_utf8(lbytes.clone()).unwrap();
             let cipher = match usize::from($num::from_bytes(hbytes)) {
                 224 => pubkey.encrypt(&OAEPParams::<Sha224>::new(lstr.clone()), mbytes),
@@ -463,7 +449,7 @@ macro_rules! encrypt_test_body {
 }
 
 macro_rules! generate_tests {
-    ($mod: ident, $rsa: ident, $priv: ident, $num: ident, $bar: ident, $num64: ident, $size: expr) => {
+    ($mod: ident, $num: ident, $bar: ident, $num64: ident, $size: expr) => {
         #[cfg(test)]
         #[allow(non_snake_case)]
         mod $mod {
@@ -475,16 +461,16 @@ macro_rules! generate_tests {
             use sha2::{Sha224,Sha256,Sha384,Sha512};
 
             #[test]
-            fn new() { new_test_body!($mod, $rsa, $priv, $num, $bar, $num64, $size); }
+            fn new() { new_test_body!($mod, $num, $bar, $num64, $size); }
             #[test]
-            fn encode() { encode_test_body!($mod, $rsa, $priv, $num, $bar, $num64, $size); }
+            fn encode() { encode_test_body!($mod, $num, $bar, $num64, $size); }
             #[test]
-            fn verify() { verify_test_body!($mod, $rsa, $priv, $num, $bar, $num64, $size); }
+            fn verify() { verify_test_body!($mod, $num, $bar, $num64, $size); }
             #[test]
-            fn encrypt() { encrypt_test_body!($mod, $rsa, $priv, $num, $bar, $num64, $size); }
+            fn encrypt() { encrypt_test_body!($mod, $num, $bar, $num64, $size); }
         }
     };
-    (ignore $mod: ident, $rsa: ident, $priv: ident, $num: ident, $bar: ident, $num64: ident, $size: expr) => {
+    (ignore $mod: ident, $num: ident, $bar: ident, $num64: ident, $size: expr) => {
         #[cfg(test)]
         #[allow(non_snake_case)]
         mod $mod {
@@ -497,24 +483,24 @@ macro_rules! generate_tests {
 
             #[ignore]
             #[test]
-            fn new() { new_test_body!($mod, $rsa, $priv, $num, $bar, $num64, $size); }
+            fn new() { new_test_body!($mod, $num, $bar, $num64, $size); }
             #[ignore]
             #[test]
-            fn encode() { encode_test_body!($mod, $rsa, $priv, $num, $bar, $num64, $size); }
+            fn encode() { encode_test_body!($mod, $num, $bar, $num64, $size); }
             #[ignore]
             #[test]
-            fn verify() { verify_test_body!($mod, $rsa, $priv, $num, $bar, $num64, $size); }
+            fn verify() { verify_test_body!($mod, $num, $bar, $num64, $size); }
             #[ignore]
             #[test]
-            fn encrypt() { encrypt_test_body!($mod, $rsa, $priv, $num, $bar, $num64, $size); }
+            fn encrypt() { encrypt_test_body!($mod, $num, $bar, $num64, $size); }
         }
     };
 }
 
-generate_tests!(RSA512,   RSA512Public,   RSA512Private,   U512,   BarrettU512,   U576,   512);
-generate_tests!(RSA1024,  RSA1024Public,  RSA1024Private,  U1024,  BarrettU1024,  U1088,  1024);
-generate_tests!(RSA2048,  RSA2048Public,  RSA2048Private,  U2048,  BarrettU2048,  U2112,  2048);
-generate_tests!(RSA3072,  RSA3072Public,  RSA3072Private,  U3072,  BarrettU3072,  U3136,  3072);
-generate_tests!(RSA4096,  RSA4096Public,  RSA4096Private,  U4096,  BarrettU4096,  U4160,  4096);
-generate_tests!(ignore RSA8192,  RSA8192Public,  RSA8192Private,  U8192,  BarrettU8192,  U8256,  8192);
-generate_tests!(ignore RSA15360, RSA15360Public, RSA15360Private, U15360, BarrettU15360, U15424, 15360);
+generate_tests!(       RSA512,   U512,   BarrettU512,   U576,   512);
+generate_tests!(       RSA1024,  U1024,  BarrettU1024,  U1088,  1024);
+generate_tests!(       RSA2048,  U2048,  BarrettU2048,  U2112,  2048);
+generate_tests!(       RSA3072,  U3072,  BarrettU3072,  U3136,  3072);
+generate_tests!(       RSA4096,  U4096,  BarrettU4096,  U4160,  4096);
+generate_tests!(ignore RSA8192,  U8192,  BarrettU8192,  U8256,  8192);
+generate_tests!(ignore RSA15360, U15360, BarrettU15360, U15424, 15360);
