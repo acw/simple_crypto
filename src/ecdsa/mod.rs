@@ -10,7 +10,7 @@ use rand::Rng;
 use rand::distributions::Standard;
 use self::curve::{EllipticCurve,P192,P224,P256,P384,P521};
 use self::point::{ECCPoint,Point};
-pub use self::private::ECCPrivateKey;
+pub use self::private::{ECDSAPrivate,ECCPrivateKey};
 pub use self::public::{ECDSAPublic,ECCPublicKey};
 pub use self::public::{ECDSADecodeErr,ECDSAEncodeErr};
 use super::KeyPair;
@@ -18,6 +18,32 @@ use super::KeyPair;
 pub struct ECDSAKeyPair<Curve: EllipticCurve> {
     pub public: ECCPublicKey<Curve>,
     pub private: ECCPrivateKey<Curve>
+}
+
+pub enum ECDSAPair {
+    P192(ECCPublicKey<P192>,ECCPrivateKey<P192>),
+    P224(ECCPublicKey<P224>,ECCPrivateKey<P224>),
+    P256(ECCPublicKey<P256>,ECCPrivateKey<P256>),
+    P384(ECCPublicKey<P384>,ECCPrivateKey<P384>),
+    P521(ECCPublicKey<P521>,ECCPrivateKey<P521>),
+}
+
+impl KeyPair for ECDSAPair {
+    type Public = ECDSAPublic;
+    type Private = ECDSAPrivate;
+
+    fn new(pu: ECDSAPublic, pr: ECDSAPrivate) -> ECDSAPair
+    {
+        match (pu, pr) {
+            (ECDSAPublic::P192(pbl),ECDSAPrivate::P192(prv)) => ECDSAPair::P192(pbl,prv),
+            (ECDSAPublic::P224(pbl),ECDSAPrivate::P224(prv)) => ECDSAPair::P224(pbl,prv),
+            (ECDSAPublic::P256(pbl),ECDSAPrivate::P256(prv)) => ECDSAPair::P256(pbl,prv),
+            (ECDSAPublic::P384(pbl),ECDSAPrivate::P384(prv)) => ECDSAPair::P384(pbl,prv),
+            (ECDSAPublic::P521(pbl),ECDSAPrivate::P521(prv)) => ECDSAPair::P521(pbl,prv),
+            _ =>
+                panic!("Non-matching public/private pairs in ECDSAPair::new()")
+        } 
+    }
 }
 
 macro_rules! generate_impl {

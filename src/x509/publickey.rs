@@ -255,11 +255,11 @@ fn encode_ecdsa_key(c: ASN1Class, x: &ECDSAPublic) -> Result<ASN1Block,ECDSAEnco
 {
     let objoid = ASN1Block::ObjectIdentifier(c, 0, oid!(1,2,840,10045,2,1));
     let (base_curve_oid, mut keyvec) = match x {
-        ECDSAPublic::ECCPublicP192(k) => (oid!(1,2,840,10045,3,1,1), k.to_asn1_class(c)?),
-        ECDSAPublic::ECCPublicP224(k) => (oid!(1,3,132,0,33), k.to_asn1_class(c)?),
-        ECDSAPublic::ECCPublicP256(k) => (oid!(1,2,840,10045,3,1,7), k.to_asn1_class(c)?),
-        ECDSAPublic::ECCPublicP384(k) => (oid!(1,3,132,0,34), k.to_asn1_class(c)?),
-        ECDSAPublic::ECCPublicP521(k) => (oid!(1,3,132,0,35), k.to_asn1_class(c)?),
+        ECDSAPublic::P192(k) => (oid!(1,2,840,10045,3,1,1), k.to_asn1_class(c)?),
+        ECDSAPublic::P224(k) => (oid!(1,3,132,0,33), k.to_asn1_class(c)?),
+        ECDSAPublic::P256(k) => (oid!(1,2,840,10045,3,1,7), k.to_asn1_class(c)?),
+        ECDSAPublic::P384(k) => (oid!(1,3,132,0,34), k.to_asn1_class(c)?),
+        ECDSAPublic::P521(k) => (oid!(1,3,132,0,35), k.to_asn1_class(c)?),
     };
     let curve_oid = ASN1Block::ObjectIdentifier(c, 0, base_curve_oid);
     let header = ASN1Block::Sequence(c, 0, vec![objoid, curve_oid]);
@@ -272,27 +272,27 @@ fn decode_ecdsa_key(info: ASN1Block, keybls: &[ASN1Block]) -> Result<ECDSAPublic
     if let ASN1Block::ObjectIdentifier(_, _, oid) = info {
         if oid == oid!(1,2,840,10045,3,1,1) {
             let (res, _) = ECCPublicKey::<P192>::from_asn1(keybls)?;
-            return Ok(ECDSAPublic::ECCPublicP192(res));
+            return Ok(ECDSAPublic::P192(res));
         }
 
         if oid == oid!(1,3,132,0,33) {
             let (res, _) = ECCPublicKey::<P224>::from_asn1(keybls)?;
-            return Ok(ECDSAPublic::ECCPublicP224(res));
+            return Ok(ECDSAPublic::P224(res));
         }
 
         if oid == oid!(1,2,840,10045,3,1,7) {
             let (res, _) = ECCPublicKey::<P256>::from_asn1(keybls)?;
-            return Ok(ECDSAPublic::ECCPublicP256(res));
+            return Ok(ECDSAPublic::P256(res));
         }
 
         if oid == oid!(1,3,132,0,34) {
             let (res, _) = ECCPublicKey::<P384>::from_asn1(keybls)?;
-            return Ok(ECDSAPublic::ECCPublicP384(res));
+            return Ok(ECDSAPublic::P384(res));
         }
 
         if oid == oid!(1,3,132,0,35) {
             let (res, _) = ECCPublicKey::<P521>::from_asn1(keybls)?;
-            return Ok(ECDSAPublic::ECCPublicP521(res));
+            return Ok(ECDSAPublic::P521(res));
         }
     }
 

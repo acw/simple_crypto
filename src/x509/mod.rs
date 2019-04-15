@@ -182,7 +182,7 @@ fn check_signature(alg: &AlgorithmIdentifier,
                     Err(X509ParseError::InvalidSignatureHash)
             }
         }
-        (PublicKeyInfo::ECDSA, &X509PublicKey::ECDSA(ECDSAPublic::ECCPublicP192(ref key))) => {
+        (PublicKeyInfo::ECDSA, &X509PublicKey::ECDSA(ECDSAPublic::P192(ref key))) => {
             let ecdsa_sig = der_decode(&sig)?;
             match alg.hash {
                 HashAlgorithm::SHA1   if key.verify::<Sha1>(block, &ecdsa_sig)   => Ok(()),
@@ -194,7 +194,7 @@ fn check_signature(alg: &AlgorithmIdentifier,
                     Err(X509ParseError::InvalidSignatureHash)
             }
         }
-        (PublicKeyInfo::ECDSA, &X509PublicKey::ECDSA(ECDSAPublic::ECCPublicP224(ref key))) => {
+        (PublicKeyInfo::ECDSA, &X509PublicKey::ECDSA(ECDSAPublic::P224(ref key))) => {
             let ecdsa_sig = der_decode(&sig)?;
             match alg.hash {
                 HashAlgorithm::SHA1   if key.verify::<Sha1>(block, &ecdsa_sig)   => Ok(()),
@@ -206,7 +206,7 @@ fn check_signature(alg: &AlgorithmIdentifier,
                     Err(X509ParseError::InvalidSignatureHash)
             }
         }
-        (PublicKeyInfo::ECDSA, &X509PublicKey::ECDSA(ECDSAPublic::ECCPublicP256(ref key))) => {
+        (PublicKeyInfo::ECDSA, &X509PublicKey::ECDSA(ECDSAPublic::P256(ref key))) => {
             let ecdsa_sig = der_decode(&sig)?;
             match alg.hash {
                 HashAlgorithm::SHA1   if key.verify::<Sha1>(block, &ecdsa_sig)   => Ok(()),
@@ -218,7 +218,7 @@ fn check_signature(alg: &AlgorithmIdentifier,
                     Err(X509ParseError::InvalidSignatureHash)
             }
         }
-        (PublicKeyInfo::ECDSA, &X509PublicKey::ECDSA(ECDSAPublic::ECCPublicP384(ref key))) => {
+        (PublicKeyInfo::ECDSA, &X509PublicKey::ECDSA(ECDSAPublic::P384(ref key))) => {
             let ecdsa_sig = der_decode(&sig)?;
             match alg.hash {
                 HashAlgorithm::SHA1   if key.verify::<Sha1>(block, &ecdsa_sig)   => Ok(()),
@@ -230,7 +230,7 @@ fn check_signature(alg: &AlgorithmIdentifier,
                     Err(X509ParseError::InvalidSignatureHash)
             }
         }
-        (PublicKeyInfo::ECDSA, &X509PublicKey::ECDSA(ECDSAPublic::ECCPublicP521(ref key))) => {
+        (PublicKeyInfo::ECDSA, &X509PublicKey::ECDSA(ECDSAPublic::P521(ref key))) => {
             let ecdsa_sig = der_decode(&sig)?;
             match alg.hash {
                 HashAlgorithm::SHA1   if key.verify::<Sha1>(block, &ecdsa_sig)   => Ok(()),

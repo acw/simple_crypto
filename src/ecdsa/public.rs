@@ -13,11 +13,11 @@ pub struct ECCPublicKey<Curve: EllipticCurve> {
 }
 
 pub enum ECDSAPublic {
-    ECCPublicP192(ECCPublicKey<P192>),
-    ECCPublicP224(ECCPublicKey<P224>),
-    ECCPublicP256(ECCPublicKey<P256>),
-    ECCPublicP384(ECCPublicKey<P384>),
-    ECCPublicP521(ECCPublicKey<P521>),
+    P192(ECCPublicKey<P192>),
+    P224(ECCPublicKey<P224>),
+    P256(ECCPublicKey<P256>),
+    P384(ECCPublicKey<P384>),
+    P521(ECCPublicKey<P521>),
 }
 
 pub enum ECDSAEncodeErr {

@@ -10,6 +10,14 @@ pub struct ECCPrivateKey<Curve: EllipticCurve> {
     d: Curve::Unsigned
 }
 
+pub enum ECDSAPrivate {
+    P192(ECCPrivateKey<P192>),
+    P224(ECCPrivateKey<P224>),
+    P256(ECCPrivateKey<P256>),
+    P384(ECCPrivateKey<P384>),
+    P521(ECCPrivateKey<P521>),
+}
+
 macro_rules! generate_privates
 {
     ($curve: ident, $base: ident, $sig: ident, $dbl: ident, $quad: ident) => {
