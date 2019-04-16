@@ -63,23 +63,13 @@ impl SSHKey for DSAKeyPair<L1024N160> {
         render_openssh_number(out, &self.public.y)
     }
 
-    fn render_ssh_private_info<O: Write>(&self, out: &mut O, comment: &str) -> Result<(),SSHKeyRenderError>
+    fn render_ssh_private_info<O: Write>(&self, out: &mut O) -> Result<(),SSHKeyRenderError>
     {
-        render_openssh_u32(out, 0xDEADBEEF)?; // FIXME: Any reason for this to be random?
-        render_openssh_u32(out, 0xDEADBEEF)?; // ditto
         render_openssh_string(out, "ssh-dss")?;
         render_openssh_number(out, &self.private.params.p)?;
         render_openssh_number(out, &self.private.params.q)?;
         render_openssh_number(out, &self.private.params.g)?;
         render_openssh_number(out, &self.public.y)?;
-        render_openssh_number(out, &self.private.x)?;
-        render_openssh_string(out, comment)?;
-        // add some padding (not quite sure why)
-        let mut i = comment.len();
-        while (i % 16) != 0 {
-            out.write(&[(i - comment.len() + 1) as u8])?;
-            i += 1;
-        }
-        Ok(())
+        render_openssh_number(out, &self.private.x)
    }
 }

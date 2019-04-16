@@ -19,7 +19,7 @@ pub trait SSHKey: Sized + KeyPair {
     fn parse_ssh_private_info<I: Read>(inp: &mut I) -> Result<(Self::Private,String),SSHKeyParseError>;
 
     fn render_ssh_public_info<O: Write>(&self, out: &mut O) -> Result<(),SSHKeyRenderError>;
-    fn render_ssh_private_info<O: Write>(&self, out: &mut O, comment: &str) -> Result<(),SSHKeyRenderError>;
+    fn render_ssh_private_info<O: Write>(&self, out: &mut O) -> Result<(),SSHKeyRenderError>;
 }
 
 pub fn decode_ssh<KP: SSHKey>(x: &str) -> Result<(KP, String),SSHKeyParseError>
@@ -114,8 +114,20 @@ pub fn encode_ssh<KP: SSHKey>(x: &KP, comment: &str) -> Result<String,SSHKeyRend
     let mut privkeybin = Vec::with_capacity(8192);
     let mut binary = Vec::with_capacity(16384);
 
+    // create the public key bits
     x.render_ssh_public_info(&mut pubkeybin)?;
-    x.render_ssh_private_info(&mut privkeybin, comment)?;
+    // create the private key bits
+    render_openssh_u32(&mut privkeybin, 0xDEADBEEF)?; // FIXME: Any reason for this to be random?
+    render_openssh_u32(&mut privkeybin, 0xDEADBEEF)?; // ditto
+    x.render_ssh_private_info(&mut privkeybin)?;
+    render_openssh_string(&mut privkeybin, comment)?;
+    // add some padding (not quite sure why)
+    let mut i = comment.len();
+    while (i % 16) != 0 {
+        privkeybin.write(&[(i - comment.len() + 1) as u8])?;
+        i += 1;
+    }
+    // render a bunch of the framing stuff
     render_openssh_header(&mut binary)?;
     render_openssh_string(&mut binary, "none")?; // ciphername
     render_openssh_string(&mut binary, "none")?; // kdfname
@@ -148,7 +160,7 @@ use sha2::Sha256;
 
 #[cfg(test)]
 #[test]
-fn read_dsa_examples() {
+fn dsa_examples() {
     let test_files = ["dsa1024-1", "dsa1024-2", "dsa1024-3"];
 
     for file in test_files.iter() {
@@ -204,7 +216,7 @@ fn read_dsa_examples() {
 
 #[cfg(test)]
 #[test]
-fn read_rsa_examples() {
+fn rsa_examples() {
     let test_files = ["rsa1024-1", "rsa1024-2", "rsa1024-3",
                       "rsa2048-1", "rsa2048-2", "rsa2048-3",
                       "rsa3072-1", "rsa3072-2", "rsa3072-3",

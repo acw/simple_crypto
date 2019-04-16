@@ -153,10 +153,8 @@ impl SSHKey for RSAPair {
         Ok(())
     }
 
-    fn render_ssh_private_info<O: Write>(&self, out: &mut O, comment: &str) -> Result<(),SSHKeyRenderError>
+    fn render_ssh_private_info<O: Write>(&self, out: &mut O) -> Result<(),SSHKeyRenderError>
     {
-        render_openssh_u32(out, 0xDEADBEEF)?; // FIXME: Any reason for this to be random?
-        render_openssh_u32(out, 0xDEADBEEF)?; // ditto
         render_openssh_string(out, "ssh-rsa")?;
         match self {
             RSAPair::R512(pbl,prv) => {
@@ -198,14 +196,6 @@ impl SSHKey for RSAPair {
         /* iqmp */ render_openssh_buffer(out, &vec![])?;
         /* p    */ render_openssh_buffer(out, &vec![])?;
         /* q    */ render_openssh_buffer(out, &vec![])?;
-
-        render_openssh_string(out, comment)?;
-        // add some padding (not quite sure why)
-        let mut i = comment.len();
-        while (i % 16) != 0 {
-            out.write(&[(i - comment.len() + 1) as u8])?;
-            i += 1;
-        }
         Ok(())
     }
 }
