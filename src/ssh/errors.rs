@@ -20,7 +20,9 @@ pub enum SSHKeyParseError
     InvalidPrivateKeyValue,
     InvalidPadding,
     InvalidPublicKeyType,
-    BrokenPublicKeyLine
+    BrokenPublicKeyLine,
+    UnknownECDSACurve(String),
+    InvalidECPointCompression
 }
 
 impl From<DecodeError> for SSHKeyParseError {
@@ -39,7 +41,8 @@ impl From<io::Error> for SSHKeyParseError {
 pub enum SSHKeyRenderError {
     IOError(io::Error),
     StringTooLong,
-    BufferTooLarge
+    BufferTooLarge,
+    IllegalECDSAKeyType(String)
 }
 
 impl From<io::Error> for SSHKeyRenderError {

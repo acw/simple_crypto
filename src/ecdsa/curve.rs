@@ -1,11 +1,12 @@
 use cryptonum::signed::{I192,I256,I384,I576};
 use cryptonum::unsigned::{Decoder};
 use cryptonum::unsigned::{U192,U256,U384,U576};
+use std::fmt::Debug;
 
 #[allow(non_snake_case)]
 pub trait EllipticCurve {
     type Unsigned : Clone;
-    type Signed : Clone;
+    type Signed : Clone + Debug + PartialEq;
 
     fn size() -> usize;
     fn p() -> Self::Unsigned;
@@ -18,6 +19,7 @@ pub trait EllipticCurve {
     fn Gy() -> Self::Signed;
 }
 
+#[derive(Debug,PartialEq)]
 pub enum P192 {}
 
 impl EllipticCurve for P192 {
@@ -61,6 +63,7 @@ impl EllipticCurve for P192 {
     }
 }
 
+#[derive(Debug,PartialEq)]
 pub enum P224 {}
 
 impl EllipticCurve for P224 {
@@ -143,6 +146,7 @@ impl EllipticCurve for P224 {
     }
 }
 
+#[derive(Debug,PartialEq)]
 pub enum P256 {}
 
 impl EllipticCurve for P256 {
@@ -226,6 +230,7 @@ impl EllipticCurve for P256 {
     }
 }
 
+#[derive(Debug,PartialEq)]
 pub enum P384 {}
 
 impl EllipticCurve for P384 {
@@ -322,6 +327,7 @@ impl EllipticCurve for P384 {
     }
 }
 
+#[derive(Debug,PartialEq)]
 pub enum P521 {}
 
 impl EllipticCurve for P521 {

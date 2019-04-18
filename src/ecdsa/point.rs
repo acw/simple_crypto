@@ -20,6 +20,7 @@ pub trait ECCPoint : Sized {
     }
 }
 
+#[derive(Debug,PartialEq)]
 pub struct Point<T: EllipticCurve>
 {
     pub x: T::Signed,

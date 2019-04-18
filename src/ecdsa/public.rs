@@ -8,8 +8,9 @@ use hmac::{Hmac,Mac};
 use simple_asn1::{ASN1Block,ASN1Class,ASN1DecodeErr,ASN1EncodeErr,FromASN1,ToASN1};
 use std::cmp::min;
 
+#[derive(Debug,PartialEq)]
 pub struct ECCPublicKey<Curve: EllipticCurve> {
-    q: Point<Curve>
+    pub(crate) q: Point<Curve>
 }
 
 pub enum ECDSAPublic {

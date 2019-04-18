@@ -5,9 +5,18 @@ use dsa::rfc6979::{DSASignature,KIterator,bits2int};
 use ecdsa::curve::{EllipticCurve,P192,P224,P256,P384,P521};
 use ecdsa::point::{ECCPoint,Point};
 use hmac::{Hmac,Mac};
+use std::fmt;
 
+#[derive(PartialEq)]
 pub struct ECCPrivateKey<Curve: EllipticCurve> {
-    d: Curve::Unsigned
+    pub(crate) d: Curve::Unsigned
+}
+
+impl<Curve: EllipticCurve> fmt::Debug for ECCPrivateKey<Curve> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> Result<(),fmt::Error>
+    {
+        f.write_str("<ECCPrivateKey>")
+    }
 }
 
 pub enum ECDSAPrivate {

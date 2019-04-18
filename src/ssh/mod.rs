@@ -1,4 +1,5 @@
 mod dsa;
+mod ecdsa;
 mod errors;
 mod frame;
 mod rsa;
@@ -154,6 +155,8 @@ pub fn write_ssh_keyfile<KP,P>(path: P, x: &KP, comment: &str) -> Result<(),SSHK
 #[cfg(test)]
 use dsa::{DSAKeyPair,DSAPublicKey,L1024N160};
 #[cfg(test)]
+use ecdsa::ECDSAPair;
+#[cfg(test)]
 use rsa::{RSAPair,RSAPublic,SIGNING_HASH_SHA256};
 #[cfg(test)]
 use sha2::Sha256;
@@ -259,3 +262,70 @@ fn rsa_examples() {
         }
     }
 }
+
+#[cfg(test)]
+#[test]
+fn ecdsa_examples() {
+    let test_files = ["ecdsa256-1", "ecdsa256-2", "ecdsa256-3",
+                      "ecdsa384-1", "ecdsa384-2", "ecdsa384-3",
+                      "ecdsa521-1", "ecdsa521-2", "ecdsa521-3"];
+
+    for file in test_files.iter() {
+        let path = format!("testdata/ssh/{}",file);
+        match load_ssh_keyfile::<ECDSAPair,String>(path) {
+            Err(e) =>
+                assert!(false, "SSH ECDSA parse error: {:?}", e),
+            Ok((keypair,comment)) => {
+                // first see if this roundtrips
+                let buffer = vec![0,1,2,4,5,6,9];
+                match keypair {
+                    ECDSAPair::P192(_,_) =>
+                        assert!(false, "Somehow got a P192 in read test"),
+                    ECDSAPair::P224(_,_) =>
+                        assert!(false, "Somehow got a P224 in read test"),
+                    ECDSAPair::P256(ref pu, ref pr) => {
+                        let sig = pr.sign::<Sha256>(&buffer);
+                        assert!(pu.verify::<Sha256>(&buffer, &sig));
+                    }
+                    ECDSAPair::P384(ref pu, ref pr) => {
+                        let sig = pr.sign::<Sha256>(&buffer);
+                        assert!(pu.verify::<Sha256>(&buffer, &sig));
+                    }
+                    ECDSAPair::P521(ref pu, ref pr) => {
+                        let sig = pr.sign::<Sha256>(&buffer);
+                        assert!(pu.verify::<Sha256>(&buffer, &sig));
+                    }
+                }
+                // encode this, parse it again
+                match encode_ssh(&keypair, &comment) {
+                    Err(e) =>
+                        assert!(false, "SSH ECDSA encoding error: {:?}", e),
+                    Ok(coded) => {
+                       match (decode_ssh(&coded), keypair) {
+                           (Err(e), _) =>
+                             assert!(false, "SSSH ECDSA redecoding error: {:?}", e),
+                           (Ok((ECDSAPair::P256(pu2, pr2), comment2)), ECDSAPair::P256(pu,pr)) => {
+                               assert_eq!(pu, pu2, "public key mismatch");
+                               assert_eq!(pr, pr2, "public key mismatch");
+                               assert_eq!(comment, comment2, "comment mismatch");
+                           }
+                           (Ok((ECDSAPair::P384(pu2, pr2), comment2)), ECDSAPair::P384(pu,pr)) => {
+                               assert_eq!(pu, pu2, "public key mismatch");
+                               assert_eq!(pr, pr2, "public key mismatch");
+                               assert_eq!(comment, comment2, "comment mismatch");
+                           }
+                           (Ok((ECDSAPair::P521(pu2, pr2), comment2)), ECDSAPair::P521(pu,pr)) => {
+                               assert_eq!(pu, pu2, "public key mismatch");
+                               assert_eq!(pr, pr2, "public key mismatch");
+                               assert_eq!(comment, comment2, "comment mismatch");
+                           }
+                           _ =>
+                             assert!(false, "Failed to accurately re-parse key")
+                       } 
+                    }
+                }
+            }
+        }
+    }
+}
+ 
