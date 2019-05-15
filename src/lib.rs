@@ -36,6 +36,8 @@ pub mod dsa;
 /// The `ecdsa` module provides bare-bones support for ECDSA signing,
 /// verification, and key generation.
 pub mod ecdsa;
+/// The `ed25519` provides signing and verification using ED25519.
+pub mod ed25519;
 /// The `ssh` module provides support for parsing OpenSSH-formatted SSH keys,
 /// both public and private.
 pub mod ssh;

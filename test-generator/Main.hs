@@ -8,6 +8,7 @@ import Control.Monad(replicateM_,void)
 import "crypto-api" Crypto.Random(CryptoRandomGen(..),SystemRandom)
 import DSA(dsaTasks)
 import ECDSATesting(ecdsaTasks)
+import ED25519(ed25519Tasks)
 import GHC.Conc(getNumCapabilities)
 import RFC6979(rfcTasks)
 import RSA(rsaTasks)
@@ -38,6 +39,6 @@ main = displayConsoleRegions $
     do 
        executors <- getNumCapabilities
        done <- newChan
-       tasks <- newMVar (dsaTasks ++ ecdsaTasks ++ rfcTasks ++ rsaTasks)
+       tasks <- newMVar (dsaTasks ++ ecdsaTasks ++ rfcTasks ++ rsaTasks ++ ed25519Tasks)
        replicateM_ executors (spawnExecutor tasks done)
        replicateM_ executors (void $ readChan done)
