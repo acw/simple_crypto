@@ -18,7 +18,7 @@ import Data.Maybe(fromMaybe,isJust)
 import Data.Word(Word8)
 import Database(Database)
 import Math(barrett,computeK,showX,showBin)
-import Task(Task(..))
+import Task(Task(..),liftTest)
 import Utils(HashAlg(..),generateHash,showHash)
 
 rsaSizes :: [(Int, Int)]
@@ -40,7 +40,7 @@ signTest :: Int -> Int -> Task
 signTest sz cnt = Task {
     taskName = "RSA " ++ show sz ++ " signing",
     taskFile = "../testdata/rsa/sign" ++ show sz ++ ".test",
-    taskTest = go,
+    taskTest = liftTest go,
     taskCount = cnt
   }
  where
@@ -78,7 +78,7 @@ encryptTest :: Int -> Int -> Task
 encryptTest sz cnt = Task {
     taskName = "RSA " ++ show sz ++ " encryption",
     taskFile = "../testdata/rsa/encrypt" ++ show sz ++ ".test",
-    taskTest = go,
+    taskTest = liftTest go,
     taskCount = cnt
   }
  where

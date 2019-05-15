@@ -11,10 +11,8 @@ import Data.ByteString.Lazy(ByteString)
 import qualified Data.ByteString.Lazy as BSL
 import qualified Data.Map.Strict as Map
 import Math(showX,showBin)
-import Task(Task(..),Test)
+import Task(Task(..),liftTest)
 import Utils(HashAlg(..),generateHash,showHash)
-
-import Debug.Trace
 
 dsaSizes :: [(ParameterSizes, Int)]
 dsaSizes = [(L1024_N160, 400),
@@ -38,27 +36,26 @@ signTest :: ParameterSizes -> Int -> Task
 signTest sz cnt = Task {
     taskName = "DSA " ++ show sz ++ " signing",
     taskFile = "../testdata/dsa/sign" ++ showParam sz ++ ".test",
-    taskTest = go,
+    taskTest = liftTest go,
     taskCount = cnt
   }
  where
-  go :: Test
   go (memory, drg0) =
     case generateProbablePrimes sz drg0 sha256 Nothing of
-      Left _ -> trace "generate primes" $ goAdvance memory drg0
+      Left _ -> goAdvance memory drg0
       Right (p, q, _, drg1) ->
         case generateUnverifiableGenerator p q of
-          Nothing -> trace "generate g" $ goAdvance memory drg1
+          Nothing -> goAdvance memory drg1
           Just g ->
             let params = Params p g q
             in case generateKeyPairWithParams params drg1 of
-                 Left _ -> trace "generate key" $ goAdvance memory drg1
+                 Left _ -> goAdvance memory drg1
                  Right (pub, priv, drg2) ->
                    let (msg, drg3) = withDRG drg2 $ getRandomBytes =<< ((fromIntegral . BS.head) `fmap` getRandomBytes 1)
                        (hashf, drg4) = withDRG drg3 generateHash
                    in case signMessage' (translateHash hashf) kViaRFC6979 drg4 priv (BSL.fromStrict msg) of
                         Left _ ->
-                          trace "sign failure" $ go (memory, drg4)
+                          go (memory, drg4)
                         Right (sig, drg5) ->
                           let res = Map.fromList [("p", showX p),
                                                   ("q", showX q),

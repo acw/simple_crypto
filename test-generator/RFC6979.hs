@@ -15,7 +15,7 @@ import qualified Data.ByteString as S
 import Data.Char(toUpper)
 import qualified Data.Map.Strict as Map
 import Math(showBin,showX)
-import Task(Task(..))
+import Task(Task(..),liftTest)
 import Utils(HashAlg(..), runHash)
 
 
@@ -88,7 +88,7 @@ rfc6979Test :: HashAlg -> Task
 rfc6979Test alg = Task {
     taskName = name ++ " RFC 6979 deterministic k-generation",
     taskFile = "../testdata/rfc6979/" ++ name ++ ".test",
-    taskTest = go,
+    taskTest = liftTest go,
     taskCount = 1000
 }
  where

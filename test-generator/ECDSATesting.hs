@@ -15,7 +15,7 @@ import qualified Data.ByteString as S
 import qualified Data.Map.Strict as Map
 import Math(showX,showBin)
 import RFC6979(generateKStream)
-import Task(Task(..))
+import Task(Task(..),liftTest)
 import Utils(HashAlg(..),generateHash,runHash,showHash)
 
 curves :: [(String, Curve)]
@@ -29,7 +29,7 @@ negateTest :: String -> Curve -> Task
 negateTest name curve = Task {
     taskName = name ++ " point negation",
     taskFile = "../testdata/ecc/negate/" ++ name ++ ".test",
-    taskTest = go,
+    taskTest = liftTest go,
     taskCount = 1000
 }
  where
@@ -49,7 +49,7 @@ doubleTest :: String -> Curve -> Task
 doubleTest name curve = Task {
     taskName = name ++ " point doubling",
     taskFile = "../testdata/ecc/double/" ++ name ++ ".test",
-    taskTest = go,
+    taskTest = liftTest go,
     taskCount = 1000
 }
  where
@@ -69,7 +69,7 @@ addTest :: String -> Curve -> Task
 addTest name curve = Task {
     taskName = name ++ " point addition",
     taskFile = "../testdata/ecc/add/" ++ name ++ ".test",
-    taskTest = go,
+    taskTest = liftTest go,
     taskCount = 1000
 }
  where
@@ -92,7 +92,7 @@ scaleTest :: String -> Curve -> Task
 scaleTest name curve = Task {
     taskName = name ++ " point scaling",
     taskFile = "../testdata/ecc/scale/" ++ name ++ ".test",
-    taskTest = go,
+    taskTest = liftTest go,
     taskCount = 1000
 }
  where
@@ -117,7 +117,7 @@ addScaleTest :: String -> Curve -> Task
 addScaleTest name curve = Task {
     taskName = name ++ " point addition of two scalings",
     taskFile = "../testdata/ecc/add_scale2/" ++ name ++ ".test",
-    taskTest = go,
+    taskTest = liftTest go,
     taskCount = 1000
 }
  where
@@ -144,7 +144,7 @@ signTest :: String -> Curve -> Task
 signTest name curve = Task {
     taskName = name ++ " curve signing",
     taskFile = "../testdata/ecc/sign/" ++ name ++ ".test",
-    taskTest = go,
+    taskTest = liftTest go,
     taskCount = 1000
 }
  where

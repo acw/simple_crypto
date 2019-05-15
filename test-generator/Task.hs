@@ -2,7 +2,8 @@
 module Task(
          Test,
          Task(..),
-         runTask
+         runTask,
+         liftTest
        )
  where
 
@@ -15,7 +16,7 @@ import              System.Directory(createDirectoryIfMissing,doesFileExist)
 import              System.FilePath(takeDirectory)
 import              System.IO(Handle,IOMode(..),hPutStrLn,withFile)
 
-type Test = Database -> (Map.Map String String, Integer, Database)
+type Test = Database -> IO (Map.Map String String, Integer, Database)
 
 data Task = Task {
     taskName  :: String,
@@ -23,6 +24,10 @@ data Task = Task {
     taskTest  :: Test,
     taskCount :: Int
 }
+
+liftTest :: (Database -> (Map.Map String String, Integer, Database)) ->
+            (Database -> IO (Map.Map String String, Integer, Database))
+liftTest f db = return (f db)
 
 runTask :: SystemRandom -> Task -> IO SystemRandom
 runTask gen task =
@@ -40,8 +45,8 @@ runTask gen task =
  where
   writer :: Handle -> ProgressBar -> Test -> Database -> Int -> IO Database
   writer hndl pg runner db x =
-    do let (output, key, acc@(db',gen')) = runner db
-           before = Map.findWithDefault [] "RESULT" db'
+    do (output, key, acc@(db',gen')) <- runner db
+       let before = Map.findWithDefault [] "RESULT" db'
        if length (filter (== key) before) >= 10
           then writer hndl pg runner acc x
           else do forM_ (Map.toList output) $ \ (outkey, val) ->
