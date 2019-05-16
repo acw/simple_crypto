@@ -34,6 +34,11 @@ impl Point {
       t: test_from_bytes(&xs[120..])
     }
   }
+
+  pub fn encode_to(&self, target: &mut [u8])
+  {
+    into_encoded_point(target, &self.x, &self.y, &self.z);
+  }
 }
 
 const D: Element = [-10913610, 13857413, -15372611, 6949391,   114729,
@@ -147,6 +152,11 @@ impl Point2 {
       y: test_from_bytes(&xs[40..80]),
       z: test_from_bytes(&xs[80..120]),
     }
+  }
+
+  pub fn encode_to(&self, target: &mut [u8])
+  {
+    into_encoded_point(target, &self.x, &self.y, &self.z);
   }
 }
 
@@ -1809,3 +1819,19 @@ fn public_from_private() {
     });
 }
 
+fn into_encoded_point(bytes: &mut [u8], x: &Element, y: &Element, z: &Element)
+{
+    let mut x_over_z = [0; NUM_ELEMENT_LIMBS];
+    let mut y_over_z = [0; NUM_ELEMENT_LIMBS];
+    assert!(bytes.len() >= 32);
+
+    let recip = fe_invert(z);
+    fe_mul(&mut x_over_z, x, &recip);
+    fe_mul(&mut y_over_z, y, &recip);
+    fe_tobytes(bytes, &y_over_z);
+    let sign_bit = if fe_isnegative(&x_over_z) { 1 } else { 0 };
+
+    // The preceding computations must execute in constant time, but this
+    // doesn't need to.
+    bytes[31] ^= sign_bit << 7;
+}

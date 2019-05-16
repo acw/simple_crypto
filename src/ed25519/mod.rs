@@ -76,7 +76,7 @@ impl ED25519Private {
         curve25519_scalar_mask(&mut result.private);
         let mut a = Point::new();
         x25519_ge_scalarmult_base(&mut a, &result.private);
-        into_encoded_point(&mut result.public, &a.x, &a.y, &a.z);
+        a.encode_to(&mut result.public);
         result
     }
 
@@ -96,7 +96,7 @@ impl ED25519Private {
         println!("ME:r.y: {:?}", r.y);
         println!("ME:r.z: {:?}", r.z);
         println!("ME:r.t: {:?}", r.t);
-        into_encoded_point(&mut signature_r, &r.x, &r.y, &r.z);
+        r.encode_to(&mut signature_r);
         println!("ME:signature_r: {:?}", signature_r);
         let hram_digest = eddsa_digest(&signature_r, &self.public, &msg);
         let hram = digest_scalar(&hram_digest);
@@ -134,14 +134,15 @@ impl ED25519Public {
             return false;
         }
 
-        let mut a = from_encoded_point(&self.public);
+        let mut a = Point::new();
+        x25519_ge_frombytes_vartime(&mut a, &self.public);
         invert_vartime(&mut a);
         let h_digest = eddsa_digest(signature_r, &self.public, msg);
         let h = digest_scalar(&h_digest);
         let mut r = Point2::new();
         ge_double_scalarmult_vartime(&mut r, &h, &a, &signature_s);
         let mut r_check = [0; 32];
-        into_encoded_point(&mut r_check, &r.x, &r.y, &r.z);
+        r.encode_to(&mut r_check);
         signature_r == r_check
     }
 }
@@ -161,30 +162,6 @@ fn digest_scalar(digest: &[u8]) -> Vec<u8> {
     copy.copy_from_slice(digest);
     x25519_sc_reduce(&mut copy);
     copy[..32].to_vec()
-}
-
-fn into_encoded_point(bytes: &mut [u8], x: &Element, y: &Element, z: &Element)
-{
-    let mut x_over_z = [0; NUM_ELEMENT_LIMBS];
-    let mut y_over_z = [0; NUM_ELEMENT_LIMBS];
-    assert_eq!(bytes.len(), 32);
-
-    let recip = fe_invert(z);
-    fe_mul(&mut x_over_z, x, &recip);
-    fe_mul(&mut y_over_z, y, &recip);
-    fe_tobytes(bytes, &y_over_z);
-    let sign_bit = if fe_isnegative(&x_over_z) { 1 } else { 0 };
-
-    // The preceding computations must execute in constant time, but this
-    // doesn't need to.
-    bytes[31] ^= sign_bit << 7;
-}
-
-fn from_encoded_point(encoded: &[u8]) -> Point
-{
-    let mut point = Point::new();
-    x25519_ge_frombytes_vartime(&mut point, encoded);
-    point
 }
 
 fn invert_vartime(v: &mut Point)
@@ -225,9 +202,9 @@ fn rfc8072() {
     run_test(fname.to_string(), 4, run_signing_testcase);
 }
 
-//#[cfg(test)]
-//#[test]
-//fn signing() {
-//    let fname = "testdata/ed25519/sign.test";
-//    run_test(fname.to_string(), 4, run_signing_testcase);
-//}
+#[cfg(test)]
+#[test]
+fn signing() {
+    let fname = "testdata/ed25519/sign.test";
+    run_test(fname.to_string(), 4, run_signing_testcase);
+}
