@@ -10,54 +10,73 @@ use self::point::*;
 #[cfg(test)]
 use testing::run_test;
 #[cfg(test)]
-use crypto::ed25519;
-#[cfg(test)]
 use std::collections::HashMap;
+use super::KeyPair;
 
-pub struct ED25519KeyPair {
+pub struct ED25519KeyPair
+{
+    pub public: ED25519Public,
+    pub private: ED25519Private
+}
+
+impl KeyPair for ED25519KeyPair
+{
+    type Public = ED25519Public;
+    type Private = ED25519Private;
+
+    fn new(pbl: ED25519Public, prv: ED25519Private) -> ED25519KeyPair
+    {
+        ED25519KeyPair {
+            public: pbl,
+            private: prv
+        }
+    }
+}
+
+impl ED25519KeyPair
+{
+    pub fn generate<G: Rng>(rng: &mut G) -> ED25519KeyPair
+    {
+        let mut seed = [0; 32];
+        rng.fill_bytes(&mut seed);
+        let private = ED25519Private::from_seed(&seed);
+        let public = ED25519Public::from(&private);
+        ED25519KeyPair::new(public, private)
+    }
+
+    pub fn from_seed(seed: &[u8]) -> ED25519KeyPair
+    {
+        let private = ED25519Private::from_seed(seed);
+        let public = ED25519Public::from(&private);
+        ED25519KeyPair{ public, private }
+    }
+}
+
+pub struct ED25519Private
+{
     seed:    [u8; 32],
     private: [u8; 32],
     prefix:  [u8; 32],
     public:  [u8; 32]
 }
 
-impl ED25519KeyPair {
-    fn blank() -> ED25519KeyPair
-    {
-        ED25519KeyPair {
-            seed:    [0; 32],
+impl ED25519Private {
+    pub fn from_seed(seed: &[u8]) -> ED25519Private {
+        let mut result = ED25519Private {
+            seed: [0; 32],
             private: [0; 32],
-            prefix:  [0; 32],
-            public:  [0; 32]
-        }
-    }
-
-    pub fn generate<G: Rng>(rng: &mut G) -> ED25519KeyPair
-    {
-        let mut result = ED25519KeyPair::blank();
-        rng.fill(&mut result.private);
-        curve25519_scalar_mask(&mut result.private);
-        x25519_public_from_private(&mut result.public, &result.private);
-        result
-    }
-
-    #[cfg(test)]
-    fn from_test_data(privbytes: &[u8], pubbytes: &[u8]) -> ED25519KeyPair
-    {
-        let mut result = ED25519KeyPair::blank();
-        result.seed.copy_from_slice(privbytes);
-        println!("privbytes: {:?}", privbytes);
-        let mut expanded = Sha512::digest(privbytes);
-        println!("expanded: {:?}", expanded);
+            prefix: [0; 32],
+            public: [0; 32]
+        };
+        result.seed.copy_from_slice(seed);
+        let mut expanded = Sha512::digest(seed);
         let (private, prefix) = expanded.split_at_mut(32);
         result.private.copy_from_slice(private);
         result.prefix.copy_from_slice(prefix);
         curve25519_scalar_mask(&mut result.private);
-        println!("private: {:?}", result.private);
         let mut a = Point::new();
         x25519_ge_scalarmult_base(&mut a, &result.private);
         into_encoded_point(&mut result.public, &a.x, &a.y, &a.z);
-        assert_eq!(&result.public, pubbytes);
         result
     }
 
@@ -88,7 +107,22 @@ impl ED25519KeyPair {
         result.extend_from_slice(&signature_s);
         result
     }
+}
 
+pub struct ED25519Public
+{
+    public:  [u8; 32]
+}
+
+impl<'a> From<&'a ED25519Private> for ED25519Public
+{
+    fn from(x: &ED25519Private) -> ED25519Public
+    {
+        ED25519Public{ public: x.public.clone() }
+    }
+}
+
+impl ED25519Public {
     pub fn verify(&self, msg: &[u8], sig: &[u8]) -> bool
     {
         assert_eq!(sig.len(), 64);
@@ -170,26 +204,17 @@ fn run_signing_testcase(case: HashMap<String,(bool,Vec<u8>)>)
     let (negs, sbytes) = case.get("s").unwrap();
 
     assert!(!negr && !negu && !negm && !negs);
-    println!("r:  {:?}", rbytes);
-    println!("u:  {:?}", ubytes);
-    let (cpriv, cpub) = ed25519::keypair(rbytes);
-    println!("cr: {:?}", cpriv.to_vec());
-    println!("cu: {:?}", cpub.to_vec());
-    let keypair = ED25519KeyPair::from_test_data(rbytes, ubytes);
-    println!("pr: {:?}", keypair.private);
-    println!("pu: {:?}", keypair.public);
-    assert_eq!(ubytes, &keypair.public.to_vec());
+    let keypair = ED25519KeyPair::from_seed(rbytes);
+    assert_eq!(ubytes, &keypair.public.public.to_vec());
     let mut privpub = Vec::new();
     privpub.append(&mut rbytes.clone());
     privpub.append(&mut ubytes.clone());
-    let sig2 = ed25519::signature(&mbytes, &privpub);
-    println!("sig2: {:?}", sig2.to_vec());
-    let sig = keypair.sign(&mbytes);
+    let sig = keypair.private.sign(&mbytes);
     assert_eq!(sig.len(), sbytes.len());
     println!("sig:  {:?}", sbytes);
     println!("sig': {:?}", sig);
     assert!(sig.iter().eq(sbytes.iter()));
-    assert!(keypair.verify(&mbytes, &sig));
+    assert!(keypair.public.verify(&mbytes, &sig));
     println!("DONE");
 }
 

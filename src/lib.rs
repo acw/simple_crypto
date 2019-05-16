@@ -24,8 +24,6 @@ extern crate sha1;
 extern crate sha2;
 #[macro_use]
 extern crate simple_asn1;
-#[cfg(test)]
-extern crate crypto;
 
 /// The `rsa` module provides bare-bones support for RSA signing, verification,
 /// encryption, decryption, and key generation.
