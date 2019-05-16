@@ -7,8 +7,15 @@ use rand::Rng;
 use sha2::Sha512;
 use self::fe::*;
 use self::point::*;
+#[cfg(test)]
+use testing::run_test;
+#[cfg(test)]
+use crypto::ed25519;
+#[cfg(test)]
+use std::collections::HashMap;
 
 pub struct ED25519KeyPair {
+    seed:    [u8; 32],
     private: [u8; 32],
     prefix:  [u8; 32],
     public:  [u8; 32]
@@ -18,6 +25,7 @@ impl ED25519KeyPair {
     fn blank() -> ED25519KeyPair
     {
         ED25519KeyPair {
+            seed:    [0; 32],
             private: [0; 32],
             prefix:  [0; 32],
             public:  [0; 32]
@@ -27,17 +35,29 @@ impl ED25519KeyPair {
     pub fn generate<G: Rng>(rng: &mut G) -> ED25519KeyPair
     {
         let mut result = ED25519KeyPair::blank();
+        rng.fill(&mut result.private);
+        curve25519_scalar_mask(&mut result.private);
+        x25519_public_from_private(&mut result.public, &result.private);
+        result
+    }
 
-        let mut seed: [u8; 32] = [0; 32];
-        rng.fill(&mut seed);
-        let mut hashed = Sha512::digest(&seed);
-        let (private, prefix) = hashed.split_at_mut(32);
-        assert_eq!(private.len(), 32);
-        assert_eq!(prefix.len(), 32);
-        result.prefix.copy_from_slice(&prefix);
-        curve25519_scalar_mask(private);
-        result.private.copy_from_slice(&private);
-        x25519_public_from_private(&mut result.public, &private);
+    #[cfg(test)]
+    fn from_test_data(privbytes: &[u8], pubbytes: &[u8]) -> ED25519KeyPair
+    {
+        let mut result = ED25519KeyPair::blank();
+        result.seed.copy_from_slice(privbytes);
+        println!("privbytes: {:?}", privbytes);
+        let mut expanded = Sha512::digest(privbytes);
+        println!("expanded: {:?}", expanded);
+        let (private, prefix) = expanded.split_at_mut(32);
+        result.private.copy_from_slice(private);
+        result.prefix.copy_from_slice(prefix);
+        curve25519_scalar_mask(&mut result.private);
+        println!("private: {:?}", result.private);
+        let mut a = Point::new();
+        x25519_ge_scalarmult_base(&mut a, &result.private);
+        into_encoded_point(&mut result.public, &a.x, &a.y, &a.z);
+        assert_eq!(&result.public, pubbytes);
         result
     }
 
@@ -50,11 +70,18 @@ impl ED25519KeyPair {
         ctx.input(&self.prefix);
         ctx.input(&msg);
         let nonce = digest_scalar(ctx.result().as_slice());
+        println!("ME:nonce: {:?}", nonce);
         let mut r = Point::new();
         x25519_ge_scalarmult_base(&mut r, &nonce);
+        println!("ME:r.x: {:?}", r.x);
+        println!("ME:r.y: {:?}", r.y);
+        println!("ME:r.z: {:?}", r.z);
+        println!("ME:r.t: {:?}", r.t);
         into_encoded_point(&mut signature_r, &r.x, &r.y, &r.z);
+        println!("ME:signature_r: {:?}", signature_r);
         let hram_digest = eddsa_digest(&signature_r, &self.public, &msg);
         let hram = digest_scalar(&hram_digest);
+        println!("ME:hram: {:?}", hram);
         x25519_sc_muladd(&mut signature_s, &hram, &self.private, &nonce);
         let mut result = Vec::with_capacity(64);
         result.extend_from_slice(&signature_r);
@@ -134,156 +161,48 @@ fn invert_vartime(v: &mut Point)
     }
 }
 
-// use cryptonum::signed::{I256};
-// use cryptonum::unsigned::{BarrettU256,CryptoNum,Decoder,ModExp,U256,U512};
-// use digest::Digest;
-// use rand::Rng;
-// use rand::distributions::Standard;
-// use sha2::Sha512;
-// use super::KeyPair;
-// 
-// struct Field {
-//     x: U256,
-//     p: U256,
-//     pu: BarrettU256
-// }
-// 
-// impl Field {
-//     fn unsafe_new(&self, v: U256) -> Field
-//     {
-//         Field{ x: v, p: self.p.clone(), pu: self.pu.clone() }
-//     }
-// 
-//     fn new(&self, v: U256) -> Field
-//     {
-//         let v2 = self.pu.reduce(&U512::from(v));
-//         Field{ x: v2, p: self.p.clone(), pu: self.pu.clone() }
-//     }
-// 
-//     fn init(x: U256, p: U256) -> Field
-//     {
-//         let pu = BarrettU256::new(p.clone());
-//         Field{ x, p, pu }
-//     }
-// 
-//     fn add(&self, y: &Field) -> Field
-//     {
-//         assert_eq!(self.p, y.p);
-//         assert_eq!(self.pu, y.pu);
-//         let v = U512::from(&self.x + &y.x);
-//         Field { x: self.pu.reduce(&v), p: self.p.clone(), pu: self.pu.clone() }
-//     }
-// 
-//     fn sub(&self, y: &Field) -> Field
-//     {
-//         assert_eq!(self.p, y.p);
-//         assert_eq!(self.pu, y.pu);
-//         let mut ix = I256::from(&self.x);
-//         let iy = I256::from(&y.x);
-//         ix -= iy;
-//         if ix.is_negative() {
-//             let mut rx = I256::from(&self.p);
-//             rx += ix;
-//             self.new(U256::from(rx))
-//         } else {
-//             self.new(U256::from(ix))
-//         }
-//     }
-// 
-//     fn neg(&self) -> Field
-//     {
-//         let mut rx = self.p.clone();
-//         rx -= &self.x;
-//         self.new(rx)
-//     }
-// 
-//     fn mul(&self, y: &Field) -> Field
-//     {
-//         let v = &self.x * &y.x;
-//         self.unsafe_new(self.pu.reduce(&v))
-//     }
-// 
-//     fn inv(&self) -> Field
-//     {
-//         let mut pm2 = self.p.clone();
-//         pm2 -= U256::from(2u8);
-//         let res = self.x.modexp(&pm2, &self.pu);
-//         self.unsafe_new(res)
-//     }
-// 
-//     fn div(&self, y: &Field) -> Field
-//     {
-//         self.mul(&y.inv())
-//     }
-// 
-//     fn sqrt(&self) -> Field
-//     {
-//         panic!("field sqrt")
-//     }
-// 
-//     fn is_zero(&self) -> bool
-//     {
-//         self.x.is_zero()
-//     }
-// 
-//     fn eq(&self, y: &Field) -> bool
-//     {
-//         self.x == y.x
-//     }
-// 
-//     fn neq(&self, y: &Field) -> bool
-//     {
-//         self.x != y.x
-//     }
-// 
-//     fn sign(&self) -> Field
-//     {
-//         let mut vx = I256::from(&self.x);
-//         vx %= I256::from(2u64);
-//         self.unsafe_new(U256::from(vx))
-//     }
-// }
-// 
-// pub struct ED25519Public {
-// }
-// 
-// pub struct ED25519Private {
-//     key: U256
-// }
-// 
-// pub struct ED25519Pair {
-//     public: ED25519Public,
-//     private: ED25519Private
-// }
-// 
-// impl KeyPair for ED25519Pair {
-//     type Public = ED25519Public;
-//     type Private = ED25519Private;
-// 
-//     fn new(pu: ED25519Public, pr: ED25519Private) -> ED25519Pair
-//     {
-//         ED25519Pair{ public: pu, private: pr }
-//     }
-// }
-// 
-// impl ED25519Pair {
-//     pub fn generate<G: Rng>(g: &mut G) -> ED25519Pair
-//     {
-//         let bytes: Vec<u8> = g.sample_iter(&Standard).take(256 / 8).collect();
-//         let key = U256::from_bytes(&bytes);
-//         let private = ED25519Private{ key };
-//         let mut hash = Sha512::digest(&bytes);
-//         assert_eq!(hash.len(), 64);
-//         let (scalar, prefix) = hash.split_at_mut(32);
-//         assert_eq!(scalar.len(), 32);
-//         assert_eq!(prefix.len(), 32);
-//         //
-//         scalar[0]  &= 0b11111000u8;
-//         scalar[31] &= 0b01111111u8;
-//         scalar[31] |= 0b01000000u8;
-//         //
-//         
-//         let public = ED25519Public{};
-//         ED25519Pair{ public, private }
-//     }
-// }
+#[cfg(test)]
+fn run_signing_testcase(case: HashMap<String,(bool,Vec<u8>)>)
+{
+    let (negr, rbytes) = case.get("r").unwrap();
+    let (negu, ubytes) = case.get("u").unwrap();
+    let (negm, mbytes) = case.get("m").unwrap();
+    let (negs, sbytes) = case.get("s").unwrap();
+
+    assert!(!negr && !negu && !negm && !negs);
+    println!("r:  {:?}", rbytes);
+    println!("u:  {:?}", ubytes);
+    let (cpriv, cpub) = ed25519::keypair(rbytes);
+    println!("cr: {:?}", cpriv.to_vec());
+    println!("cu: {:?}", cpub.to_vec());
+    let keypair = ED25519KeyPair::from_test_data(rbytes, ubytes);
+    println!("pr: {:?}", keypair.private);
+    println!("pu: {:?}", keypair.public);
+    assert_eq!(ubytes, &keypair.public.to_vec());
+    let mut privpub = Vec::new();
+    privpub.append(&mut rbytes.clone());
+    privpub.append(&mut ubytes.clone());
+    let sig2 = ed25519::signature(&mbytes, &privpub);
+    println!("sig2: {:?}", sig2.to_vec());
+    let sig = keypair.sign(&mbytes);
+    assert_eq!(sig.len(), sbytes.len());
+    println!("sig:  {:?}", sbytes);
+    println!("sig': {:?}", sig);
+    assert!(sig.iter().eq(sbytes.iter()));
+    assert!(keypair.verify(&mbytes, &sig));
+    println!("DONE");
+}
+
+#[cfg(test)]
+#[test]
+fn rfc8072() {
+    let fname = "testdata/ed25519/rfc8032.test";
+    run_test(fname.to_string(), 4, run_signing_testcase);
+}
+
+//#[cfg(test)]
+//#[test]
+//fn signing() {
+//    let fname = "testdata/ed25519/sign.test";
+//    run_test(fname.to_string(), 4, run_signing_testcase);
+//}

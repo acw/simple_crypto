@@ -3,8 +3,11 @@ module ED25519(ed25519Tasks)
  where
 
 import Control.Monad(unless)
+import Crypto.Error(CryptoFailable(CryptoPassed))
 import "crypto-api" Crypto.Random(SystemRandom)
 import "cryptonite" Crypto.Random(getRandomBytes,withDRG)
+import Crypto.PubKey.Ed25519
+import Data.ByteArray(convert)
 import Data.ByteString(ByteString,pack,useAsCString)
 import qualified Data.ByteString as BS
 import Data.Int(Int32)
@@ -29,7 +32,8 @@ ed25519Tasks = [ loadTests, byteTests, addsubTests, mulTests,
                   pow22523Tests, fbvTests, conversionTests,
                   ptDoubleTests, maddsubTests, ptAddSubTests,
                   scalarMultBaseTests, slideTests, scalarMultTests,
-                  reduceTests, muladdTests, pubPrivTests ]
+                  reduceTests, muladdTests, pubPrivTests,
+                  signTest ]
 
 loadTests :: Task
 loadTests = Task {
@@ -495,6 +499,26 @@ pubPrivTests = Task {
            b <- repackBytes ptrb
            let res = Map.fromList [("a", showBin a), ("b", showBin b)]
            return (res, toNumber a, (memory0, drg1))
+
+signTest :: Task
+signTest = Task {
+    taskName = "ed25519 signing tests",
+    taskFile = "../testdata/ed25519/sign.test",
+    taskTest = go,
+    taskCount = cTEST_COUNT
+  }
+ where
+  go (memory0, drg0) =
+    let (priv, drg1) = withDRG drg0 generateSecretKey
+        (msg, drg2) = withDRG drg1 $ getRandomBytes =<< ((fromIntegral . BS.head) `fmap` getRandomBytes 1)
+        pub = toPublic priv
+        privBytes = convert priv
+        pubBytes = convert pub
+        sig = convert (sign priv pub msg)
+        res = Map.fromList [("u", showBin pubBytes), ("r", showBin privBytes),
+                            ("m", showBin msg), ("s", showBin sig)]
+    in return (res, toNumber privBytes, (memory0, drg2))
+
 
 data PackedBytes = PB [Word8]
  deriving (Eq)

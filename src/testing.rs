@@ -23,11 +23,11 @@ fn next_value_set(line: &str) -> (String, bool, Vec<u8>)
     while let Some(c1) = nibble_iter.next() {
         match nibble_iter.next() {
             None => {
-                val.push( c1.to_digit(16).unwrap() as u8 );
+                val.push( c1.to_digit(16).expect(&format!("Unexpected character: |{}|", c1)) as u8 );
             }
             Some(c2) => {
-                let b1 = c1.to_digit(16).unwrap() as u8;
-                let b2 = c2.to_digit(16).unwrap() as u8;
+                let b1 = c1.to_digit(16).expect(&format!("Unexpected character: |{}|", c1)) as u8;
+                let b2 = c2.to_digit(16).expect(&format!("Unexpected character: |{}|", c2)) as u8;
                 val.push( (b2 << 4) | b1 );
             }
         }
