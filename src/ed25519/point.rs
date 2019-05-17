@@ -5,22 +5,22 @@ use ed25519::fe::*;
 use ed25519::constants::*;
 
 // This is ge_p3 in the original source code
-#[derive(Debug,PartialEq)]
+#[derive(Clone,Debug,PartialEq)]
 pub struct Point {
-    pub x: Element,
-    pub y: Element,
-    pub z: Element,
-    pub t: Element
+    pub x: FieldElement,
+    pub y: FieldElement,
+    pub z: FieldElement,
+    pub t: FieldElement
 }
 
 impl Point {
   pub fn new() -> Point
   {
     Point {
-      x: [0; NUM_ELEMENT_LIMBS],
-      y: [0; NUM_ELEMENT_LIMBS],
-      z: [0; NUM_ELEMENT_LIMBS],
-      t: [0; NUM_ELEMENT_LIMBS]
+      x: FieldElement::new(),
+      y: FieldElement::new(),
+      z: FieldElement::new(),
+      t: FieldElement::new()
     }
   }
 
@@ -39,25 +39,36 @@ impl Point {
   {
     into_encoded_point(target, &self.x, &self.y, &self.z);
   }
+
+  pub fn invert(&mut self)
+  {
+      let tmp = self.clone();
+      fe_neg(&mut self.x, &tmp.x);
+      fe_neg(&mut self.t, &tmp.t);
+  }
 }
 
-const D: Element = [-10913610, 13857413, -15372611, 6949391,   114729,
-                    -8787816,  -6275908, -3247719,  -18696448, -12055116];
+const D: FieldElement = FieldElement {
+    value: [-10913610, 13857413, -15372611, 6949391,   114729,
+            -8787816,  -6275908, -3247719,  -18696448, -12055116]
+};
 
-const SQRTM1: Element = [-32595792, -7943725,  9377950,  3500415, 12389472,
-                         -272473,   -25146209, -2005654, 326686,  11406482];
+const SQRTM1: FieldElement = FieldElement {
+    value: [-32595792, -7943725,  9377950,  3500415, 12389472,
+            -272473,   -25146209, -2005654, 326686,  11406482]
+};
 
 pub fn x25519_ge_frombytes_vartime(h: &mut Point, s: &[u8]) -> bool
 {
-  let mut u = [0; NUM_ELEMENT_LIMBS];
-  let mut v = [0; NUM_ELEMENT_LIMBS];
-  let mut v3 = [0; NUM_ELEMENT_LIMBS];
-  let mut vxx = [0; NUM_ELEMENT_LIMBS];
-  let mut check = [0; NUM_ELEMENT_LIMBS];
+  let mut u = FieldElement::new();
+  let mut v = FieldElement::new();
+  let mut v3 = FieldElement::new();
+  let mut vxx = FieldElement::new();
+  let mut check = FieldElement::new();
   let mut temp;
 
   fe_frombytes(&mut h.y, s);
-  fe1(&mut h.z);
+  h.z.overwrite_with(&FieldElement::one());
   fe_square(&mut u, &h.y);
   fe_mul(&mut v, &u, &D);
   temp = u.clone();
@@ -121,26 +132,26 @@ fn from_bytes_vartime() {
 
 fn ge_p3_0(h: &mut Point)
 {
-  fe0(&mut h.x);
-  fe1(&mut h.y);
-  fe1(&mut h.z);
-  fe0(&mut h.t);
+    h.x.overwrite_with(&FieldElement::zero());
+    h.y.overwrite_with(&FieldElement::one());
+    h.z.overwrite_with(&FieldElement::one());
+    h.t.overwrite_with(&FieldElement::zero());
 }
 
 #[derive(Debug,PartialEq)]
 pub struct Point2 {
-    pub x: Element,
-    pub y: Element,
-    pub z: Element,
+    pub x: FieldElement,
+    pub y: FieldElement,
+    pub z: FieldElement,
 }
 
 impl Point2 {
   pub fn new() -> Point2
   {
     Point2 {
-      x: [0; NUM_ELEMENT_LIMBS],
-      y: [0; NUM_ELEMENT_LIMBS],
-      z: [0; NUM_ELEMENT_LIMBS]
+      x: FieldElement::new(),
+      y: FieldElement::new(),
+      z: FieldElement::new()
     }
   }
 
@@ -162,34 +173,34 @@ impl Point2 {
 
 fn ge_p2_0(h: &mut Point2)
 {
-  fe0(&mut h.x);
-  fe1(&mut h.y);
-  fe1(&mut h.z);
+    h.x.overwrite_with(&FieldElement::zero());
+    h.y.overwrite_with(&FieldElement::one());
+    h.z.overwrite_with(&FieldElement::one());
 }
 
 fn ge_p3_to_p2(r: &mut Point2, p: &Point)
 {
-  r.x.copy_from_slice(&p.x);
-  r.y.copy_from_slice(&p.y);
-  r.z.copy_from_slice(&p.z);
+    r.x.overwrite_with(&p.x);
+    r.y.overwrite_with(&p.y);
+    r.z.overwrite_with(&p.z);
 }
 
 #[derive(Debug,PartialEq)]
 struct PointP1P1 {
-    x: Element,
-    y: Element,
-    z: Element,
-    t: Element
+    x: FieldElement,
+    y: FieldElement,
+    z: FieldElement,
+    t: FieldElement
 }
 
 impl PointP1P1 {
   fn new() -> PointP1P1
   {
     PointP1P1 {
-      x: [0; NUM_ELEMENT_LIMBS],
-      y: [0; NUM_ELEMENT_LIMBS],
-      z: [0; NUM_ELEMENT_LIMBS],
-      t: [0; NUM_ELEMENT_LIMBS],
+      x: FieldElement::new(),
+      y: FieldElement::new(),
+      z: FieldElement::new(),
+      t: FieldElement::new(),
     }
   }
 
@@ -207,10 +218,10 @@ impl PointP1P1 {
 
 #[derive(Debug,PartialEq)]
 struct Cached {
-  yplusx:  Element,
-  yminusx: Element,
-  z:       Element,
-  t2d:     Element
+  yplusx:  FieldElement,
+  yminusx: FieldElement,
+  z:       FieldElement,
+  t2d:     FieldElement
 }
 
 impl Cached
@@ -218,10 +229,10 @@ impl Cached
   fn new() -> Cached
   {
     Cached {
-      yplusx: [0; NUM_ELEMENT_LIMBS],
-      yminusx: [0; NUM_ELEMENT_LIMBS],
-      z: [0; NUM_ELEMENT_LIMBS],
-      t2d: [0; NUM_ELEMENT_LIMBS]
+      yplusx: FieldElement::new(),
+      yminusx: FieldElement::new(),
+      z: FieldElement::new(),
+      t2d: FieldElement::new()
     }
   }
 
@@ -237,14 +248,16 @@ impl Cached
   }
 }
 
-const D2: Element = [-21827239, -5839606,  -30745221, 13898782, 229458,
-                     15978800,  -12551817, -6495438,  29715968, 9444199];
+const D2: FieldElement = FieldElement {
+    value: [-21827239, -5839606,  -30745221, 13898782, 229458,
+            15978800,  -12551817, -6495438,  29715968, 9444199]
+};
 
 fn x25519_ge_p3_to_cached(r: &mut Cached, p: &Point)
 {
   fe_add(&mut r.yplusx, &p.y, &p.x);
   fe_sub(&mut r.yminusx, &p.y, &p.x);
-  r.z.copy_from_slice(&p.z);
+  r.z.overwrite_with(&p.z);
   fe_mul(&mut r.t2d, &p.t, &D2);
 }
 
@@ -311,7 +324,7 @@ fn conversion() {
 /* r = 2 * p */
 fn ge_p2_dbl(r: &mut PointP1P1, p: &Point2)
 {
-  let mut t0 = [0; NUM_ELEMENT_LIMBS];
+  let mut t0 = FieldElement::new();
 
   fe_square(&mut r.x, &p.x);
   fe_square(&mut r.z, &p.y);
@@ -361,7 +374,7 @@ fn double() {
 /* r = p + q */
 fn ge_madd(r: &mut PointP1P1, p: &Point, q: &Precomp)
 {
-  let mut t0 = [0; NUM_ELEMENT_LIMBS];
+  let mut t0 = FieldElement::new();
   let mut temp;
 
   fe_add(&mut r.x, &p.y,    &p.x);
@@ -382,7 +395,7 @@ fn ge_madd(r: &mut PointP1P1, p: &Point, q: &Precomp)
 /* r = p - q */
 fn ge_msub(r: &mut PointP1P1, p: &Point, q: &Precomp)
 {
-  let mut t0 = [0; NUM_ELEMENT_LIMBS];
+  let mut t0 = FieldElement::new();
   let mut temp;
 
   fe_add(&mut r.x, &p.y,    &p.x);
@@ -427,7 +440,7 @@ fn maddsub() {
 /* r = p + q */
 fn x25519_ge_add(r: &mut PointP1P1, p: &Point, q: &Cached)
 {
-  let mut t0 = [0; NUM_ELEMENT_LIMBS];
+  let mut t0 = FieldElement::new();
   let mut temp;
 
   fe_add(&mut r.x, &p.y,   &p.x);
@@ -449,7 +462,7 @@ fn x25519_ge_add(r: &mut PointP1P1, p: &Point, q: &Cached)
 /* r = p - q */
 fn x25519_ge_sub(r: &mut PointP1P1, p: &Point, q: &Cached)
 {
-  let mut t0 = [0; NUM_ELEMENT_LIMBS];
+  let mut t0 = FieldElement::new();
   let mut temp;
 
   fe_add(&mut r.x, &p.y,   &p.x);
@@ -529,8 +542,8 @@ fn table_select(t: &mut Precomp, pos: i32, b: i8)
   cmov(t, &K25519_PRECOMP[pos as usize][5], equal(babs, 6));
   cmov(t, &K25519_PRECOMP[pos as usize][6], equal(babs, 7));
   cmov(t, &K25519_PRECOMP[pos as usize][7], equal(babs, 8));
-  minust.yplusx.copy_from_slice(&t.yminusx);
-  minust.yminusx.copy_from_slice(&t.yplusx);
+  minust.yplusx.overwrite_with(&t.yminusx);
+  minust.yminusx.overwrite_with(&t.yplusx);
   fe_neg(&mut minust.xy2d, &t.xy2d);
   cmov(t, &minust, bnegative != 0);
 }
@@ -1640,7 +1653,7 @@ pub fn curve25519_scalar_mask(a: &mut [u8])
  * replace (f,g) with (f,g) if b == 0.
  *
  * Preconditions: b in {0,1}. */
-//fn fe_cswap(f: &mut Element, g: &mut Element, inb: bool) {
+//fn fe_cswap(f: &mut FieldElement, g: &mut FieldElement, inb: bool) {
 //  let b = if inb { 0xFFFFFFFFu32 as i32 } else { 0x00000000 };
 //  for i in 0..NUM_ELEMENT_LIMBS {
 //    let mut x = f[i] ^ g[i];
@@ -1658,7 +1671,7 @@ pub fn curve25519_scalar_mask(a: &mut [u8])
  *
  * Postconditions:
  *    |h| bounded by 1.1*2^25,1.1*2^24,1.1*2^25,1.1*2^24,etc. */
-//fn fe_mul121666(h: &mut Element, f: &Element)
+//fn fe_mul121666(h: &mut FieldElement, f: &FieldElement)
 //{
 //  let f0 = f[0];
 //  let f1 = f[1];
@@ -1711,13 +1724,13 @@ pub fn curve25519_scalar_mask(a: &mut [u8])
 //  assert_eq!(scalar.len(), 32);
 //  assert_eq!(point.len(), 32);
 //
-//  let mut x1   = [0; NUM_ELEMENT_LIMBS];
-//  let mut x2   = [0; NUM_ELEMENT_LIMBS];
-//  let mut z2   = [0; NUM_ELEMENT_LIMBS];
-//  let mut x3   = [0; NUM_ELEMENT_LIMBS];
-//  let mut z3   = [0; NUM_ELEMENT_LIMBS];
-//  let mut tmp0 = [0; NUM_ELEMENT_LIMBS];
-//  let mut tmp1 = [0; NUM_ELEMENT_LIMBS];
+//  let mut x1   = FieldElement::new();
+//  let mut x2   = FieldElement::new();
+//  let mut z2   = FieldElement::new();
+//  let mut x3   = FieldElement::new();
+//  let mut z3   = FieldElement::new();
+//  let mut tmp0 = FieldElement::new();
+//  let mut tmp1 = FieldElement::new();
 //  let mut tmp2;
 //  let mut e    = [0; 32];
 //
@@ -1792,8 +1805,8 @@ pub fn x25519_public_from_private(public: &mut [u8], private: &[u8])
 
   /* We only need the u-coordinate of the curve25519 point. The map is
    * u=(y+1)/(1-y). Since y=Y/Z, this gives u=(Z+Y)/(Z-Y). */
-  let mut zplusy = [0; NUM_ELEMENT_LIMBS];
-  let mut zminusy = [0; NUM_ELEMENT_LIMBS];
+  let mut zplusy = FieldElement::new();
+  let mut zminusy = FieldElement::new();
   fe_add(&mut zplusy,  &A.z, &A.y);
   fe_sub(&mut zminusy, &A.z, &A.y);
   let zminusy_inv = fe_invert(&zminusy);
@@ -1819,10 +1832,10 @@ fn public_from_private() {
     });
 }
 
-fn into_encoded_point(bytes: &mut [u8], x: &Element, y: &Element, z: &Element)
+fn into_encoded_point(bytes: &mut [u8], x: &FieldElement, y: &FieldElement, z: &FieldElement)
 {
-    let mut x_over_z = [0; NUM_ELEMENT_LIMBS];
-    let mut y_over_z = [0; NUM_ELEMENT_LIMBS];
+    let mut x_over_z = FieldElement::new();
+    let mut y_over_z = FieldElement::new();
     assert!(bytes.len() >= 32);
 
     let recip = fe_invert(z);

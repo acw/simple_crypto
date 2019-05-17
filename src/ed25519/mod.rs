@@ -136,7 +136,7 @@ impl ED25519Public {
 
         let mut a = Point::new();
         x25519_ge_frombytes_vartime(&mut a, &self.public);
-        invert_vartime(&mut a);
+        a.invert();
         let h_digest = eddsa_digest(signature_r, &self.public, msg);
         let h = digest_scalar(&h_digest);
         let mut r = Point2::new();
@@ -162,14 +162,6 @@ fn digest_scalar(digest: &[u8]) -> Vec<u8> {
     copy.copy_from_slice(digest);
     x25519_sc_reduce(&mut copy);
     copy[..32].to_vec()
-}
-
-fn invert_vartime(v: &mut Point)
-{
-    for i in 0..NUM_ELEMENT_LIMBS {
-        v.x[i] = -v.x[i];
-        v.t[i] = -v.t[i];
-    }
 }
 
 #[cfg(test)]

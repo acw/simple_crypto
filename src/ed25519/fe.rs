@@ -14,8 +14,38 @@ use testing::run_test;
 // This is all an extremely straightforward translation of the usual C
 // implementation, as linked in ring and other libraries.
 
-pub const NUM_ELEMENT_LIMBS: usize = 10;
-pub type Element = [i32; NUM_ELEMENT_LIMBS];
+const NUM_ELEMENT_LIMBS: usize = 10;
+
+#[derive(Clone,Debug,PartialEq)]
+pub struct FieldElement
+{
+    pub(crate) value: [i32; NUM_ELEMENT_LIMBS]
+}
+
+impl FieldElement
+{
+    pub fn new() -> FieldElement
+    {
+        FieldElement{ value: [0; NUM_ELEMENT_LIMBS] }
+    }
+
+    pub fn zero() -> FieldElement
+    {
+        FieldElement{ value: [0; NUM_ELEMENT_LIMBS] }
+    }
+
+    pub fn one() -> FieldElement
+    {
+        let mut res = FieldElement::zero();
+        res.value[0] = 1;
+        res
+    }
+
+    pub fn overwrite_with(&mut self, other: &FieldElement)
+    {
+        self.value.copy_from_slice(&other.value);
+    }
+}
 
 pub const KBOTTOM_25BITS : i64 = 0x1ffffffi64;
 pub const KBOTTOM_26BITS : i64 = 0x3ffffffi64;
@@ -50,7 +80,7 @@ fn loads() {
     });
 }
 
-pub fn fe_frombytes(h: &mut Element, s: &[u8])
+pub fn fe_frombytes(h: &mut FieldElement, s: &[u8])
 {
   /* Ignores top bit of h. */
   let mut h0 = load4(s) as i64;
@@ -76,23 +106,31 @@ pub fn fe_frombytes(h: &mut Element, s: &[u8])
   let carry6 = h6 + (1 << 25); h7 += carry6 >> 26; h6 -= carry6 & KTOP_38BITS;
   let carry8 = h8 + (1 << 25); h9 += carry8 >> 26; h8 -= carry8 & KTOP_38BITS;
 
-  h[0] = h0 as i32; h[1] = h1 as i32; h[2] = h2 as i32; h[3] = h3 as i32; h[4] = h4 as i32;
-  h[5] = h5 as i32; h[6] = h6 as i32; h[7] = h7 as i32; h[8] = h8 as i32; h[9] = h9 as i32;
+  h.value[0] = h0 as i32;
+  h.value[1] = h1 as i32;
+  h.value[2] = h2 as i32;
+  h.value[3] = h3 as i32;
+  h.value[4] = h4 as i32;
+  h.value[5] = h5 as i32;
+  h.value[6] = h6 as i32;
+  h.value[7] = h7 as i32;
+  h.value[8] = h8 as i32;
+  h.value[9] = h9 as i32;
 }
 
-pub fn fe_tobytes(s: &mut [u8], h: &Element)
+pub fn fe_tobytes(s: &mut [u8], h: &FieldElement)
 {
     assert!(s.len() >= 32);
-    let mut h0 = h[0];
-    let mut h1 = h[1];
-    let mut h2 = h[2];
-    let mut h3 = h[3];
-    let mut h4 = h[4];
-    let mut h5 = h[5];
-    let mut h6 = h[6];
-    let mut h7 = h[7];
-    let mut h8 = h[8];
-    let mut h9 = h[9];
+    let mut h0 = h.value[0];
+    let mut h1 = h.value[1];
+    let mut h2 = h.value[2];
+    let mut h3 = h.value[3];
+    let mut h4 = h.value[4];
+    let mut h5 = h.value[5];
+    let mut h6 = h.value[6];
+    let mut h7 = h.value[7];
+    let mut h8 = h.value[8];
+    let mut h9 = h.value[9];
 
     let mut q = (19 * h9 + ((1i32) << 24)) >> 25;
     q = (h0 + q) >> 26;
@@ -168,11 +206,11 @@ fn from_to_bytes() {
         let (negb, bbytes) = case.get("b").unwrap();
 
         assert!(!nega && !negb);
-        let mut e      = [0; NUM_ELEMENT_LIMBS];
-        let mut target = [0; NUM_ELEMENT_LIMBS];
+        let mut e      = FieldElement::new();
+        let mut target = FieldElement::new();
         fe_frombytes(&mut e, abytes);
         let mut cursor = Cursor::new(bbytes);
-        cursor.read_i32_into::<NativeEndian>(&mut target).unwrap();
+        cursor.read_i32_into::<NativeEndian>(&mut target.value).unwrap();
         assert_eq!(e, target, "from bytes");
         let mut bytes  = [0; 32];
         fe_tobytes(&mut bytes, &e);
@@ -182,29 +220,29 @@ fn from_to_bytes() {
 
 #[cfg(test)]
 #[derive(Clone,Debug)]
-struct ValidElement {
-    values: Element
+struct ValidFieldElement {
+    values: FieldElement
 }
 
 #[cfg(test)]
-impl Arbitrary for ValidElement {
-    fn arbitrary<G: Gen>(g: &mut G) -> ValidElement
+impl Arbitrary for ValidFieldElement {
+    fn arbitrary<G: Gen>(g: &mut G) -> ValidFieldElement
     {
         let mut bytes = [0; 32];
         g.fill_bytes(&mut bytes);
         curve25519_scalar_mask(&mut bytes);
-        let mut res = ValidElement{ values: [0; NUM_ELEMENT_LIMBS] };
+        let mut res = ValidFieldElement{ values: FieldElement::new() };
         fe_frombytes(&mut res.values, &bytes);
         res
     }
 }
 
 #[cfg(test)]
-pub fn test_from_bytes(x: &[u8]) -> Element
+pub fn test_from_bytes(x: &[u8]) -> FieldElement
 {
-    let mut res = [0; NUM_ELEMENT_LIMBS];
+    let mut res = FieldElement::new();
     let mut helper = Cursor::new(x);
-    helper.read_i32_into::<LittleEndian>(&mut res).unwrap();
+    helper.read_i32_into::<LittleEndian>(&mut res.value).unwrap();
     res
 }
 
@@ -212,64 +250,26 @@ pub fn test_from_bytes(x: &[u8]) -> Element
 quickcheck! {
     // this is somewhat self referential, given the definition of arbitrary,
     // but more testing is more good
-    fn from_to_bytes_roundtrip(e: ValidElement) -> bool {
+    fn from_to_bytes_roundtrip(e: ValidFieldElement) -> bool {
         let mut bytes = [0; 32];
         fe_tobytes(&mut bytes, &e.values);
-        let mut trans = [0; NUM_ELEMENT_LIMBS];
+        let mut trans = FieldElement::new();
         fe_frombytes(&mut trans, &bytes);
         trans == e.values
     }
 }
 
-// pub fn fe_zero() -> Element
-// {
-//     [0; NUM_ELEMENT_LIMBS]
-// }
-
-pub fn fe0(x: &mut Element)
-{
-    x[0] = 0;
-    x[1] = 0;
-    x[2] = 0;
-    x[3] = 0;
-    x[4] = 0;
-    x[5] = 0;
-    x[6] = 0;
-    x[7] = 0;
-    x[8] = 0;
-    x[9] = 0;
-}
-
-// pub fn fe_one() -> Element
-// {
-//     [0, 0, 0, 0, 0, 0, 0, 0, 0, 1]
-// }
-
-pub fn fe1(x: &mut Element)
-{
-    x[0] = 1;
-    x[1] = 0;
-    x[2] = 0;
-    x[3] = 0;
-    x[4] = 0;
-    x[5] = 0;
-    x[6] = 0;
-    x[7] = 0;
-    x[8] = 0;
-    x[9] = 0;
-}
-
-pub fn fe_add(h: &mut Element, f: &Element, g: &Element)
+pub fn fe_add(h: &mut FieldElement, f: &FieldElement, g: &FieldElement)
 {
     for i in 0..10 {
-        h[i] = f[i] + g[i]
+        h.value[i] = f.value[i] + g.value[i]
     }
 }
 
-pub fn fe_sub(h: &mut Element, f: &Element, g: &Element)
+pub fn fe_sub(h: &mut FieldElement, f: &FieldElement, g: &FieldElement)
 {
     for i in 0..10 {
-        h[i] = f[i] - g[i]
+        h.value[i] = f.value[i] - g.value[i]
     }
 }
 
@@ -288,8 +288,8 @@ fn addsub() {
         let     b = test_from_bytes(&bbytes);
         let     c = test_from_bytes(&cbytes);
         let     d = test_from_bytes(&dbytes);
-        let mut r = [0; NUM_ELEMENT_LIMBS];
-        let mut s = [0; NUM_ELEMENT_LIMBS];
+        let mut r = FieldElement::new();
+        let mut s = FieldElement::new();
         fe_add(&mut r, &a, &b);
         fe_sub(&mut s, &a, &b);
         assert_eq!(r, c, "field addition");
@@ -297,28 +297,28 @@ fn addsub() {
     });
 }
 
-pub fn fe_mul(h: &mut Element, f: &Element, g: &Element)
+pub fn fe_mul(h: &mut FieldElement, f: &FieldElement, g: &FieldElement)
 {
-  let f0    : i32 = f[0];
-  let f1    : i32 = f[1];
-  let f2    : i32 = f[2];
-  let f3    : i32 = f[3];
-  let f4    : i32 = f[4];
-  let f5    : i32 = f[5];
-  let f6    : i32 = f[6];
-  let f7    : i32 = f[7];
-  let f8    : i32 = f[8];
-  let f9    : i32 = f[9];
-  let g0    : i32 = g[0];
-  let g1    : i32 = g[1];
-  let g2    : i32 = g[2];
-  let g3    : i32 = g[3];
-  let g4    : i32 = g[4];
-  let g5    : i32 = g[5];
-  let g6    : i32 = g[6];
-  let g7    : i32 = g[7];
-  let g8    : i32 = g[8];
-  let g9    : i32 = g[9];
+  let f0    : i32 = f.value[0];
+  let f1    : i32 = f.value[1];
+  let f2    : i32 = f.value[2];
+  let f3    : i32 = f.value[3];
+  let f4    : i32 = f.value[4];
+  let f5    : i32 = f.value[5];
+  let f6    : i32 = f.value[6];
+  let f7    : i32 = f.value[7];
+  let f8    : i32 = f.value[8];
+  let f9    : i32 = f.value[9];
+  let g0    : i32 = g.value[0];
+  let g1    : i32 = g.value[1];
+  let g2    : i32 = g.value[2];
+  let g3    : i32 = g.value[3];
+  let g4    : i32 = g.value[4];
+  let g5    : i32 = g.value[5];
+  let g6    : i32 = g.value[6];
+  let g7    : i32 = g.value[7];
+  let g8    : i32 = g.value[8];
+  let g9    : i32 = g.value[9];
   let g1_19 : i32 = 19 * g1; /* 1.959375*2^29 */
   let g2_19 : i32 = 19 * g2; /* 1.959375*2^30; still ok */
   let g3_19 : i32 = 19 * g3;
@@ -503,16 +503,16 @@ pub fn fe_mul(h: &mut Element, f: &Element, g: &Element)
   /* |h0| <= 2^25; from now on fits into int32 unchanged */
   /* |h1| <= 1.01*2^24 */
 
-  h[0] = h0 as i32;
-  h[1] = h1 as i32;
-  h[2] = h2 as i32;
-  h[3] = h3 as i32;
-  h[4] = h4 as i32;
-  h[5] = h5 as i32;
-  h[6] = h6 as i32;
-  h[7] = h7 as i32;
-  h[8] = h8 as i32;
-  h[9] = h9 as i32;
+  h.value[0] = h0 as i32;
+  h.value[1] = h1 as i32;
+  h.value[2] = h2 as i32;
+  h.value[3] = h3 as i32;
+  h.value[4] = h4 as i32;
+  h.value[5] = h5 as i32;
+  h.value[6] = h6 as i32;
+  h.value[7] = h7 as i32;
+  h.value[8] = h8 as i32;
+  h.value[9] = h9 as i32;
 }
 
 #[cfg(test)]
@@ -528,24 +528,24 @@ fn mul() {
         let     a = test_from_bytes(&abytes);
         let     b = test_from_bytes(&bbytes);
         let     c = test_from_bytes(&cbytes);
-        let mut r = [0; NUM_ELEMENT_LIMBS];
+        let mut r = FieldElement::new();
         fe_mul(&mut r, &a, &b);
         assert_eq!(r, c);
     });
 }
 
-pub fn fe_square(h: &mut Element, f: &Element)
+pub fn fe_square(h: &mut FieldElement, f: &FieldElement)
 {
-  let f0      : i32 = f[0];
-  let f1      : i32 = f[1];
-  let f2      : i32 = f[2];
-  let f3      : i32 = f[3];
-  let f4      : i32 = f[4];
-  let f5      : i32 = f[5];
-  let f6      : i32 = f[6];
-  let f7      : i32 = f[7];
-  let f8      : i32 = f[8];
-  let f9      : i32 = f[9];
+  let f0      : i32 = f.value[0];
+  let f1      : i32 = f.value[1];
+  let f2      : i32 = f.value[2];
+  let f3      : i32 = f.value[3];
+  let f4      : i32 = f.value[4];
+  let f5      : i32 = f.value[5];
+  let f6      : i32 = f.value[6];
+  let f7      : i32 = f.value[7];
+  let f8      : i32 = f.value[8];
+  let f9      : i32 = f.value[9];
   let f0_2    : i32 = 2 * f0;
   let f1_2    : i32 = 2 * f1;
   let f2_2    : i32 = 2 * f2;
@@ -648,16 +648,16 @@ pub fn fe_square(h: &mut Element, f: &Element)
   carry9 = h9 + (1 << 24); h0 += (carry9 >> 25) * 19; h9 -= carry9 & KTOP_39BITS;
   carry0 = h0 + (1 << 25); h1 += carry0 >> 26; h0 -= carry0 & KTOP_38BITS;
 
-  h[0] = h0 as i32;
-  h[1] = h1 as i32;
-  h[2] = h2 as i32;
-  h[3] = h3 as i32;
-  h[4] = h4 as i32;
-  h[5] = h5 as i32;
-  h[6] = h6 as i32;
-  h[7] = h7 as i32;
-  h[8] = h8 as i32;
-  h[9] = h9 as i32;
+  h.value[0] = h0 as i32;
+  h.value[1] = h1 as i32;
+  h.value[2] = h2 as i32;
+  h.value[3] = h3 as i32;
+  h.value[4] = h4 as i32;
+  h.value[5] = h5 as i32;
+  h.value[6] = h6 as i32;
+  h.value[7] = h7 as i32;
+  h.value[8] = h8 as i32;
+  h.value[9] = h9 as i32;
 }
 
 #[cfg(test)]
@@ -671,89 +671,89 @@ fn square() {
         assert!(!nega && !negc);
         let     a = test_from_bytes(&abytes);
         let     c = test_from_bytes(&cbytes);
-        let mut r = [0; NUM_ELEMENT_LIMBS];
+        let mut r = FieldElement::new();
         fe_square(&mut r, &a);
         assert_eq!(r, c);
     });
 }
 
-pub fn fe_invert(z: &Element) -> Element
+pub fn fe_invert(z: &FieldElement) -> FieldElement
 {
-  let mut t0   = [0; NUM_ELEMENT_LIMBS];
-  let mut t1   = [0; NUM_ELEMENT_LIMBS];
-  let mut t2   = [0; NUM_ELEMENT_LIMBS];
-  let mut t3   = [0; NUM_ELEMENT_LIMBS];
-  let mut temp = [0; NUM_ELEMENT_LIMBS];
-  let mut out  = [0; NUM_ELEMENT_LIMBS];
+  let mut t0   = FieldElement::new();
+  let mut t1   = FieldElement::new();
+  let mut t2   = FieldElement::new();
+  let mut t3   = FieldElement::new();
+  let mut temp = FieldElement::new();
+  let mut out  = FieldElement::new();
 
   fe_square(&mut t0, &z);
   fe_square(&mut t1, &t0);
   for _ in 1..2 {
-      temp.copy_from_slice(&t1);
+      temp.overwrite_with(&t1);
       fe_square(&mut t1, &temp);
   }
-  temp.copy_from_slice(&t1);
+  temp.overwrite_with(&t1);
   fe_mul(&mut t1, &z, &temp);
-  temp.copy_from_slice(&t0);
+  temp.overwrite_with(&t0);
   fe_mul(&mut t0, &temp, &t1);
   fe_square(&mut t2, &t0);
-  temp.copy_from_slice(&t1);
+  temp.overwrite_with(&t1);
   fe_mul(&mut t1, &temp, &t2);
   fe_square(&mut t2, &t1);
   for _ in 1..5 {
-      temp.copy_from_slice(&t2);
+      temp.overwrite_with(&t2);
       fe_square(&mut t2, &temp);
   }
-  temp.copy_from_slice(&t1);
+  temp.overwrite_with(&t1);
   fe_mul(&mut t1, &t2, &temp);
   fe_square(&mut t2, &t1);
   for _ in 1..10 {
-      temp.copy_from_slice(&t2);
+      temp.overwrite_with(&t2);
       fe_square(&mut t2, &temp);
   }
-  temp.copy_from_slice(&t2);
+  temp.overwrite_with(&t2);
   fe_mul(&mut t2, &temp, &t1);
   fe_square(&mut t3, &t2);
   for _ in 1..20 {
-      temp.copy_from_slice(&t3);
+      temp.overwrite_with(&t3);
       fe_square(&mut t3, &temp);
   }
-  temp.copy_from_slice(&t2);
+  temp.overwrite_with(&t2);
   fe_mul(&mut t2, &t3, &temp);
-  temp.copy_from_slice(&t2);
+  temp.overwrite_with(&t2);
   fe_square(&mut t2, &temp);
   for _ in 1..10 {
-      temp.copy_from_slice(&t2);
+      temp.overwrite_with(&t2);
       fe_square(&mut t2, &temp);
   }
-  temp.copy_from_slice(&t1);
+  temp.overwrite_with(&t1);
   fe_mul(&mut t1, &t2, &temp);
   fe_square(&mut t2, &t1);
   for _ in 1..50 {
-      temp.copy_from_slice(&t2);
+      temp.overwrite_with(&t2);
       fe_square(&mut t2, &temp);
   }
-  temp.copy_from_slice(&t2);
+  temp.overwrite_with(&t2);
   fe_mul(&mut t2, &temp, &t1);
   fe_square(&mut t3, &t2);
   for _ in 1..100 {
-      temp.copy_from_slice(&t3);
+      temp.overwrite_with(&t3);
       fe_square(&mut t3, &temp);
   }
-  temp.copy_from_slice(&t2);
+  temp.overwrite_with(&t2);
   fe_mul(&mut t2, &t3, &temp);
-  temp.copy_from_slice(&t2);
+  temp.overwrite_with(&t2);
   fe_square(&mut t2, &temp);
   for _ in 1..50 {
-      temp.copy_from_slice(&t2);
+      temp.overwrite_with(&t2);
       fe_square(&mut t2, &temp);
   }
-  temp.copy_from_slice(&t1);
+  temp.overwrite_with(&t1);
   fe_mul(&mut t1, &t2, &temp);
-  temp.copy_from_slice(&t1);
+  temp.overwrite_with(&t1);
   fe_square(&mut t1, &temp);
   for _ in 1..5 {
-      temp.copy_from_slice(&t1);
+      temp.overwrite_with(&t1);
       fe_square(&mut t1, &temp);
   }
   fe_mul(&mut out, &t1, &t0);
@@ -776,10 +776,10 @@ fn invert() {
     });
 }
 
-pub fn fe_neg(h: &mut Element, f: &Element)
+pub fn fe_neg(h: &mut FieldElement, f: &FieldElement)
 {
     for i in 0..NUM_ELEMENT_LIMBS {
-        h[i] = -f[i];
+        h.value[i] = -f.value[i];
     }
 }
 
@@ -794,19 +794,19 @@ fn negate() {
         assert!(!nega && !negc);
         let a = test_from_bytes(&abytes);
         let c = test_from_bytes(&cbytes);
-        let mut r = [0; NUM_ELEMENT_LIMBS];
+        let mut r = FieldElement::new();
         fe_neg(&mut r, &a);
         assert_eq!(r, c);
     });
 }
 
-pub fn fe_cmov(f: &mut Element, g: &Element, bl: bool)
+pub fn fe_cmov(f: &mut FieldElement, g: &FieldElement, bl: bool)
 {
     let b = if bl { -1 } else { 0 };
     for i in 0..10 {
-        let mut x = f[i] ^ g[i];
+        let mut x = f.value[i] ^ g.value[i];
         x &= b;
-        f[i] ^= x;
+        f.value[i] ^= x;
     }
 }
 
@@ -823,13 +823,13 @@ fn cmov() {
         let a = test_from_bytes(&abytes);
         let b = bbytes.len() > 1;
         let c = test_from_bytes(&cbytes);
-        let mut r = [0; NUM_ELEMENT_LIMBS];
+        let mut r = FieldElement::new();
         fe_cmov(&mut r, &a, b);
         assert_eq!(r, c);
     });
 }
 
-pub fn fe_isnonzero(f: &Element) -> bool
+pub fn fe_isnonzero(f: &FieldElement) -> bool
 {
     let mut s = [0; 32];
     let mut res = false;
@@ -840,7 +840,7 @@ pub fn fe_isnonzero(f: &Element) -> bool
     res
 }
 
-pub fn fe_isnegative(f: &Element) -> bool
+pub fn fe_isnegative(f: &FieldElement) -> bool
 {
     let mut s = [0; 32];
     fe_tobytes(&mut s, &f);
@@ -866,18 +866,18 @@ fn is_tests() {
     });
 }
 
-pub fn fe_sq2(h: &mut Element, f: &Element)
+pub fn fe_sq2(h: &mut FieldElement, f: &FieldElement)
 {
-    let f0 = f[0];
-    let f1 = f[1];
-    let f2 = f[2];
-    let f3 = f[3];
-    let f4 = f[4];
-    let f5 = f[5];
-    let f6 = f[6];
-    let f7 = f[7];
-    let f8 = f[8];
-    let f9 = f[9];
+    let f0 = f.value[0];
+    let f1 = f.value[1];
+    let f2 = f.value[2];
+    let f3 = f.value[3];
+    let f4 = f.value[4];
+    let f5 = f.value[5];
+    let f6 = f.value[6];
+    let f7 = f.value[7];
+    let f8 = f.value[8];
+    let f9 = f.value[9];
     let f0_2 = 2 * f0;
     let f1_2 = 2 * f1;
     let f2_2 = 2 * f2;
@@ -997,16 +997,16 @@ pub fn fe_sq2(h: &mut Element, f: &Element)
 
     carry0 = h0 + (1 << 25); h1 += carry0 >> 26; h0 -= carry0 & KTOP_38BITS;
 
-    h[0] = h0 as i32;
-    h[1] = h1 as i32;
-    h[2] = h2 as i32;
-    h[3] = h3 as i32;
-    h[4] = h4 as i32;
-    h[5] = h5 as i32;
-    h[6] = h6 as i32;
-    h[7] = h7 as i32;
-    h[8] = h8 as i32;
-    h[9] = h9 as i32;
+    h.value[0] = h0 as i32;
+    h.value[1] = h1 as i32;
+    h.value[2] = h2 as i32;
+    h.value[3] = h3 as i32;
+    h.value[4] = h4 as i32;
+    h.value[5] = h5 as i32;
+    h.value[6] = h6 as i32;
+    h.value[7] = h7 as i32;
+    h.value[8] = h8 as i32;
+    h.value[9] = h9 as i32;
 }
 
 #[cfg(test)]
@@ -1020,16 +1020,16 @@ fn square2() {
         assert!(!nega && !negc);
         let     a = test_from_bytes(&abytes);
         let     c = test_from_bytes(&cbytes);
-        let mut r = [0; NUM_ELEMENT_LIMBS];
+        let mut r = FieldElement::new();
         fe_sq2(&mut r, &a);
         assert_eq!(r, c);
     });
 }
 
-pub fn fe_pow22523(out: &mut Element, z: &Element) {
-  let mut t0 = [0; NUM_ELEMENT_LIMBS];
-  let mut t1 = [0; NUM_ELEMENT_LIMBS];
-  let mut t2 = [0; NUM_ELEMENT_LIMBS];
+pub fn fe_pow22523(out: &mut FieldElement, z: &FieldElement) {
+  let mut t0 = FieldElement::new();
+  let mut t1 = FieldElement::new();
+  let mut t2 = FieldElement::new();
   let mut temp;
 
   fe_square(&mut t0, &z);
@@ -1117,9 +1117,8 @@ fn pow22523() {
         assert!(!nega && !negc);
         let     a = test_from_bytes(&abytes);
         let     c = test_from_bytes(&cbytes);
-        let mut r = [0; NUM_ELEMENT_LIMBS];
+        let mut r = FieldElement::new();
         fe_pow22523(&mut r, &a);
         assert_eq!(r, c);
     });
 }
-
