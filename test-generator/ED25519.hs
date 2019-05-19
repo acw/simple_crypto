@@ -256,18 +256,22 @@ fbvTests = Task {
     taskCount = cTEST_COUNT
   }
  where
-  go (memory0, drg0) = 
+  go (memory0, drg0) =
     do let (abytes, drg1) = withDRG drg0 (getRandomBytes 32)
        useAsCString abytes $ \ aptr ->
          do let aptr' = castPtr aptr :: Ptr PackedBytes
             curve25519_scalar_mask aptr'
             alloca $ \ dest ->
               do clearSpace dest
-                 point_frombytes dest aptr'
+                 ok <- point_frombytes dest aptr'
                  a <- pack `fmap` peekArray 32 (castPtr aptr)
                  c <- pack `fmap` peekArray (4 * 10 * 4) (castPtr dest)
-                 let res = Map.fromList [("a", showBin a), ("c", showBin c)]
-                 return (res, toNumber abytes, (memory0, drg1))
+                 let c' | ok        = c
+                        | otherwise = BS.empty
+                 let res = Map.fromList [("a", showBin a),
+                                         ("b", showBin c'),
+                                         ("c", showBin c)]
+                 return (res, if ok then (toNumber abytes) else 0, (memory0, drg1))
 
 conversionTests :: Task
 conversionTests = Task {
@@ -566,12 +570,18 @@ instance Storable Point3 where
   poke      p (P3 v) = pokeArray (castPtr p) v
 
 randomPoint3 :: SystemRandom -> (Ptr Point3 -> SystemRandom -> IO a) -> IO a
-randomPoint3 drg action =
-  randomPackedBytes drg $ \ aptr drg' ->
-    allocaArray (4 * 10) $ \ dest ->
-      do clearSpace dest
-         point_frombytes dest aptr
-         action (castPtr dest) drg'
+randomPoint3 drg0 action = allocaArray (4 * 10) (go drg0)
+ where
+  go drg dest =
+    do mres <- randomPackedBytes drg $ \ aptr drg' ->
+                 do clearSpace dest
+                    worked <- point_frombytes dest aptr
+                    if worked
+                       then Right `fmap` action (castPtr dest) drg'
+                       else return (Left drg')
+       case mres of
+         Right x -> return x
+         Left drg' -> go drg' dest
 
 data PointCached = PC [Element]
 
@@ -690,7 +700,7 @@ foreign import ccall unsafe "fe_sq2"
 foreign import ccall unsafe "fe_pow22523"
   fe_pow22523 :: Ptr Element -> Ptr Element -> IO ()
 foreign import ccall unsafe "GFp_x25519_ge_frombytes_vartime"
-  point_frombytes :: Ptr Point3 -> Ptr PackedBytes -> IO ()
+  point_frombytes :: Ptr Point3 -> Ptr PackedBytes -> IO Bool
 foreign import ccall unsafe "x25519_ge_p3_to_cached"
   p3_to_cached :: Ptr PointCached -> Ptr Point3 -> IO ()
 foreign import ccall unsafe "x25519_ge_p1p1_to_p2"

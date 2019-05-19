@@ -35,6 +35,65 @@ impl Point {
     }
   }
 
+  /// Convert 32 bytes into an ED25519 point. This routine is not
+  /// statically timed, so don't use it if that's important to you.
+  pub fn from_bytes(s: &[u8]) -> Option<Point>
+  {
+      let mut h = Point::new();
+      let mut u = FieldElement::new();
+      let mut v = FieldElement::new();
+      let mut v3 = FieldElement::new();
+      let mut vxx = FieldElement::new();
+      let mut check = FieldElement::new();
+      let mut temp;
+
+      fe_frombytes(&mut h.y, s);
+      h.z.overwrite_with(&FieldElement::one());
+      fe_square(&mut u, &h.y);
+      fe_mul(&mut v, &u, &D);
+      temp = u.clone();
+      fe_sub(&mut u, &temp, &h.z); /* u = y^2-1 */
+      temp = v.clone();
+      fe_add(&mut v, &temp, &h.z); /* v = dy^2+1 */
+
+      fe_square(&mut v3, &v);
+      temp = v3.clone();
+      fe_mul(&mut v3, &temp, &v); /* v3 = v^3 */
+      fe_square(&mut h.x, &v3);
+      temp = h.x.clone();
+      fe_mul(&mut h.x, &temp, &v);
+      temp = h.x.clone();
+      fe_mul(&mut h.x, &temp, &u); /* x = uv^7 */
+
+      temp = h.x.clone();
+      fe_pow22523(&mut h.x, &temp); /* x = (uv^7)^((q-5)/8) */
+      temp = h.x.clone();
+      fe_mul(&mut h.x, &temp, &v3);
+      temp = h.x.clone();
+      fe_mul(&mut h.x, &temp, &u); /* x = uv^3(uv^7)^((q-5)/8) */
+
+      fe_square(&mut vxx, &h.x);
+      temp = vxx.clone();
+      fe_mul(&mut vxx, &temp, &v);
+      fe_sub(&mut check, &vxx, &u); /* vx^2-u */
+      if fe_isnonzero(&check) {
+        fe_add(&mut check, &vxx, &u); /* vx^2+u */
+        if fe_isnonzero(&check) {
+          return None;
+        }
+        temp = h.x.clone();
+        fe_mul(&mut h.x, &temp, &SQRTM1);
+      }
+
+      if fe_isnegative(&h.x) != ((s[31] >> 7) == 1) {
+        temp = h.x.clone();
+        fe_neg(&mut h.x, &temp);
+      }
+
+      fe_mul(&mut h.t, &h.x, &h.y);
+      return Some(h);
+  }
+
   pub fn encode_to(&self, target: &mut [u8])
   {
     into_encoded_point(target, &self.x, &self.y, &self.z);
@@ -58,75 +117,23 @@ const SQRTM1: FieldElement = FieldElement {
             -272473,   -25146209, -2005654, 326686,  11406482]
 };
 
-pub fn x25519_ge_frombytes_vartime(h: &mut Point, s: &[u8]) -> bool
-{
-  let mut u = FieldElement::new();
-  let mut v = FieldElement::new();
-  let mut v3 = FieldElement::new();
-  let mut vxx = FieldElement::new();
-  let mut check = FieldElement::new();
-  let mut temp;
-
-  fe_frombytes(&mut h.y, s);
-  h.z.overwrite_with(&FieldElement::one());
-  fe_square(&mut u, &h.y);
-  fe_mul(&mut v, &u, &D);
-  temp = u.clone();
-  fe_sub(&mut u, &temp, &h.z); /* u = y^2-1 */
-  temp = v.clone();
-  fe_add(&mut v, &temp, &h.z); /* v = dy^2+1 */
-
-  fe_square(&mut v3, &v);
-  temp = v3.clone();
-  fe_mul(&mut v3, &temp, &v); /* v3 = v^3 */
-  fe_square(&mut h.x, &v3);
-  temp = h.x.clone();
-  fe_mul(&mut h.x, &temp, &v);
-  temp = h.x.clone();
-  fe_mul(&mut h.x, &temp, &u); /* x = uv^7 */
-
-  temp = h.x.clone();
-  fe_pow22523(&mut h.x, &temp); /* x = (uv^7)^((q-5)/8) */
-  temp = h.x.clone();
-  fe_mul(&mut h.x, &temp, &v3);
-  temp = h.x.clone();
-  fe_mul(&mut h.x, &temp, &u); /* x = uv^3(uv^7)^((q-5)/8) */
-
-  fe_square(&mut vxx, &h.x);
-  temp = vxx.clone();
-  fe_mul(&mut vxx, &temp, &v);
-  fe_sub(&mut check, &vxx, &u); /* vx^2-u */
-  if fe_isnonzero(&check) {
-    fe_add(&mut check, &vxx, &u); /* vx^2+u */
-    if fe_isnonzero(&check) {
-      return false;
-    }
-    temp = h.x.clone();
-    fe_mul(&mut h.x, &temp, &SQRTM1);
-  }
-
-  if fe_isnegative(&h.x) != ((s[31] >> 7) == 1) {
-    temp = h.x.clone();
-    fe_neg(&mut h.x, &temp);
-  }
-
-  fe_mul(&mut h.t, &h.x, &h.y);
-  return true;
-}
-
 #[cfg(test)]
 #[test]
 fn from_bytes_vartime() {
     let fname = "testdata/ed25519/fbv.test";
-    run_test(fname.to_string(), 2, |case| {
+    run_test(fname.to_string(), 3, |case| {
         let (nega, abytes) = case.get("a").unwrap();
+        let (negb, bbytes) = case.get("b").unwrap();
         let (negc, cbytes) = case.get("c").unwrap();
 
-        assert!(!nega && !negc);
+        assert!(!nega && !negb && !negc);
         let target = Point::load_test_value(&cbytes);
-        let mut mine = Point::new();
-        x25519_ge_frombytes_vartime(&mut mine, &abytes);
-        assert_eq!(target, mine);
+        let mine = Point::from_bytes(&abytes);
+        if bbytes.len() < cbytes.len() {
+            assert!(mine.is_none());
+        } else {
+            assert_eq!(target, mine.unwrap());
+        }
     });
 }
 
@@ -1789,49 +1796,49 @@ pub fn curve25519_scalar_mask(a: &mut [u8])
 //  fe_mul(&mut x2, &tmp2, &z2);
 //  fe_tobytes(out, &x2);
 //}
-
-pub fn x25519_public_from_private(public: &mut [u8], private: &[u8])
-{
-  assert_eq!(private.len(), 32);
-  assert_eq!(public.len(), 32);
-
-  let mut e = [0; 32];
-  e.copy_from_slice(private);
-  curve25519_scalar_mask(&mut e);
-
-  #[allow(non_snake_case)]
-  let mut A = Point::new();
-  x25519_ge_scalarmult_base(&mut A, &e);
-
-  /* We only need the u-coordinate of the curve25519 point. The map is
-   * u=(y+1)/(1-y). Since y=Y/Z, this gives u=(Z+Y)/(Z-Y). */
-  let mut zplusy = FieldElement::new();
-  let mut zminusy = FieldElement::new();
-  fe_add(&mut zplusy,  &A.z, &A.y);
-  fe_sub(&mut zminusy, &A.z, &A.y);
-  let zminusy_inv = fe_invert(&zminusy);
-  let copy = zplusy.clone();
-  fe_mul(&mut zplusy, &copy, &zminusy_inv);
-  fe_tobytes(public, &zplusy);
-}
-
-#[cfg(test)]
-#[test]
-fn public_from_private() {
-    let fname = "testdata/ed25519/pubfrompriv.test";
-    run_test(fname.to_string(), 2, |case| {
-        let (nega, abytes) = case.get("a").unwrap();
-        let (negb, bbytes) = case.get("b").unwrap();
-
-        assert!(!nega && !negb);
-        let mut mine = [0; 32];
-        x25519_public_from_private(&mut mine, abytes);
-        for i in 0..32 {
-          assert_eq!(mine[i], bbytes[i]);
-        }
-    });
-}
-
+//
+//pub fn x25519_public_from_private(public: &mut [u8], private: &[u8])
+//{
+//  assert_eq!(private.len(), 32);
+//  assert_eq!(public.len(), 32);
+//
+//  let mut e = [0; 32];
+//  e.copy_from_slice(private);
+//  curve25519_scalar_mask(&mut e);
+//
+//  #[allow(non_snake_case)]
+//  let mut A = Point::new();
+//  x25519_ge_scalarmult_base(&mut A, &e);
+//
+//  /* We only need the u-coordinate of the curve25519 point. The map is
+//   * u=(y+1)/(1-y). Since y=Y/Z, this gives u=(Z+Y)/(Z-Y). */
+//  let mut zplusy = FieldElement::new();
+//  let mut zminusy = FieldElement::new();
+//  fe_add(&mut zplusy,  &A.z, &A.y);
+//  fe_sub(&mut zminusy, &A.z, &A.y);
+//  let zminusy_inv = fe_invert(&zminusy);
+//  let copy = zplusy.clone();
+//  fe_mul(&mut zplusy, &copy, &zminusy_inv);
+//  fe_tobytes(public, &zplusy);
+//}
+//
+//#[cfg(test)]
+//#[test]
+//fn public_from_private() {
+//    let fname = "testdata/ed25519/pubfrompriv.test";
+//    run_test(fname.to_string(), 2, |case| {
+//        let (nega, abytes) = case.get("a").unwrap();
+//        let (negb, bbytes) = case.get("b").unwrap();
+//
+//        assert!(!nega && !negb);
+//        let mut mine = [0; 32];
+//        x25519_public_from_private(&mut mine, abytes);
+//        for i in 0..32 {
+//          assert_eq!(mine[i], bbytes[i]);
+//        }
+//    });
+//}
+//
 fn into_encoded_point(bytes: &mut [u8], x: &FieldElement, y: &FieldElement, z: &FieldElement)
 {
     let mut x_over_z = FieldElement::new();

@@ -5,7 +5,6 @@ mod point;
 use digest::Digest;
 use rand::Rng;
 use sha2::Sha512;
-use self::fe::*;
 use self::point::*;
 #[cfg(test)]
 use testing::run_test;
@@ -134,8 +133,7 @@ impl ED25519Public {
             return false;
         }
 
-        let mut a = Point::new();
-        x25519_ge_frombytes_vartime(&mut a, &self.public);
+        let mut a = Point::from_bytes(&self.public).unwrap(); // FIXME!!
         a.invert();
         let h_digest = eddsa_digest(signature_r, &self.public, msg);
         let h = digest_scalar(&h_digest);
