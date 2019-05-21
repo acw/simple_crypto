@@ -45,6 +45,37 @@ impl FieldElement
     {
         self.value.copy_from_slice(&other.value);
     }
+
+    pub fn from_bytes(s: &[u8]) -> FieldElement
+    {
+        /* Ignores top bit of h. */
+        let mut h0 = load4(s) as i64;
+        let mut h1 = (load3(&s[4..]) << 6) as i64;
+        let mut h2 = (load3(&s[7..]) << 5) as i64;
+        let mut h3 = (load3(&s[10..]) << 3) as i64;
+        let mut h4 = (load3(&s[13..]) << 2) as i64;
+        let mut h5 = load4(&s[16..]) as i64;
+        let mut h6 = (load3(&s[20..]) << 7) as i64;
+        let mut h7 = (load3(&s[23..]) << 5) as i64;
+        let mut h8 = (load3(&s[26..]) << 4) as i64;
+        let mut h9 = ((load3(&s[29..]) & 8388607) << 2) as i64;
+
+        let carry9 = h9 + (1 << 24); h0 += (carry9 >> 25) * 19; h9 -= carry9 & KTOP_39BITS;
+        let carry1 = h1 + (1 << 24); h2 += carry1 >> 25; h1 -= carry1 & KTOP_39BITS;
+        let carry3 = h3 + (1 << 24); h4 += carry3 >> 25; h3 -= carry3 & KTOP_39BITS;
+        let carry5 = h5 + (1 << 24); h6 += carry5 >> 25; h5 -= carry5 & KTOP_39BITS;
+        let carry7 = h7 + (1 << 24); h8 += carry7 >> 25; h7 -= carry7 & KTOP_39BITS;
+
+        let carry0 = h0 + (1 << 25); h1 += carry0 >> 26; h0 -= carry0 & KTOP_38BITS;
+        let carry2 = h2 + (1 << 25); h3 += carry2 >> 26; h2 -= carry2 & KTOP_38BITS;
+        let carry4 = h4 + (1 << 25); h5 += carry4 >> 26; h4 -= carry4 & KTOP_38BITS;
+        let carry6 = h6 + (1 << 25); h7 += carry6 >> 26; h6 -= carry6 & KTOP_38BITS;
+        let carry8 = h8 + (1 << 25); h9 += carry8 >> 26; h8 -= carry8 & KTOP_38BITS;
+
+        FieldElement{ value: [h0 as i32, h1 as i32, h2 as i32, h3 as i32,
+                              h4 as i32, h5 as i32, h6 as i32, h7 as i32,
+                              h8 as i32, h9 as i32] }
+    }
 }
 
 pub const KBOTTOM_25BITS : i64 = 0x1ffffffi64;
@@ -78,44 +109,6 @@ fn loads() {
         assert_eq!(res3, load3(&xbytes), "load3");
         assert_eq!(res4, load4(&xbytes), "load4");
     });
-}
-
-pub fn fe_frombytes(h: &mut FieldElement, s: &[u8])
-{
-  /* Ignores top bit of h. */
-  let mut h0 = load4(s) as i64;
-  let mut h1 = (load3(&s[4..]) << 6) as i64;
-  let mut h2 = (load3(&s[7..]) << 5) as i64;
-  let mut h3 = (load3(&s[10..]) << 3) as i64;
-  let mut h4 = (load3(&s[13..]) << 2) as i64;
-  let mut h5 = load4(&s[16..]) as i64;
-  let mut h6 = (load3(&s[20..]) << 7) as i64;
-  let mut h7 = (load3(&s[23..]) << 5) as i64;
-  let mut h8 = (load3(&s[26..]) << 4) as i64;
-  let mut h9 = ((load3(&s[29..]) & 8388607) << 2) as i64;
-
-  let carry9 = h9 + (1 << 24); h0 += (carry9 >> 25) * 19; h9 -= carry9 & KTOP_39BITS;
-  let carry1 = h1 + (1 << 24); h2 += carry1 >> 25; h1 -= carry1 & KTOP_39BITS;
-  let carry3 = h3 + (1 << 24); h4 += carry3 >> 25; h3 -= carry3 & KTOP_39BITS;
-  let carry5 = h5 + (1 << 24); h6 += carry5 >> 25; h5 -= carry5 & KTOP_39BITS;
-  let carry7 = h7 + (1 << 24); h8 += carry7 >> 25; h7 -= carry7 & KTOP_39BITS;
-
-  let carry0 = h0 + (1 << 25); h1 += carry0 >> 26; h0 -= carry0 & KTOP_38BITS;
-  let carry2 = h2 + (1 << 25); h3 += carry2 >> 26; h2 -= carry2 & KTOP_38BITS;
-  let carry4 = h4 + (1 << 25); h5 += carry4 >> 26; h4 -= carry4 & KTOP_38BITS;
-  let carry6 = h6 + (1 << 25); h7 += carry6 >> 26; h6 -= carry6 & KTOP_38BITS;
-  let carry8 = h8 + (1 << 25); h9 += carry8 >> 26; h8 -= carry8 & KTOP_38BITS;
-
-  h.value[0] = h0 as i32;
-  h.value[1] = h1 as i32;
-  h.value[2] = h2 as i32;
-  h.value[3] = h3 as i32;
-  h.value[4] = h4 as i32;
-  h.value[5] = h5 as i32;
-  h.value[6] = h6 as i32;
-  h.value[7] = h7 as i32;
-  h.value[8] = h8 as i32;
-  h.value[9] = h9 as i32;
 }
 
 pub fn fe_tobytes(s: &mut [u8], h: &FieldElement)
@@ -206,9 +199,8 @@ fn from_to_bytes() {
         let (negb, bbytes) = case.get("b").unwrap();
 
         assert!(!nega && !negb);
-        let mut e      = FieldElement::new();
+        let     e      = FieldElement::from_bytes(abytes);
         let mut target = FieldElement::new();
-        fe_frombytes(&mut e, abytes);
         let mut cursor = Cursor::new(bbytes);
         cursor.read_i32_into::<NativeEndian>(&mut target.value).unwrap();
         assert_eq!(e, target, "from bytes");
@@ -231,9 +223,9 @@ impl Arbitrary for ValidFieldElement {
         let mut bytes = [0; 32];
         g.fill_bytes(&mut bytes);
         curve25519_scalar_mask(&mut bytes);
-        let mut res = ValidFieldElement{ values: FieldElement::new() };
-        fe_frombytes(&mut res.values, &bytes);
-        res
+        ValidFieldElement{
+            values: FieldElement::from_bytes(&bytes)
+        }
     }
 }
 
@@ -253,8 +245,7 @@ quickcheck! {
     fn from_to_bytes_roundtrip(e: ValidFieldElement) -> bool {
         let mut bytes = [0; 32];
         fe_tobytes(&mut bytes, &e.values);
-        let mut trans = FieldElement::new();
-        fe_frombytes(&mut trans, &bytes);
+        let trans = FieldElement::from_bytes(&bytes);
         trans == e.values
     }
 }

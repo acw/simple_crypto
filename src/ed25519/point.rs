@@ -39,7 +39,6 @@ impl Point {
   /// statically timed, so don't use it if that's important to you.
   pub fn from_bytes(s: &[u8]) -> Option<Point>
   {
-      let mut h = Point::new();
       let mut u = FieldElement::new();
       let mut v = FieldElement::new();
       let mut v3 = FieldElement::new();
@@ -47,32 +46,33 @@ impl Point {
       let mut check = FieldElement::new();
       let mut temp;
 
-      fe_frombytes(&mut h.y, s);
-      h.z.overwrite_with(&FieldElement::one());
-      fe_square(&mut u, &h.y);
+      let hy = FieldElement::from_bytes(s);
+      let hz = FieldElement::one();
+      fe_square(&mut u, &hy);
       fe_mul(&mut v, &u, &D);
       temp = u.clone();
-      fe_sub(&mut u, &temp, &h.z); /* u = y^2-1 */
+      fe_sub(&mut u, &temp, &hz); /* u = y^2-1 */
       temp = v.clone();
-      fe_add(&mut v, &temp, &h.z); /* v = dy^2+1 */
+      fe_add(&mut v, &temp, &hz); /* v = dy^2+1 */
 
       fe_square(&mut v3, &v);
       temp = v3.clone();
       fe_mul(&mut v3, &temp, &v); /* v3 = v^3 */
-      fe_square(&mut h.x, &v3);
-      temp = h.x.clone();
-      fe_mul(&mut h.x, &temp, &v);
-      temp = h.x.clone();
-      fe_mul(&mut h.x, &temp, &u); /* x = uv^7 */
+      let mut hx = FieldElement::zero();
+      fe_square(&mut hx, &v3);
+      temp = hx.clone();
+      fe_mul(&mut hx, &temp, &v);
+      temp = hx.clone();
+      fe_mul(&mut hx, &temp, &u); /* x = uv^7 */
 
-      temp = h.x.clone();
-      fe_pow22523(&mut h.x, &temp); /* x = (uv^7)^((q-5)/8) */
-      temp = h.x.clone();
-      fe_mul(&mut h.x, &temp, &v3);
-      temp = h.x.clone();
-      fe_mul(&mut h.x, &temp, &u); /* x = uv^3(uv^7)^((q-5)/8) */
+      temp = hx.clone();
+      fe_pow22523(&mut hx, &temp); /* x = (uv^7)^((q-5)/8) */
+      temp = hx.clone();
+      fe_mul(&mut hx, &temp, &v3);
+      temp = hx.clone();
+      fe_mul(&mut hx, &temp, &u); /* x = uv^3(uv^7)^((q-5)/8) */
 
-      fe_square(&mut vxx, &h.x);
+      fe_square(&mut vxx, &hx);
       temp = vxx.clone();
       fe_mul(&mut vxx, &temp, &v);
       fe_sub(&mut check, &vxx, &u); /* vx^2-u */
@@ -81,17 +81,18 @@ impl Point {
         if fe_isnonzero(&check) {
           return None;
         }
-        temp = h.x.clone();
-        fe_mul(&mut h.x, &temp, &SQRTM1);
+        temp = hx.clone();
+        fe_mul(&mut hx, &temp, &SQRTM1);
       }
 
-      if fe_isnegative(&h.x) != ((s[31] >> 7) == 1) {
-        temp = h.x.clone();
-        fe_neg(&mut h.x, &temp);
+      if fe_isnegative(&hx) != ((s[31] >> 7) == 1) {
+        temp = hx.clone();
+        fe_neg(&mut hx, &temp);
       }
 
-      fe_mul(&mut h.t, &h.x, &h.y);
-      return Some(h);
+      let mut ht = FieldElement::zero();
+      fe_mul(&mut ht, &hx, &hy);
+      return Some(Point{ x: hx, y: hy, z: hz, t: ht });
   }
 
   pub fn encode_to(&self, target: &mut [u8])
