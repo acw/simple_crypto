@@ -95,9 +95,9 @@ impl Point {
       return Some(Point{ x: hx, y: hy, z: hz, t: ht });
   }
 
-  pub fn encode_to(&self, target: &mut [u8])
+  pub fn encode(&self) -> Vec<u8>
   {
-    into_encoded_point(target, &self.x, &self.y, &self.z);
+    into_encoded_point(&self.x, &self.y, &self.z)
   }
 
   pub fn invert(&mut self)
@@ -173,9 +173,9 @@ impl Point2 {
     }
   }
 
-  pub fn encode_to(&self, target: &mut [u8])
+  pub fn encode(&self) -> Vec<u8>
   {
-    into_encoded_point(target, &self.x, &self.y, &self.z);
+    into_encoded_point(&self.x, &self.y, &self.z)
   }
 }
 
@@ -1840,19 +1840,18 @@ pub fn curve25519_scalar_mask(a: &mut [u8])
 //    });
 //}
 //
-fn into_encoded_point(bytes: &mut [u8], x: &FieldElement, y: &FieldElement, z: &FieldElement)
+fn into_encoded_point(x: &FieldElement, y: &FieldElement, z: &FieldElement) -> Vec<u8>
 {
     let mut x_over_z = FieldElement::new();
     let mut y_over_z = FieldElement::new();
-    assert!(bytes.len() >= 32);
 
     let recip = fe_invert(z);
     fe_mul(&mut x_over_z, x, &recip);
     fe_mul(&mut y_over_z, y, &recip);
-    fe_tobytes(bytes, &y_over_z);
+    let mut bytes = y_over_z.to_bytes();
     let sign_bit = if fe_isnegative(&x_over_z) { 1 } else { 0 };
-
     // The preceding computations must execute in constant time, but this
     // doesn't need to.
     bytes[31] ^= sign_bit << 7;
+    bytes
 }

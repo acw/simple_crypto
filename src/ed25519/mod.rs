@@ -75,13 +75,12 @@ impl ED25519Private {
         curve25519_scalar_mask(&mut result.private);
         let mut a = Point::new();
         x25519_ge_scalarmult_base(&mut a, &result.private);
-        a.encode_to(&mut result.public);
+        result.public.copy_from_slice(&a.encode());
         result
     }
 
     pub fn sign(&self, msg: &[u8]) -> Vec<u8>
     {
-        let mut signature_r = [0u8; 32];
         let mut signature_s = [0u8; 32];
 
         let mut ctx = Sha512::new();
@@ -95,7 +94,7 @@ impl ED25519Private {
         println!("ME:r.y: {:?}", r.y);
         println!("ME:r.z: {:?}", r.z);
         println!("ME:r.t: {:?}", r.t);
-        r.encode_to(&mut signature_r);
+        let signature_r = r.encode();
         println!("ME:signature_r: {:?}", signature_r);
         let hram_digest = eddsa_digest(&signature_r, &self.public, &msg);
         let hram = digest_scalar(&hram_digest);
@@ -139,9 +138,8 @@ impl ED25519Public {
         let h = digest_scalar(&h_digest);
         let mut r = Point2::new();
         ge_double_scalarmult_vartime(&mut r, &h, &a, &signature_s);
-        let mut r_check = [0; 32];
-        r.encode_to(&mut r_check);
-        signature_r == r_check
+        let r_check = r.encode();
+        signature_r.to_vec() == r_check
     }
 }
 

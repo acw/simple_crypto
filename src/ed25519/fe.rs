@@ -76,6 +76,85 @@ impl FieldElement
                               h4 as i32, h5 as i32, h6 as i32, h7 as i32,
                               h8 as i32, h9 as i32] }
     }
+
+    pub fn to_bytes(&self) -> Vec<u8>
+    {
+        let mut h0 = self.value[0];
+        let mut h1 = self.value[1];
+        let mut h2 = self.value[2];
+        let mut h3 = self.value[3];
+        let mut h4 = self.value[4];
+        let mut h5 = self.value[5];
+        let mut h6 = self.value[6];
+        let mut h7 = self.value[7];
+        let mut h8 = self.value[8];
+        let mut h9 = self.value[9];
+
+        let mut q = (19 * h9 + ((1i32) << 24)) >> 25;
+        q = (h0 + q) >> 26;
+        q = (h1 + q) >> 25;
+        q = (h2 + q) >> 26;
+        q = (h3 + q) >> 25;
+        q = (h4 + q) >> 26;
+        q = (h5 + q) >> 25;
+        q = (h6 + q) >> 26;
+        q = (h7 + q) >> 25;
+        q = (h8 + q) >> 26;
+        q = (h9 + q) >> 25;
+
+        /* Goal: Output h-(2^255-19)q, which is between 0 and 2^255-20. */
+        h0 += 19 * q;
+        /* Goal: Output h-2^255 q, which is between 0 and 2^255-20. */
+        h1 += h0 >> 26; h0 &= KBOTTOM_26BITS as i32;
+        h2 += h1 >> 25; h1 &= KBOTTOM_25BITS as i32;
+        h3 += h2 >> 26; h2 &= KBOTTOM_26BITS as i32;
+        h4 += h3 >> 25; h3 &= KBOTTOM_25BITS as i32;
+        h5 += h4 >> 26; h4 &= KBOTTOM_26BITS as i32;
+        h6 += h5 >> 25; h5 &= KBOTTOM_25BITS as i32;
+        h7 += h6 >> 26; h6 &= KBOTTOM_26BITS as i32;
+        h8 += h7 >> 25; h7 &= KBOTTOM_25BITS as i32;
+        h9 += h8 >> 26; h8 &= KBOTTOM_26BITS as i32;
+                        h9 &= KBOTTOM_25BITS as i32;
+                        /* h10 = carry9 */
+
+        /* Goal: Output h0+...+2^255 h10-2^255 q, which is between 0 and 2^255-20.
+         * Have h0+...+2^230 h9 between 0 and 2^255-1;
+         * evidently 2^255 h10-2^255 q = 0.
+         * Goal: Output h0+...+2^230 h9.  */
+        vec![ (h0 >> 0) as u8,
+              (h0 >> 8) as u8,
+              (h0 >> 16) as u8,
+              ((h0 >> 24) | (((h1 as u32) << 2) as i32)) as u8,
+              (h1 >> 6) as u8,
+              (h1 >> 14) as u8,
+              ((h1 >> 22) | (((h2 as u32) << 3) as i32)) as u8,
+              (h2 >> 5) as u8,
+              (h2 >> 13) as u8,
+              ((h2 >> 21) | (((h3 as u32) << 5) as i32)) as u8,
+              (h3 >> 3) as u8,
+              (h3 >> 11) as u8,
+              ((h3 >> 19) | (((h4 as u32) << 6) as i32)) as u8,
+              (h4 >> 2) as u8,
+              (h4 >> 10) as u8,
+              (h4 >> 18) as u8,
+              (h5 >> 0) as u8,
+              (h5 >> 8) as u8,
+              (h5 >> 16) as u8,
+              ((h5 >> 24) | (((h6 as u32) << 1) as i32)) as u8,
+              (h6 >> 7) as u8,
+              (h6 >> 15) as u8,
+              ((h6 >> 23) | (((h7 as u32) << 3) as i32)) as u8,
+              (h7 >> 5) as u8,
+              (h7 >> 13) as u8,
+              ((h7 >> 21) | (((h8 as u32) << 4) as i32)) as u8,
+              (h8 >> 4) as u8,
+              (h8 >> 12) as u8,
+              ((h8 >> 20) | (((h9 as u32) << 6) as i32)) as u8,
+              (h9 >> 2) as u8,
+              (h9 >> 10) as u8,
+              (h9 >> 18) as u8
+            ]
+    }
 }
 
 pub const KBOTTOM_25BITS : i64 = 0x1ffffffi64;
@@ -111,85 +190,6 @@ fn loads() {
     });
 }
 
-pub fn fe_tobytes(s: &mut [u8], h: &FieldElement)
-{
-    assert!(s.len() >= 32);
-    let mut h0 = h.value[0];
-    let mut h1 = h.value[1];
-    let mut h2 = h.value[2];
-    let mut h3 = h.value[3];
-    let mut h4 = h.value[4];
-    let mut h5 = h.value[5];
-    let mut h6 = h.value[6];
-    let mut h7 = h.value[7];
-    let mut h8 = h.value[8];
-    let mut h9 = h.value[9];
-
-    let mut q = (19 * h9 + ((1i32) << 24)) >> 25;
-    q = (h0 + q) >> 26;
-    q = (h1 + q) >> 25;
-    q = (h2 + q) >> 26;
-    q = (h3 + q) >> 25;
-    q = (h4 + q) >> 26;
-    q = (h5 + q) >> 25;
-    q = (h6 + q) >> 26;
-    q = (h7 + q) >> 25;
-    q = (h8 + q) >> 26;
-    q = (h9 + q) >> 25;
-
-    /* Goal: Output h-(2^255-19)q, which is between 0 and 2^255-20. */
-    h0 += 19 * q;
-    /* Goal: Output h-2^255 q, which is between 0 and 2^255-20. */
-    h1 += h0 >> 26; h0 &= KBOTTOM_26BITS as i32;
-    h2 += h1 >> 25; h1 &= KBOTTOM_25BITS as i32;
-    h3 += h2 >> 26; h2 &= KBOTTOM_26BITS as i32;
-    h4 += h3 >> 25; h3 &= KBOTTOM_25BITS as i32;
-    h5 += h4 >> 26; h4 &= KBOTTOM_26BITS as i32;
-    h6 += h5 >> 25; h5 &= KBOTTOM_25BITS as i32;
-    h7 += h6 >> 26; h6 &= KBOTTOM_26BITS as i32;
-    h8 += h7 >> 25; h7 &= KBOTTOM_25BITS as i32;
-    h9 += h8 >> 26; h8 &= KBOTTOM_26BITS as i32;
-                    h9 &= KBOTTOM_25BITS as i32;
-                    /* h10 = carry9 */
-
-    /* Goal: Output h0+...+2^255 h10-2^255 q, which is between 0 and 2^255-20.
-     * Have h0+...+2^230 h9 between 0 and 2^255-1;
-     * evidently 2^255 h10-2^255 q = 0.
-     * Goal: Output h0+...+2^230 h9.  */
-    s[0] = (h0 >> 0) as u8;
-    s[1] = (h0 >> 8) as u8;
-    s[2] = (h0 >> 16) as u8;
-    s[3] = ((h0 >> 24) | (((h1 as u32) << 2) as i32)) as u8;
-    s[4] = (h1 >> 6) as u8;
-    s[5] = (h1 >> 14) as u8;
-    s[6] = ((h1 >> 22) | (((h2 as u32) << 3) as i32)) as u8;
-    s[7] = (h2 >> 5) as u8;
-    s[8] = (h2 >> 13) as u8;
-    s[9] = ((h2 >> 21) | (((h3 as u32) << 5) as i32)) as u8;
-    s[10] = (h3 >> 3) as u8;
-    s[11] = (h3 >> 11) as u8;
-    s[12] = ((h3 >> 19) | (((h4 as u32) << 6) as i32)) as u8;
-    s[13] = (h4 >> 2) as u8;
-    s[14] = (h4 >> 10) as u8;
-    s[15] = (h4 >> 18) as u8;
-    s[16] = (h5 >> 0) as u8;
-    s[17] = (h5 >> 8) as u8;
-    s[18] = (h5 >> 16) as u8;
-    s[19] = ((h5 >> 24) | (((h6 as u32) << 1) as i32)) as u8;
-    s[20] = (h6 >> 7) as u8;
-    s[21] = (h6 >> 15) as u8;
-    s[22] = ((h6 >> 23) | (((h7 as u32) << 3) as i32)) as u8;
-    s[23] = (h7 >> 5) as u8;
-    s[24] = (h7 >> 13) as u8;
-    s[25] = ((h7 >> 21) | (((h8 as u32) << 4) as i32)) as u8;
-    s[26] = (h8 >> 4) as u8;
-    s[27] = (h8 >> 12) as u8;
-    s[28] = ((h8 >> 20) | (((h9 as u32) << 6) as i32)) as u8;
-    s[29] = (h9 >> 2) as u8;
-    s[30] = (h9 >> 10) as u8;
-    s[31] = (h9 >> 18) as u8;
-}
-
 #[cfg(test)]
 #[test]
 fn from_to_bytes() {
@@ -204,9 +204,8 @@ fn from_to_bytes() {
         let mut cursor = Cursor::new(bbytes);
         cursor.read_i32_into::<NativeEndian>(&mut target.value).unwrap();
         assert_eq!(e, target, "from bytes");
-        let mut bytes  = [0; 32];
-        fe_tobytes(&mut bytes, &e);
-        assert_eq!(&bytes.to_vec(), abytes, "to bytes");
+        let bytes = e.to_bytes();
+        assert_eq!(&bytes, abytes, "to bytes");
     });
 }
 
@@ -243,8 +242,7 @@ quickcheck! {
     // this is somewhat self referential, given the definition of arbitrary,
     // but more testing is more good
     fn from_to_bytes_roundtrip(e: ValidFieldElement) -> bool {
-        let mut bytes = [0; 32];
-        fe_tobytes(&mut bytes, &e.values);
+        let bytes = e.values.to_bytes();
         let trans = FieldElement::from_bytes(&bytes);
         trans == e.values
     }
@@ -822,9 +820,8 @@ fn cmov() {
 
 pub fn fe_isnonzero(f: &FieldElement) -> bool
 {
-    let mut s = [0; 32];
+    let s = f.to_bytes();
     let mut res = false;
-    fe_tobytes(&mut s, &f);
     for i in 0..32 {
         res |= s[i] != 0;
     }
@@ -833,8 +830,7 @@ pub fn fe_isnonzero(f: &FieldElement) -> bool
 
 pub fn fe_isnegative(f: &FieldElement) -> bool
 {
-    let mut s = [0; 32];
-    fe_tobytes(&mut s, &f);
+    let s = f.to_bytes();
     s[0] & 1 == 1
 }
 
