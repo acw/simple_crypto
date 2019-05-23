@@ -1,5 +1,6 @@
 mod dsa;
 mod ecdsa;
+mod ed25519;
 mod errors;
 mod frame;
 mod rsa;
@@ -156,6 +157,8 @@ pub fn write_ssh_keyfile<KP,P>(path: P, x: &KP, comment: &str) -> Result<(),SSHK
 use dsa::{DSAKeyPair,DSAPublicKey,L1024N160};
 #[cfg(test)]
 use ecdsa::ECDSAPair;
+#[cfg(test)]
+use ed25519::ED25519KeyPair;
 #[cfg(test)]
 use rsa::{RSAPair,RSAPublic,SIGNING_HASH_SHA256};
 #[cfg(test)]
@@ -321,6 +324,42 @@ fn ecdsa_examples() {
                            }
                            _ =>
                              assert!(false, "Failed to accurately re-parse key")
+                       } 
+                    }
+                }
+            }
+        }
+    }
+}
+ 
+#[cfg(test)]
+#[test]
+fn ed25519_examples() {
+    let test_files = ["ed25519-1", "ed25519-2", "ed25519-3"];
+
+    for file in test_files.iter() {
+        let path = format!("testdata/ssh/{}",file);
+        match load_ssh_keyfile::<ED25519KeyPair,String>(path) {
+            Err(e) =>
+                assert!(false, "SSH ED25519 parse error: {:?}", e),
+            Ok((keypair,comment)) => {
+                // first see if this roundtrips
+                let buffer = vec![0,1,2,4,5,6,9];
+                let sig = keypair.private.sign(&buffer);
+                assert!(keypair.public.verify(&buffer, &sig));
+                match encode_ssh(&keypair, &comment) {
+                    Err(e) =>
+                        assert!(false, "SSH ED25519 encoding error: {:?}", e),
+                    Ok(coded) => {
+                       match decode_ssh(&coded) {
+                           Err(e) =>
+                             assert!(false, "SSSH ECDSA redecoding error: {:?}", e),
+                           Ok((keypair2, comment2)) => {
+                               let _ : ED25519KeyPair = keypair2;
+                               assert_eq!(keypair.public, keypair2.public, "public key mismatch");
+                               assert_eq!(keypair.private, keypair2.private, "public key mismatch");
+                               assert_eq!(comment, comment2, "comment mismatch");
+                           }
                        } 
                     }
                 }
