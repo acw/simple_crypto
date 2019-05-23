@@ -11,6 +11,8 @@ use std::io::Cursor;
 #[cfg(test)]
 use testing::run_test;
 
+use std::ops::*;
+
 // This is all an extremely straightforward translation of the usual C
 // implementation, as linked in ring and other libraries.
 
@@ -248,17 +250,47 @@ quickcheck! {
     }
 }
 
-pub fn fe_add(h: &mut FieldElement, f: &FieldElement, g: &FieldElement)
+impl<'a> AddAssign<&'a FieldElement> for FieldElement
 {
-    for i in 0..10 {
-        h.value[i] = f.value[i] + g.value[i]
+    fn add_assign(&mut self, v: &FieldElement)
+    {
+        for i in 0..10 {
+            self.value[i] = v.value[i] + self.value[i];
+        }
     }
 }
 
-pub fn fe_sub(h: &mut FieldElement, f: &FieldElement, g: &FieldElement)
+impl<'a,'b> Add<&'a FieldElement> for &'b FieldElement
 {
-    for i in 0..10 {
-        h.value[i] = f.value[i] - g.value[i]
+    type Output = FieldElement;
+
+    fn add(self, g: &FieldElement) -> FieldElement
+    {
+        let mut res = self.clone();
+        res += g;
+        res
+    }
+}
+
+impl<'a> SubAssign<&'a FieldElement> for FieldElement
+{
+    fn sub_assign(&mut self, v: &FieldElement)
+    {
+        for i in 0..10 {
+            self.value[i] = self.value[i] - v.value[i];
+        }
+    }
+}
+
+impl<'a,'b> Sub<&'a FieldElement> for &'b FieldElement
+{
+    type Output = FieldElement;
+
+    fn sub(self, g: &FieldElement) -> FieldElement
+    {
+        let mut res = self.clone();
+        res -= g;
+        res
     }
 }
 
@@ -273,14 +305,12 @@ fn addsub() {
         let (negd, dbytes) = case.get("d").unwrap();
 
         assert!(!nega && !negb && !negc && !negd);
-        let     a = test_from_bytes(&abytes);
-        let     b = test_from_bytes(&bbytes);
-        let     c = test_from_bytes(&cbytes);
-        let     d = test_from_bytes(&dbytes);
-        let mut r = FieldElement::new();
-        let mut s = FieldElement::new();
-        fe_add(&mut r, &a, &b);
-        fe_sub(&mut s, &a, &b);
+        let a = test_from_bytes(&abytes);
+        let b = test_from_bytes(&bbytes);
+        let c = test_from_bytes(&cbytes);
+        let d = test_from_bytes(&dbytes);
+        let r = &a + &b;
+        let s = &a - &b;
         assert_eq!(r, c, "field addition");
         assert_eq!(s, d, "field subtraction");
     });

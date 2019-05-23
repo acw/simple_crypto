@@ -43,7 +43,6 @@ impl Point {
       let mut v = FieldElement::new();
       let mut v3 = FieldElement::new();
       let mut vxx = FieldElement::new();
-      let mut check = FieldElement::new();
       let mut temp;
 
       let hy = FieldElement::from_bytes(s);
@@ -51,9 +50,8 @@ impl Point {
       fe_square(&mut u, &hy);
       fe_mul(&mut v, &u, &D);
       temp = u.clone();
-      fe_sub(&mut u, &temp, &hz); /* u = y^2-1 */
-      temp = v.clone();
-      fe_add(&mut v, &temp, &hz); /* v = dy^2+1 */
+      u = &temp - &hz; /* u = y^2-1 */
+      v += &hz;
 
       fe_square(&mut v3, &v);
       temp = v3.clone();
@@ -75,9 +73,9 @@ impl Point {
       fe_square(&mut vxx, &hx);
       temp = vxx.clone();
       fe_mul(&mut vxx, &temp, &v);
-      fe_sub(&mut check, &vxx, &u); /* vx^2-u */
+      let mut check = &vxx - &u; /* vx^2-u */
       if fe_isnonzero(&check) {
-        fe_add(&mut check, &vxx, &u); /* vx^2+u */
+        check = &vxx + &u;
         if fe_isnonzero(&check) {
           return None;
         }
@@ -263,8 +261,8 @@ const D2: FieldElement = FieldElement {
 
 fn x25519_ge_p3_to_cached(r: &mut Cached, p: &Point)
 {
-  fe_add(&mut r.yplusx, &p.y, &p.x);
-  fe_sub(&mut r.yminusx, &p.y, &p.x);
+  r.yplusx = &p.y + &p.x;
+  r.yminusx = &p.y - &p.x;
   r.z.overwrite_with(&p.z);
   fe_mul(&mut r.t2d, &p.t, &D2);
 }
@@ -337,14 +335,12 @@ fn ge_p2_dbl(r: &mut PointP1P1, p: &Point2)
   fe_square(&mut r.x, &p.x);
   fe_square(&mut r.z, &p.y);
   fe_sq2(&mut r.t, &p.z);
-  fe_add(&mut r.y, &p.x, &p.y);
+  r.y = &p.x + &p.y;
   fe_square(&mut t0, &r.y);
-  fe_add(&mut r.y, &r.z, &r.x);
-  let mut temp = r.z.clone();
-  fe_sub(&mut r.z, &temp, &r.x);
-  fe_sub(&mut r.x, &t0,  &r.y);
-  temp = r.t.clone();
-  fe_sub(&mut r.t, &temp, &r.z);
+  r.y = &r.z + &r.x;
+  r.z -= &r.x;
+  r.x = &t0 - &r.y;
+  r.t -= &r.z;
 }
 
 /* r = 2 * p */
@@ -382,43 +378,33 @@ fn double() {
 /* r = p + q */
 fn ge_madd(r: &mut PointP1P1, p: &Point, q: &Precomp)
 {
-  let mut t0 = FieldElement::new();
-  let mut temp;
-
-  fe_add(&mut r.x, &p.y,    &p.x);
-  fe_sub(&mut r.y, &p.y,    &p.x);
+  r.x = &p.y + &p.x;
+  r.y = &p.y - &p.x;
   fe_mul(&mut r.z, &r.x,    &q.yplusx);
-  temp = r.y.clone();
+  let temp = r.y.clone();
   fe_mul(&mut r.y, &temp,   &q.yminusx);
   fe_mul(&mut r.t, &q.xy2d, &p.t);
-  fe_add(&mut t0,  &p.z,    &p.z);
-  fe_sub(&mut r.x, &r.z,    &r.y);
-  temp = r.y.clone();
-  fe_add(&mut r.y, &r.z,    &temp);
-  fe_add(&mut r.z, &t0,     &r.t);
-  temp = r.t.clone();
-  fe_sub(&mut r.t, &t0,     &temp);
+  let t0 = &p.z + &p.z;
+  r.x = &r.z - &r.y;
+  r.y += &r.z;
+  r.z = &t0 + &r.t;
+  r.t = &t0 - &r.t;
 }
 
 /* r = p - q */
 fn ge_msub(r: &mut PointP1P1, p: &Point, q: &Precomp)
 {
-  let mut t0 = FieldElement::new();
-  let mut temp;
-
-  fe_add(&mut r.x, &p.y,    &p.x);
-  fe_sub(&mut r.y, &p.y,    &p.x);
+  r.x = &p.y + &p.x;
+  r.y = &p.y - &p.x;
   fe_mul(&mut r.z, &r.x,    &q.yminusx);
-  temp = r.y.clone();
+  let temp = r.y.clone();
   fe_mul(&mut r.y, &temp,   &q.yplusx);
   fe_mul(&mut r.t, &q.xy2d, &p.t);
-  fe_add(&mut t0,  &p.z,    &p.z);
-  fe_sub(&mut r.x, &r.z,    &r.y);
-  temp = r.y.clone();
-  fe_add(&mut r.y, &r.z,    &temp);
-  fe_sub(&mut r.z, &t0,     &r.t);
-  temp = r.t.clone();
-  fe_add(&mut r.t, &t0,     &temp);
+  let t0 = &p.z + &p.z;
+  r.x = &r.z - &r.y;
+  r.y += &r.z;
+  r.z = &t0 - &r.t;
+  r.t += &t0;
 }
 
 #[cfg(test)]
@@ -448,45 +434,39 @@ fn maddsub() {
 /* r = p + q */
 fn x25519_ge_add(r: &mut PointP1P1, p: &Point, q: &Cached)
 {
-  let mut t0 = FieldElement::new();
-  let mut temp;
-
-  fe_add(&mut r.x, &p.y,   &p.x);
-  fe_sub(&mut r.y, &p.y,   &p.x);
+  r.x = &p.y + &p.x;
+  r.y = &p.y - &p.x;
   fe_mul(&mut r.z, &r.x,   &q.yplusx);
-  temp = r.y.clone();
+  let mut temp = r.y.clone();
   fe_mul(&mut r.y, &temp,  &q.yminusx);
   fe_mul(&mut r.t, &q.t2d, &p.t);
   fe_mul(&mut r.x, &p.z,   &q.z);
-  fe_add(&mut t0,  &r.x,   &r.x);
-  fe_sub(&mut r.x, &r.z,   &r.y);
+  let t0 = &r.x + &r.x;
+  r.x = &r.z - &r.y;
   temp = r.y.clone();
-  fe_add(&mut r.y, &r.z,   &temp);
-  fe_add(&mut r.z, &t0,    &r.t);
+  r.y = &r.z + &temp;
+  r.z = &t0 + &r.t;
   temp = r.t.clone();
-  fe_sub(&mut r.t, &t0,    &temp);
+  r.t = &t0 - &temp;
 }
 
 /* r = p - q */
 fn x25519_ge_sub(r: &mut PointP1P1, p: &Point, q: &Cached)
 {
-  let mut t0 = FieldElement::new();
-  let mut temp;
-
-  fe_add(&mut r.x, &p.y,   &p.x);
-  fe_sub(&mut r.y, &p.y,   &p.x);
+  r.x = &p.y + &p.x;
+  r.y = &p.y - &p.x;
   fe_mul(&mut r.z, &r.x,   &q.yminusx);
-  temp = r.y.clone();
+  let mut temp = r.y.clone();
   fe_mul(&mut r.y, &temp,  &q.yplusx);
   fe_mul(&mut r.t, &q.t2d, &p.t);
   fe_mul(&mut r.x, &p.z,   &q.z);
-  fe_add(&mut t0,  &r.x,   &r.x);
-  fe_sub(&mut r.x, &r.z,   &r.y);
+  let t0 = &r.x + &r.x;
+  r.x = &r.z - &r.y;
   temp = r.y.clone();
-  fe_add(&mut r.y, &r.z,   &temp);
-  fe_sub(&mut r.z, &t0,    &r.t);
+  r.y = &r.z + &temp;
+  r.z = &t0 - &r.t;
   temp = r.t.clone();
-  fe_add(&mut r.t, &t0,    &temp);
+  r.t = &t0 + &temp;
 }
 
 #[cfg(test)]
@@ -1758,29 +1738,29 @@ pub fn curve25519_scalar_mask(a: &mut [u8])
 //    fe_cswap(&mut x2, &mut x3, swap != 0);
 //    fe_cswap(&mut z2, &mut z3, swap != 0);
 //    swap = b;
-//    fe_sub(&mut tmp0, &x3, &z3);
-//    fe_sub(&mut tmp1, &x2, &z2);
+//    tmp0 = &x3 - &z3;
+//    tmp1 = &x2 - &z2;
 //    tmp2 = x2.clone();
-//    fe_add(&mut x2,   &tmp2, &z2);
-//    fe_add(&mut z2,   &x3, &z3);
+//    x2 = &tmp2 + &z2;
+//    z2 = &x3 + &z3;
 //    fe_mul(&mut z3,   &tmp0, &x2);
 //    tmp2 = z2.clone();
 //    fe_mul(&mut z2,   &tmp2, &tmp1);
 //    fe_square(&mut tmp0, &tmp1);
 //    fe_square(&mut tmp1, &x2);
-//    fe_add(&mut x3,   &z3, &z2);
+//    x3 = &z3 + &z2;
 //    tmp2 = z2.clone();
-//    fe_sub(&mut z2,   &z3, &tmp2);
+//    z2 = &z3 - &tmp2;
 //    fe_mul(&mut x2,   &tmp1, &tmp0);
 //    tmp2 = tmp1.clone();
-//    fe_sub(&mut tmp1, &tmp2, &tmp0);
+//    tmp1 = &tmp2 - &tmp0;
 //    tmp2 = z2.clone();
 //    fe_square(&mut z2,   &tmp2);
 //    fe_mul121666(&mut z3, &tmp1);
 //    tmp2 = x3.clone();
 //    fe_square( &mut x3,   &tmp2);
 //    tmp2 = tmp0.clone();
-//    fe_add(&mut tmp0, &tmp2, &z3);
+//    tmp0 = &tmp2 + &z3;
 //    fe_mul(&mut z3,   &x1,   &z2);
 //    fe_mul(&mut z2,   &tmp1, &tmp0);
 //    if pos == 0 {
@@ -1815,8 +1795,8 @@ pub fn curve25519_scalar_mask(a: &mut [u8])
 //   * u=(y+1)/(1-y). Since y=Y/Z, this gives u=(Z+Y)/(Z-Y). */
 //  let mut zplusy = FieldElement::new();
 //  let mut zminusy = FieldElement::new();
-//  fe_add(&mut zplusy,  &A.z, &A.y);
-//  fe_sub(&mut zminusy, &A.z, &A.y);
+//  zplusy = &A.z + &A.y;
+//  zminusy = &A.z - &A.y;
 //  let zminusy_inv = fe_invert(&zminusy);
 //  let copy = zplusy.clone();
 //  fe_mul(&mut zplusy, &copy, &zminusy_inv);

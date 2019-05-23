@@ -51,6 +51,7 @@ impl ED25519KeyPair
     }
 }
 
+#[derive(Debug,PartialEq)]
 pub struct ED25519Private
 {
     seed:    [u8; 32],
@@ -87,26 +88,25 @@ impl ED25519Private {
         ctx.input(&self.prefix);
         ctx.input(&msg);
         let nonce = digest_scalar(ctx.result().as_slice());
-        println!("ME:nonce: {:?}", nonce);
         let mut r = Point::new();
         x25519_ge_scalarmult_base(&mut r, &nonce);
-        println!("ME:r.x: {:?}", r.x);
-        println!("ME:r.y: {:?}", r.y);
-        println!("ME:r.z: {:?}", r.z);
-        println!("ME:r.t: {:?}", r.t);
         let signature_r = r.encode();
-        println!("ME:signature_r: {:?}", signature_r);
         let hram_digest = eddsa_digest(&signature_r, &self.public, &msg);
         let hram = digest_scalar(&hram_digest);
-        println!("ME:hram: {:?}", hram);
         x25519_sc_muladd(&mut signature_s, &hram, &self.private, &nonce);
         let mut result = Vec::with_capacity(64);
         result.extend_from_slice(&signature_r);
         result.extend_from_slice(&signature_s);
         result
     }
+
+    pub fn to_bytes(&self) -> Vec<u8>
+    {
+        self.seed.to_vec()
+    }
 }
 
+#[derive(Debug,PartialEq)]
 pub struct ED25519Public
 {
     public:  [u8; 32]
@@ -120,7 +120,22 @@ impl<'a> From<&'a ED25519Private> for ED25519Public
     }
 }
 
+pub enum ED25519PublicImportError
+{
+    WrongNumberOfBytes(usize)
+}
+
 impl ED25519Public {
+    pub fn new(bytes: &[u8]) -> Result<ED25519Public,ED25519PublicImportError>
+    {
+        if bytes.len() != 32 {
+            return Err(ED25519PublicImportError::WrongNumberOfBytes(bytes.len()));
+        }
+        let mut res = ED25519Public { public: [0; 32] };
+        res.public.copy_from_slice(bytes);
+        Ok(res)
+    }
+
     pub fn verify(&self, msg: &[u8], sig: &[u8]) -> bool
     {
         assert_eq!(sig.len(), 64);
@@ -140,6 +155,11 @@ impl ED25519Public {
         ge_double_scalarmult_vartime(&mut r, &h, &a, &signature_s);
         let r_check = r.encode();
         signature_r.to_vec() == r_check
+    }
+
+    pub fn to_bytes(&self) -> Vec<u8>
+    {
+        self.public.to_vec()
     }
 }
 
@@ -176,11 +196,8 @@ fn run_signing_testcase(case: HashMap<String,(bool,Vec<u8>)>)
     privpub.append(&mut ubytes.clone());
     let sig = keypair.private.sign(&mbytes);
     assert_eq!(sig.len(), sbytes.len());
-    println!("sig:  {:?}", sbytes);
-    println!("sig': {:?}", sig);
     assert!(sig.iter().eq(sbytes.iter()));
     assert!(keypair.public.verify(&mbytes, &sig));
-    println!("DONE");
 }
 
 #[cfg(test)]
