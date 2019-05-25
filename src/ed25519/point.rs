@@ -47,23 +47,22 @@ impl Point {
 
       let hy = FieldElement::from_bytes(s);
       let hz = FieldElement::one();
-      fe_square(&mut u, &hy);
+      u = hy.square();
       v = &u * &D;
       temp = u.clone();
       u = &temp - &hz; /* u = y^2-1 */
       v += &hz;
 
-      fe_square(&mut v3, &v);
+      v3 = v.square();
       v3 *= &v; /* v3 = v^3 */
-      let mut hx = FieldElement::zero();
-      fe_square(&mut hx, &v3);
+      let mut hx = v3.square();
       hx *= &v;
       hx *= &u; /* x = uv^7 */
       hx = fe_pow22523(&hx); /* x = (uv^7)^((q-5)/8) */
       hx *= &v3;
       hx *= &u; /* x = uv^3(uv^7)^((q-5)/8) */
 
-      fe_square(&mut vxx, &hx);
+      vxx = hx.square();
       vxx *= &v;
       let mut check = &vxx - &u; /* vx^2-u */
       if fe_isnonzero(&check) {
@@ -322,11 +321,11 @@ fn ge_p2_dbl(r: &mut PointP1P1, p: &Point2)
 {
   let mut t0 = FieldElement::new();
 
-  fe_square(&mut r.x, &p.x);
-  fe_square(&mut r.z, &p.y);
+  r.x = p.x.square();
+  r.z = p.y.square();
   fe_sq2(&mut r.t, &p.z);
   r.y = &p.x + &p.y;
-  fe_square(&mut t0, &r.y);
+  t0 = r.y.square();
   r.y = &r.z + &r.x;
   r.z -= &r.x;
   r.x = &t0 - &r.y;
