@@ -48,39 +48,30 @@ impl Point {
       let hy = FieldElement::from_bytes(s);
       let hz = FieldElement::one();
       fe_square(&mut u, &hy);
-      fe_mul(&mut v, &u, &D);
+      v = &u * &D;
       temp = u.clone();
       u = &temp - &hz; /* u = y^2-1 */
       v += &hz;
 
       fe_square(&mut v3, &v);
-      temp = v3.clone();
-      fe_mul(&mut v3, &temp, &v); /* v3 = v^3 */
+      v3 *= &v; /* v3 = v^3 */
       let mut hx = FieldElement::zero();
       fe_square(&mut hx, &v3);
-      temp = hx.clone();
-      fe_mul(&mut hx, &temp, &v);
-      temp = hx.clone();
-      fe_mul(&mut hx, &temp, &u); /* x = uv^7 */
-
-      temp = hx.clone();
-      fe_pow22523(&mut hx, &temp); /* x = (uv^7)^((q-5)/8) */
-      temp = hx.clone();
-      fe_mul(&mut hx, &temp, &v3);
-      temp = hx.clone();
-      fe_mul(&mut hx, &temp, &u); /* x = uv^3(uv^7)^((q-5)/8) */
+      hx *= &v;
+      hx *= &u; /* x = uv^7 */
+      hx = fe_pow22523(&hx); /* x = (uv^7)^((q-5)/8) */
+      hx *= &v3;
+      hx *= &u; /* x = uv^3(uv^7)^((q-5)/8) */
 
       fe_square(&mut vxx, &hx);
-      temp = vxx.clone();
-      fe_mul(&mut vxx, &temp, &v);
+      vxx *= &v;
       let mut check = &vxx - &u; /* vx^2-u */
       if fe_isnonzero(&check) {
         check = &vxx + &u;
         if fe_isnonzero(&check) {
           return None;
         }
-        temp = hx.clone();
-        fe_mul(&mut hx, &temp, &SQRTM1);
+        hx *= &SQRTM1;
       }
 
       if fe_isnegative(&hx) != ((s[31] >> 7) == 1) {
@@ -88,8 +79,7 @@ impl Point {
         fe_neg(&mut hx, &temp);
       }
 
-      let mut ht = FieldElement::zero();
-      fe_mul(&mut ht, &hx, &hy);
+      let ht = &hx * &hy;
       return Some(Point{ x: hx, y: hy, z: hz, t: ht });
   }
 
@@ -264,24 +254,24 @@ fn x25519_ge_p3_to_cached(r: &mut Cached, p: &Point)
   r.yplusx = &p.y + &p.x;
   r.yminusx = &p.y - &p.x;
   r.z.overwrite_with(&p.z);
-  fe_mul(&mut r.t2d, &p.t, &D2);
+  r.t2d = &p.t * &D2;
 }
 
 /* r = p */
 fn x25519_ge_p1p1_to_p2(r: &mut Point2, p: &PointP1P1)
 {
-  fe_mul(&mut r.x, &p.x, &p.t);
-  fe_mul(&mut r.y, &p.y, &p.z);
-  fe_mul(&mut r.z, &p.z, &p.t);
+  r.x = &p.x * &p.t;
+  r.y = &p.y * &p.z;
+  r.z = &p.z * &p.t;
 }
 
 /* r = p */
 fn x25519_ge_p1p1_to_p3(r: &mut Point, p: &PointP1P1)
 {
-  fe_mul(&mut r.x, &p.x, &p.t);
-  fe_mul(&mut r.y, &p.y, &p.z);
-  fe_mul(&mut r.z, &p.z, &p.t);
-  fe_mul(&mut r.t, &p.x, &p.y);
+  r.x = &p.x * &p.t;
+  r.y = &p.y * &p.z;
+  r.z = &p.z * &p.t;
+  r.t = &p.x * &p.y;
 }
 
 #[cfg(test)]
@@ -380,10 +370,9 @@ fn ge_madd(r: &mut PointP1P1, p: &Point, q: &Precomp)
 {
   r.x = &p.y + &p.x;
   r.y = &p.y - &p.x;
-  fe_mul(&mut r.z, &r.x,    &q.yplusx);
-  let temp = r.y.clone();
-  fe_mul(&mut r.y, &temp,   &q.yminusx);
-  fe_mul(&mut r.t, &q.xy2d, &p.t);
+  r.z = &r.x * &q.yplusx;
+  r.y *= &q.yminusx;
+  r.t = &q.xy2d * &p.t;
   let t0 = &p.z + &p.z;
   r.x = &r.z - &r.y;
   r.y += &r.z;
@@ -396,10 +385,9 @@ fn ge_msub(r: &mut PointP1P1, p: &Point, q: &Precomp)
 {
   r.x = &p.y + &p.x;
   r.y = &p.y - &p.x;
-  fe_mul(&mut r.z, &r.x,    &q.yminusx);
-  let temp = r.y.clone();
-  fe_mul(&mut r.y, &temp,   &q.yplusx);
-  fe_mul(&mut r.t, &q.xy2d, &p.t);
+  r.z = &r.x * &q.yminusx;
+  r.y *= &q.yplusx;
+  r.t = &q.xy2d * &p.t;
   let t0 = &p.z + &p.z;
   r.x = &r.z - &r.y;
   r.y += &r.z;
@@ -436,18 +424,15 @@ fn x25519_ge_add(r: &mut PointP1P1, p: &Point, q: &Cached)
 {
   r.x = &p.y + &p.x;
   r.y = &p.y - &p.x;
-  fe_mul(&mut r.z, &r.x,   &q.yplusx);
-  let mut temp = r.y.clone();
-  fe_mul(&mut r.y, &temp,  &q.yminusx);
-  fe_mul(&mut r.t, &q.t2d, &p.t);
-  fe_mul(&mut r.x, &p.z,   &q.z);
+  r.z = &r.x * &q.yplusx;
+  r.y *= &q.yminusx;
+  r.t = &q.t2d * &p.t;
+  r.x = &p.z * &q.z;
   let t0 = &r.x + &r.x;
   r.x = &r.z - &r.y;
-  temp = r.y.clone();
-  r.y = &r.z + &temp;
+  r.y += &r.z;
   r.z = &t0 + &r.t;
-  temp = r.t.clone();
-  r.t = &t0 - &temp;
+  r.t = &t0 - &r.t;
 }
 
 /* r = p - q */
@@ -455,18 +440,15 @@ fn x25519_ge_sub(r: &mut PointP1P1, p: &Point, q: &Cached)
 {
   r.x = &p.y + &p.x;
   r.y = &p.y - &p.x;
-  fe_mul(&mut r.z, &r.x,   &q.yminusx);
-  let mut temp = r.y.clone();
-  fe_mul(&mut r.y, &temp,  &q.yplusx);
-  fe_mul(&mut r.t, &q.t2d, &p.t);
-  fe_mul(&mut r.x, &p.z,   &q.z);
+  r.z = &r.x * &q.yminusx;
+  r.y *= &q.yplusx;
+  r.t = &q.t2d * &p.t;
+  r.x = &p.z * &q.z;
   let t0 = &r.x + &r.x;
   r.x = &r.z - &r.y;
-  temp = r.y.clone();
-  r.y = &r.z + &temp;
+  r.y += &r.z;
   r.z = &t0 - &r.t;
-  temp = r.t.clone();
-  r.t = &t0 + &temp;
+  r.t += &t0;
 }
 
 #[cfg(test)]
@@ -1826,8 +1808,8 @@ fn into_encoded_point(x: &FieldElement, y: &FieldElement, z: &FieldElement) -> V
     let mut y_over_z = FieldElement::new();
 
     let recip = fe_invert(z);
-    fe_mul(&mut x_over_z, x, &recip);
-    fe_mul(&mut y_over_z, y, &recip);
+    x_over_z = x * &recip;
+    y_over_z = y * &recip;
     let mut bytes = y_over_z.to_bytes();
     let sign_bit = if fe_isnegative(&x_over_z) { 1 } else { 0 };
     // The preceding computations must execute in constant time, but this

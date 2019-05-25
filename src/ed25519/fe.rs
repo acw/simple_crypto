@@ -316,223 +316,239 @@ fn addsub() {
     });
 }
 
-pub fn fe_mul(h: &mut FieldElement, f: &FieldElement, g: &FieldElement)
+impl<'a> MulAssign<&'a FieldElement> for FieldElement
 {
-  let f0    : i32 = f.value[0];
-  let f1    : i32 = f.value[1];
-  let f2    : i32 = f.value[2];
-  let f3    : i32 = f.value[3];
-  let f4    : i32 = f.value[4];
-  let f5    : i32 = f.value[5];
-  let f6    : i32 = f.value[6];
-  let f7    : i32 = f.value[7];
-  let f8    : i32 = f.value[8];
-  let f9    : i32 = f.value[9];
-  let g0    : i32 = g.value[0];
-  let g1    : i32 = g.value[1];
-  let g2    : i32 = g.value[2];
-  let g3    : i32 = g.value[3];
-  let g4    : i32 = g.value[4];
-  let g5    : i32 = g.value[5];
-  let g6    : i32 = g.value[6];
-  let g7    : i32 = g.value[7];
-  let g8    : i32 = g.value[8];
-  let g9    : i32 = g.value[9];
-  let g1_19 : i32 = 19 * g1; /* 1.959375*2^29 */
-  let g2_19 : i32 = 19 * g2; /* 1.959375*2^30; still ok */
-  let g3_19 : i32 = 19 * g3;
-  let g4_19 : i32 = 19 * g4;
-  let g5_19 : i32 = 19 * g5;
-  let g6_19 : i32 = 19 * g6;
-  let g7_19 : i32 = 19 * g7;
-  let g8_19 : i32 = 19 * g8;
-  let g9_19 : i32 = 19 * g9;
-  let f1_2  : i32 = 2 * f1;
-  let f3_2  : i32 = 2 * f3;
-  let f5_2  : i32 = 2 * f5;
-  let f7_2  : i32 = 2 * f7;
-  let f9_2  : i32 = 2 * f9;
+    fn mul_assign(&mut self, v: &FieldElement)
+    {
+        let f0    : i32 = self.value[0];
+        let f1    : i32 = self.value[1];
+        let f2    : i32 = self.value[2];
+        let f3    : i32 = self.value[3];
+        let f4    : i32 = self.value[4];
+        let f5    : i32 = self.value[5];
+        let f6    : i32 = self.value[6];
+        let f7    : i32 = self.value[7];
+        let f8    : i32 = self.value[8];
+        let f9    : i32 = self.value[9];
+        let g0    : i32 = v.value[0];
+        let g1    : i32 = v.value[1];
+        let g2    : i32 = v.value[2];
+        let g3    : i32 = v.value[3];
+        let g4    : i32 = v.value[4];
+        let g5    : i32 = v.value[5];
+        let g6    : i32 = v.value[6];
+        let g7    : i32 = v.value[7];
+        let g8    : i32 = v.value[8];
+        let g9    : i32 = v.value[9];
+        let g1_19 : i32 = 19 * g1; /* 1.959375*2^29 */
+        let g2_19 : i32 = 19 * g2; /* 1.959375*2^30; still ok */
+        let g3_19 : i32 = 19 * g3;
+        let g4_19 : i32 = 19 * g4;
+        let g5_19 : i32 = 19 * g5;
+        let g6_19 : i32 = 19 * g6;
+        let g7_19 : i32 = 19 * g7;
+        let g8_19 : i32 = 19 * g8;
+        let g9_19 : i32 = 19 * g9;
+        let f1_2  : i32 = 2 * f1;
+        let f3_2  : i32 = 2 * f3;
+        let f5_2  : i32 = 2 * f5;
+        let f7_2  : i32 = 2 * f7;
+        let f9_2  : i32 = 2 * f9;
 
-  let f0g0    : i64 = (f0 as i64)   * (g0 as i64);
-  let f0g1    : i64 = (f0 as i64)   * (g1 as i64);
-  let f0g2    : i64 = (f0 as i64)   * (g2 as i64);
-  let f0g3    : i64 = (f0 as i64)   * (g3 as i64);
-  let f0g4    : i64 = (f0 as i64)   * (g4 as i64);
-  let f0g5    : i64 = (f0 as i64)   * (g5 as i64);
-  let f0g6    : i64 = (f0 as i64)   * (g6 as i64);
-  let f0g7    : i64 = (f0 as i64)   * (g7 as i64);
-  let f0g8    : i64 = (f0 as i64)   * (g8 as i64);
-  let f0g9    : i64 = (f0 as i64)   * (g9 as i64);
-  let f1g0    : i64 = (f1 as i64)   * (g0 as i64);
-  let f1g1_2  : i64 = (f1_2 as i64) * (g1 as i64);
-  let f1g2    : i64 = (f1 as i64)   * (g2 as i64);
-  let f1g3_2  : i64 = (f1_2 as i64) * (g3 as i64);
-  let f1g4    : i64 = (f1 as i64)   * (g4 as i64);
-  let f1g5_2  : i64 = (f1_2 as i64) * (g5 as i64);
-  let f1g6    : i64 = (f1 as i64)   * (g6 as i64);
-  let f1g7_2  : i64 = (f1_2 as i64) * (g7 as i64);
-  let f1g8    : i64 = (f1 as i64)   * (g8 as i64);
-  let f1g9_38 : i64 = (f1_2 as i64) * (g9_19 as i64);
-  let f2g0    : i64 = (f2 as i64)   * (g0 as i64);
-  let f2g1    : i64 = (f2 as i64)   * (g1 as i64);
-  let f2g2    : i64 = (f2 as i64)   * (g2 as i64);
-  let f2g3    : i64 = (f2 as i64)   * (g3 as i64);
-  let f2g4    : i64 = (f2 as i64)   * (g4 as i64);
-  let f2g5    : i64 = (f2 as i64)   * (g5 as i64);
-  let f2g6    : i64 = (f2 as i64)   * (g6 as i64);
-  let f2g7    : i64 = (f2 as i64)   * (g7 as i64);
-  let f2g8_19 : i64 = (f2 as i64)   * (g8_19 as i64);
-  let f2g9_19 : i64 = (f2 as i64)   * (g9_19 as i64);
-  let f3g0    : i64 = (f3 as i64)   * (g0 as i64);
-  let f3g1_2  : i64 = (f3_2 as i64) * (g1 as i64);
-  let f3g2    : i64 = (f3 as i64)   * (g2 as i64);
-  let f3g3_2  : i64 = (f3_2 as i64) * (g3 as i64);
-  let f3g4    : i64 = (f3 as i64)   * (g4 as i64);
-  let f3g5_2  : i64 = (f3_2 as i64) * (g5 as i64);
-  let f3g6    : i64 = (f3 as i64)   * (g6 as i64);
-  let f3g7_38 : i64 = (f3_2 as i64) * (g7_19 as i64);
-  let f3g8_19 : i64 = (f3 as i64)   * (g8_19 as i64);
-  let f3g9_38 : i64 = (f3_2 as i64) * (g9_19 as i64);
-  let f4g0    : i64 = (f4 as i64)   * (g0 as i64);
-  let f4g1    : i64 = (f4 as i64)   * (g1 as i64);
-  let f4g2    : i64 = (f4 as i64)   * (g2 as i64);
-  let f4g3    : i64 = (f4 as i64)   * (g3 as i64);
-  let f4g4    : i64 = (f4 as i64)   * (g4 as i64);
-  let f4g5    : i64 = (f4 as i64)   * (g5 as i64);
-  let f4g6_19 : i64 = (f4 as i64)   * (g6_19 as i64);
-  let f4g7_19 : i64 = (f4 as i64)   * (g7_19 as i64);
-  let f4g8_19 : i64 = (f4 as i64)   * (g8_19 as i64);
-  let f4g9_19 : i64 = (f4 as i64)   * (g9_19 as i64);
-  let f5g0    : i64 = (f5 as i64)   * (g0 as i64);
-  let f5g1_2  : i64 = (f5_2 as i64) * (g1 as i64);
-  let f5g2    : i64 = (f5 as i64)   * (g2 as i64);
-  let f5g3_2  : i64 = (f5_2 as i64) * (g3 as i64);
-  let f5g4    : i64 = (f5 as i64)   * (g4 as i64);
-  let f5g5_38 : i64 = (f5_2 as i64) * (g5_19 as i64);
-  let f5g6_19 : i64 = (f5 as i64)   * (g6_19 as i64);
-  let f5g7_38 : i64 = (f5_2 as i64) * (g7_19 as i64);
-  let f5g8_19 : i64 = (f5 as i64)   * (g8_19 as i64);
-  let f5g9_38 : i64 = (f5_2 as i64) * (g9_19 as i64);
-  let f6g0    : i64 = (f6 as i64)   * (g0 as i64);
-  let f6g1    : i64 = (f6 as i64)   * (g1 as i64);
-  let f6g2    : i64 = (f6 as i64)   * (g2 as i64);
-  let f6g3    : i64 = (f6 as i64)   * (g3 as i64);
-  let f6g4_19 : i64 = (f6 as i64)   * (g4_19 as i64);
-  let f6g5_19 : i64 = (f6 as i64)   * (g5_19 as i64);
-  let f6g6_19 : i64 = (f6 as i64)   * (g6_19 as i64);
-  let f6g7_19 : i64 = (f6 as i64)   * (g7_19 as i64);
-  let f6g8_19 : i64 = (f6 as i64)   * (g8_19 as i64);
-  let f6g9_19 : i64 = (f6 as i64)   * (g9_19 as i64);
-  let f7g0    : i64 = (f7 as i64)   * (g0 as i64);
-  let f7g1_2  : i64 = (f7_2 as i64) * (g1 as i64);
-  let f7g2    : i64 = (f7 as i64)   * (g2 as i64);
-  let f7g3_38 : i64 = (f7_2 as i64) * (g3_19 as i64);
-  let f7g4_19 : i64 = (f7 as i64)   * (g4_19 as i64);
-  let f7g5_38 : i64 = (f7_2 as i64) * (g5_19 as i64);
-  let f7g6_19 : i64 = (f7 as i64)   * (g6_19 as i64);
-  let f7g7_38 : i64 = (f7_2 as i64) * (g7_19 as i64);
-  let f7g8_19 : i64 = (f7 as i64)   * (g8_19 as i64);
-  let f7g9_38 : i64 = (f7_2 as i64) * (g9_19 as i64);
-  let f8g0    : i64 = (f8 as i64)   * (g0 as i64);
-  let f8g1    : i64 = (f8 as i64)   * (g1 as i64);
-  let f8g2_19 : i64 = (f8 as i64)   * (g2_19 as i64);
-  let f8g3_19 : i64 = (f8 as i64)   * (g3_19 as i64);
-  let f8g4_19 : i64 = (f8 as i64)   * (g4_19 as i64);
-  let f8g5_19 : i64 = (f8 as i64)   * (g5_19 as i64);
-  let f8g6_19 : i64 = (f8 as i64)   * (g6_19 as i64);
-  let f8g7_19 : i64 = (f8 as i64)   * (g7_19 as i64);
-  let f8g8_19 : i64 = (f8 as i64)   * (g8_19 as i64);
-  let f8g9_19 : i64 = (f8 as i64)   * (g9_19 as i64);
-  let f9g0    : i64 = (f9 as i64)   * (g0 as i64);
-  let f9g1_38 : i64 = (f9_2 as i64) * (g1_19 as i64);
-  let f9g2_19 : i64 = (f9 as i64)   * (g2_19 as i64);
-  let f9g3_38 : i64 = (f9_2 as i64) * (g3_19 as i64);
-  let f9g4_19 : i64 = (f9 as i64)   * (g4_19 as i64);
-  let f9g5_38 : i64 = (f9_2 as i64) * (g5_19 as i64);
-  let f9g6_19 : i64 = (f9 as i64)   * (g6_19 as i64);
-  let f9g7_38 : i64 = (f9_2 as i64) * (g7_19 as i64);
-  let f9g8_19 : i64 = (f9 as i64)   * (g8_19 as i64);
-  let f9g9_38 : i64 = (f9_2 as i64) * (g9_19 as i64);
-  let mut h0 = f0g0+f1g9_38+f2g8_19+f3g7_38+f4g6_19+f5g5_38+f6g4_19+f7g3_38+f8g2_19+f9g1_38;
-  let mut h1 = f0g1+f1g0   +f2g9_19+f3g8_19+f4g7_19+f5g6_19+f6g5_19+f7g4_19+f8g3_19+f9g2_19;
-  let mut h2 = f0g2+f1g1_2 +f2g0   +f3g9_38+f4g8_19+f5g7_38+f6g6_19+f7g5_38+f8g4_19+f9g3_38;
-  let mut h3 = f0g3+f1g2   +f2g1   +f3g0   +f4g9_19+f5g8_19+f6g7_19+f7g6_19+f8g5_19+f9g4_19;
-  let mut h4 = f0g4+f1g3_2 +f2g2   +f3g1_2 +f4g0   +f5g9_38+f6g8_19+f7g7_38+f8g6_19+f9g5_38;
-  let mut h5 = f0g5+f1g4   +f2g3   +f3g2   +f4g1   +f5g0   +f6g9_19+f7g8_19+f8g7_19+f9g6_19;
-  let mut h6 = f0g6+f1g5_2 +f2g4   +f3g3_2 +f4g2   +f5g1_2 +f6g0   +f7g9_38+f8g8_19+f9g7_38;
-  let mut h7 = f0g7+f1g6   +f2g5   +f3g4   +f4g3   +f5g2   +f6g1   +f7g0   +f8g9_19+f9g8_19;
-  let mut h8 = f0g8+f1g7_2 +f2g6   +f3g5_2 +f4g4   +f5g3_2 +f6g2   +f7g1_2 +f8g0   +f9g9_38;
-  let mut h9 = f0g9+f1g8   +f2g7   +f3g6   +f4g5   +f5g4   +f6g3   +f7g2   +f8g1   +f9g0   ;
-  let mut carry0;
-  let     carry1;
-  let     carry2;
-  let     carry3;
-  let mut carry4;
-  let     carry5;
-  let     carry6;
-  let     carry7;
-  let     carry8;
-  let     carry9;
+        let f0g0    : i64 = (f0 as i64)   * (g0 as i64);
+        let f0g1    : i64 = (f0 as i64)   * (g1 as i64);
+        let f0g2    : i64 = (f0 as i64)   * (g2 as i64);
+        let f0g3    : i64 = (f0 as i64)   * (g3 as i64);
+        let f0g4    : i64 = (f0 as i64)   * (g4 as i64);
+        let f0g5    : i64 = (f0 as i64)   * (g5 as i64);
+        let f0g6    : i64 = (f0 as i64)   * (g6 as i64);
+        let f0g7    : i64 = (f0 as i64)   * (g7 as i64);
+        let f0g8    : i64 = (f0 as i64)   * (g8 as i64);
+        let f0g9    : i64 = (f0 as i64)   * (g9 as i64);
+        let f1g0    : i64 = (f1 as i64)   * (g0 as i64);
+        let f1g1_2  : i64 = (f1_2 as i64) * (g1 as i64);
+        let f1g2    : i64 = (f1 as i64)   * (g2 as i64);
+        let f1g3_2  : i64 = (f1_2 as i64) * (g3 as i64);
+        let f1g4    : i64 = (f1 as i64)   * (g4 as i64);
+        let f1g5_2  : i64 = (f1_2 as i64) * (g5 as i64);
+        let f1g6    : i64 = (f1 as i64)   * (g6 as i64);
+        let f1g7_2  : i64 = (f1_2 as i64) * (g7 as i64);
+        let f1g8    : i64 = (f1 as i64)   * (g8 as i64);
+        let f1g9_38 : i64 = (f1_2 as i64) * (g9_19 as i64);
+        let f2g0    : i64 = (f2 as i64)   * (g0 as i64);
+        let f2g1    : i64 = (f2 as i64)   * (g1 as i64);
+        let f2g2    : i64 = (f2 as i64)   * (g2 as i64);
+        let f2g3    : i64 = (f2 as i64)   * (g3 as i64);
+        let f2g4    : i64 = (f2 as i64)   * (g4 as i64);
+        let f2g5    : i64 = (f2 as i64)   * (g5 as i64);
+        let f2g6    : i64 = (f2 as i64)   * (g6 as i64);
+        let f2g7    : i64 = (f2 as i64)   * (g7 as i64);
+        let f2g8_19 : i64 = (f2 as i64)   * (g8_19 as i64);
+        let f2g9_19 : i64 = (f2 as i64)   * (g9_19 as i64);
+        let f3g0    : i64 = (f3 as i64)   * (g0 as i64);
+        let f3g1_2  : i64 = (f3_2 as i64) * (g1 as i64);
+        let f3g2    : i64 = (f3 as i64)   * (g2 as i64);
+        let f3g3_2  : i64 = (f3_2 as i64) * (g3 as i64);
+        let f3g4    : i64 = (f3 as i64)   * (g4 as i64);
+        let f3g5_2  : i64 = (f3_2 as i64) * (g5 as i64);
+        let f3g6    : i64 = (f3 as i64)   * (g6 as i64);
+        let f3g7_38 : i64 = (f3_2 as i64) * (g7_19 as i64);
+        let f3g8_19 : i64 = (f3 as i64)   * (g8_19 as i64);
+        let f3g9_38 : i64 = (f3_2 as i64) * (g9_19 as i64);
+        let f4g0    : i64 = (f4 as i64)   * (g0 as i64);
+        let f4g1    : i64 = (f4 as i64)   * (g1 as i64);
+        let f4g2    : i64 = (f4 as i64)   * (g2 as i64);
+        let f4g3    : i64 = (f4 as i64)   * (g3 as i64);
+        let f4g4    : i64 = (f4 as i64)   * (g4 as i64);
+        let f4g5    : i64 = (f4 as i64)   * (g5 as i64);
+        let f4g6_19 : i64 = (f4 as i64)   * (g6_19 as i64);
+        let f4g7_19 : i64 = (f4 as i64)   * (g7_19 as i64);
+        let f4g8_19 : i64 = (f4 as i64)   * (g8_19 as i64);
+        let f4g9_19 : i64 = (f4 as i64)   * (g9_19 as i64);
+        let f5g0    : i64 = (f5 as i64)   * (g0 as i64);
+        let f5g1_2  : i64 = (f5_2 as i64) * (g1 as i64);
+        let f5g2    : i64 = (f5 as i64)   * (g2 as i64);
+        let f5g3_2  : i64 = (f5_2 as i64) * (g3 as i64);
+        let f5g4    : i64 = (f5 as i64)   * (g4 as i64);
+        let f5g5_38 : i64 = (f5_2 as i64) * (g5_19 as i64);
+        let f5g6_19 : i64 = (f5 as i64)   * (g6_19 as i64);
+        let f5g7_38 : i64 = (f5_2 as i64) * (g7_19 as i64);
+        let f5g8_19 : i64 = (f5 as i64)   * (g8_19 as i64);
+        let f5g9_38 : i64 = (f5_2 as i64) * (g9_19 as i64);
+        let f6g0    : i64 = (f6 as i64)   * (g0 as i64);
+        let f6g1    : i64 = (f6 as i64)   * (g1 as i64);
+        let f6g2    : i64 = (f6 as i64)   * (g2 as i64);
+        let f6g3    : i64 = (f6 as i64)   * (g3 as i64);
+        let f6g4_19 : i64 = (f6 as i64)   * (g4_19 as i64);
+        let f6g5_19 : i64 = (f6 as i64)   * (g5_19 as i64);
+        let f6g6_19 : i64 = (f6 as i64)   * (g6_19 as i64);
+        let f6g7_19 : i64 = (f6 as i64)   * (g7_19 as i64);
+        let f6g8_19 : i64 = (f6 as i64)   * (g8_19 as i64);
+        let f6g9_19 : i64 = (f6 as i64)   * (g9_19 as i64);
+        let f7g0    : i64 = (f7 as i64)   * (g0 as i64);
+        let f7g1_2  : i64 = (f7_2 as i64) * (g1 as i64);
+        let f7g2    : i64 = (f7 as i64)   * (g2 as i64);
+        let f7g3_38 : i64 = (f7_2 as i64) * (g3_19 as i64);
+        let f7g4_19 : i64 = (f7 as i64)   * (g4_19 as i64);
+        let f7g5_38 : i64 = (f7_2 as i64) * (g5_19 as i64);
+        let f7g6_19 : i64 = (f7 as i64)   * (g6_19 as i64);
+        let f7g7_38 : i64 = (f7_2 as i64) * (g7_19 as i64);
+        let f7g8_19 : i64 = (f7 as i64)   * (g8_19 as i64);
+        let f7g9_38 : i64 = (f7_2 as i64) * (g9_19 as i64);
+        let f8g0    : i64 = (f8 as i64)   * (g0 as i64);
+        let f8g1    : i64 = (f8 as i64)   * (g1 as i64);
+        let f8g2_19 : i64 = (f8 as i64)   * (g2_19 as i64);
+        let f8g3_19 : i64 = (f8 as i64)   * (g3_19 as i64);
+        let f8g4_19 : i64 = (f8 as i64)   * (g4_19 as i64);
+        let f8g5_19 : i64 = (f8 as i64)   * (g5_19 as i64);
+        let f8g6_19 : i64 = (f8 as i64)   * (g6_19 as i64);
+        let f8g7_19 : i64 = (f8 as i64)   * (g7_19 as i64);
+        let f8g8_19 : i64 = (f8 as i64)   * (g8_19 as i64);
+        let f8g9_19 : i64 = (f8 as i64)   * (g9_19 as i64);
+        let f9g0    : i64 = (f9 as i64)   * (g0 as i64);
+        let f9g1_38 : i64 = (f9_2 as i64) * (g1_19 as i64);
+        let f9g2_19 : i64 = (f9 as i64)   * (g2_19 as i64);
+        let f9g3_38 : i64 = (f9_2 as i64) * (g3_19 as i64);
+        let f9g4_19 : i64 = (f9 as i64)   * (g4_19 as i64);
+        let f9g5_38 : i64 = (f9_2 as i64) * (g5_19 as i64);
+        let f9g6_19 : i64 = (f9 as i64)   * (g6_19 as i64);
+        let f9g7_38 : i64 = (f9_2 as i64) * (g7_19 as i64);
+        let f9g8_19 : i64 = (f9 as i64)   * (g8_19 as i64);
+        let f9g9_38 : i64 = (f9_2 as i64) * (g9_19 as i64);
+        let mut h0 = f0g0+f1g9_38+f2g8_19+f3g7_38+f4g6_19+f5g5_38+f6g4_19+f7g3_38+f8g2_19+f9g1_38;
+        let mut h1 = f0g1+f1g0   +f2g9_19+f3g8_19+f4g7_19+f5g6_19+f6g5_19+f7g4_19+f8g3_19+f9g2_19;
+        let mut h2 = f0g2+f1g1_2 +f2g0   +f3g9_38+f4g8_19+f5g7_38+f6g6_19+f7g5_38+f8g4_19+f9g3_38;
+        let mut h3 = f0g3+f1g2   +f2g1   +f3g0   +f4g9_19+f5g8_19+f6g7_19+f7g6_19+f8g5_19+f9g4_19;
+        let mut h4 = f0g4+f1g3_2 +f2g2   +f3g1_2 +f4g0   +f5g9_38+f6g8_19+f7g7_38+f8g6_19+f9g5_38;
+        let mut h5 = f0g5+f1g4   +f2g3   +f3g2   +f4g1   +f5g0   +f6g9_19+f7g8_19+f8g7_19+f9g6_19;
+        let mut h6 = f0g6+f1g5_2 +f2g4   +f3g3_2 +f4g2   +f5g1_2 +f6g0   +f7g9_38+f8g8_19+f9g7_38;
+        let mut h7 = f0g7+f1g6   +f2g5   +f3g4   +f4g3   +f5g2   +f6g1   +f7g0   +f8g9_19+f9g8_19;
+        let mut h8 = f0g8+f1g7_2 +f2g6   +f3g5_2 +f4g4   +f5g3_2 +f6g2   +f7g1_2 +f8g0   +f9g9_38;
+        let mut h9 = f0g9+f1g8   +f2g7   +f3g6   +f4g5   +f5g4   +f6g3   +f7g2   +f8g1   +f9g0   ;
+        let mut carry0;
+        let     carry1;
+        let     carry2;
+        let     carry3;
+        let mut carry4;
+        let     carry5;
+        let     carry6;
+        let     carry7;
+        let     carry8;
+        let     carry9;
 
-  /* |h0| <= (1.65*1.65*2^52*(1+19+19+19+19)+1.65*1.65*2^50*(38+38+38+38+38))
-   *   i.e. |h0| <= 1.4*2^60; narrower ranges for h2, h4, h6, h8
-   * |h1| <= (1.65*1.65*2^51*(1+1+19+19+19+19+19+19+19+19))
-   *   i.e. |h1| <= 1.7*2^59; narrower ranges for h3, h5, h7, h9 */
+        /* |h0| <= (1.65*1.65*2^52*(1+19+19+19+19)+1.65*1.65*2^50*(38+38+38+38+38))
+         *   i.e. |h0| <= 1.4*2^60; narrower ranges for h2, h4, h6, h8
+         * |h1| <= (1.65*1.65*2^51*(1+1+19+19+19+19+19+19+19+19))
+         *   i.e. |h1| <= 1.7*2^59; narrower ranges for h3, h5, h7, h9 */
 
-  carry0 = h0 + (1 << 25); h1 += carry0 >> 26; h0 -= carry0 & KTOP_38BITS;
-  carry4 = h4 + (1 << 25); h5 += carry4 >> 26; h4 -= carry4 & KTOP_38BITS;
-  /* |h0| <= 2^25 */
-  /* |h4| <= 2^25 */
-  /* |h1| <= 1.71*2^59 */
-  /* |h5| <= 1.71*2^59 */
+        carry0 = h0 + (1 << 25); h1 += carry0 >> 26; h0 -= carry0 & KTOP_38BITS;
+        carry4 = h4 + (1 << 25); h5 += carry4 >> 26; h4 -= carry4 & KTOP_38BITS;
+        /* |h0| <= 2^25 */
+        /* |h4| <= 2^25 */
+        /* |h1| <= 1.71*2^59 */
+        /* |h5| <= 1.71*2^59 */
 
-  carry1 = h1 + (1 << 24); h2 += carry1 >> 25; h1 -= carry1 & KTOP_39BITS;
-  carry5 = h5 + (1 << 24); h6 += carry5 >> 25; h5 -= carry5 & KTOP_39BITS;
-  /* |h1| <= 2^24; from now on fits into int32 */
-  /* |h5| <= 2^24; from now on fits into int32 */
-  /* |h2| <= 1.41*2^60 */
-  /* |h6| <= 1.41*2^60 */
+        carry1 = h1 + (1 << 24); h2 += carry1 >> 25; h1 -= carry1 & KTOP_39BITS;
+        carry5 = h5 + (1 << 24); h6 += carry5 >> 25; h5 -= carry5 & KTOP_39BITS;
+        /* |h1| <= 2^24; from now on fits into int32 */
+        /* |h5| <= 2^24; from now on fits into int32 */
+        /* |h2| <= 1.41*2^60 */
+        /* |h6| <= 1.41*2^60 */
 
-  carry2 = h2 + (1 << 25); h3 += carry2 >> 26; h2 -= carry2 & KTOP_38BITS;
-  carry6 = h6 + (1 << 25); h7 += carry6 >> 26; h6 -= carry6 & KTOP_38BITS;
-  /* |h2| <= 2^25; from now on fits into int32 unchanged */
-  /* |h6| <= 2^25; from now on fits into int32 unchanged */
-  /* |h3| <= 1.71*2^59 */
-  /* |h7| <= 1.71*2^59 */
+        carry2 = h2 + (1 << 25); h3 += carry2 >> 26; h2 -= carry2 & KTOP_38BITS;
+        carry6 = h6 + (1 << 25); h7 += carry6 >> 26; h6 -= carry6 & KTOP_38BITS;
+        /* |h2| <= 2^25; from now on fits into int32 unchanged */
+        /* |h6| <= 2^25; from now on fits into int32 unchanged */
+        /* |h3| <= 1.71*2^59 */
+        /* |h7| <= 1.71*2^59 */
 
-  carry3 = h3 + (1 << 24); h4 += carry3 >> 25; h3 -= carry3 & KTOP_39BITS;
-  carry7 = h7 + (1 << 24); h8 += carry7 >> 25; h7 -= carry7 & KTOP_39BITS;
-  /* |h3| <= 2^24; from now on fits into int32 unchanged */
-  /* |h7| <= 2^24; from now on fits into int32 unchanged */
-  /* |h4| <= 1.72*2^34 */
-  /* |h8| <= 1.41*2^60 */
+        carry3 = h3 + (1 << 24); h4 += carry3 >> 25; h3 -= carry3 & KTOP_39BITS;
+        carry7 = h7 + (1 << 24); h8 += carry7 >> 25; h7 -= carry7 & KTOP_39BITS;
+        /* |h3| <= 2^24; from now on fits into int32 unchanged */
+        /* |h7| <= 2^24; from now on fits into int32 unchanged */
+        /* |h4| <= 1.72*2^34 */
+        /* |h8| <= 1.41*2^60 */
 
-  carry4 = h4 + (1 << 25); h5 += carry4 >> 26; h4 -= carry4 & KTOP_38BITS;
-  carry8 = h8 + (1 << 25); h9 += carry8 >> 26; h8 -= carry8 & KTOP_38BITS;
-  /* |h4| <= 2^25; from now on fits into int32 unchanged */
-  /* |h8| <= 2^25; from now on fits into int32 unchanged */
-  /* |h5| <= 1.01*2^24 */
-  /* |h9| <= 1.71*2^59 */
+        carry4 = h4 + (1 << 25); h5 += carry4 >> 26; h4 -= carry4 & KTOP_38BITS;
+        carry8 = h8 + (1 << 25); h9 += carry8 >> 26; h8 -= carry8 & KTOP_38BITS;
+        /* |h4| <= 2^25; from now on fits into int32 unchanged */
+        /* |h8| <= 2^25; from now on fits into int32 unchanged */
+        /* |h5| <= 1.01*2^24 */
+        /* |h9| <= 1.71*2^59 */
 
-  carry9 = h9 + (1 << 24); h0 += (carry9 >> 25) * 19; h9 -= carry9 & KTOP_39BITS;
-  /* |h9| <= 2^24; from now on fits into int32 unchanged */
-  /* |h0| <= 1.1*2^39 */
+        carry9 = h9 + (1 << 24); h0 += (carry9 >> 25) * 19; h9 -= carry9 & KTOP_39BITS;
+        /* |h9| <= 2^24; from now on fits into int32 unchanged */
+        /* |h0| <= 1.1*2^39 */
 
-  carry0 = h0 + (1 << 25); h1 += carry0 >> 26; h0 -= carry0 & KTOP_38BITS;
-  /* |h0| <= 2^25; from now on fits into int32 unchanged */
-  /* |h1| <= 1.01*2^24 */
+        carry0 = h0 + (1 << 25); h1 += carry0 >> 26; h0 -= carry0 & KTOP_38BITS;
+        /* |h0| <= 2^25; from now on fits into int32 unchanged */
+        /* |h1| <= 1.01*2^24 */
 
-  h.value[0] = h0 as i32;
-  h.value[1] = h1 as i32;
-  h.value[2] = h2 as i32;
-  h.value[3] = h3 as i32;
-  h.value[4] = h4 as i32;
-  h.value[5] = h5 as i32;
-  h.value[6] = h6 as i32;
-  h.value[7] = h7 as i32;
-  h.value[8] = h8 as i32;
-  h.value[9] = h9 as i32;
+        self.value[0] = h0 as i32;
+        self.value[1] = h1 as i32;
+        self.value[2] = h2 as i32;
+        self.value[3] = h3 as i32;
+        self.value[4] = h4 as i32;
+        self.value[5] = h5 as i32;
+        self.value[6] = h6 as i32;
+        self.value[7] = h7 as i32;
+        self.value[8] = h8 as i32;
+        self.value[9] = h9 as i32;
+    }
 }
+
+impl<'a,'b> Mul<&'a FieldElement> for &'b FieldElement
+{
+    type Output = FieldElement;
+
+    fn mul(self, g: &FieldElement) -> FieldElement
+    {
+        let mut res = self.clone();
+        res *= g;
+        res
+    }
+}
+
 
 #[cfg(test)]
 #[test]
@@ -544,11 +560,10 @@ fn mul() {
         let (negc, cbytes) = case.get("c").unwrap();
 
         assert!(!nega && !negb && !negc);
-        let     a = test_from_bytes(&abytes);
-        let     b = test_from_bytes(&bbytes);
-        let     c = test_from_bytes(&cbytes);
-        let mut r = FieldElement::new();
-        fe_mul(&mut r, &a, &b);
+        let a = test_from_bytes(&abytes);
+        let b = test_from_bytes(&bbytes);
+        let c = test_from_bytes(&cbytes);
+        let r = &a * &b;
         assert_eq!(r, c);
     });
 }
@@ -711,72 +726,61 @@ pub fn fe_invert(z: &FieldElement) -> FieldElement
       temp.overwrite_with(&t1);
       fe_square(&mut t1, &temp);
   }
-  temp.overwrite_with(&t1);
-  fe_mul(&mut t1, &z, &temp);
-  temp.overwrite_with(&t0);
-  fe_mul(&mut t0, &temp, &t1);
+  t1 *= &z;
+  t0 *= &t1;
   fe_square(&mut t2, &t0);
-  temp.overwrite_with(&t1);
-  fe_mul(&mut t1, &temp, &t2);
+  t1 *= &t2;
   fe_square(&mut t2, &t1);
   for _ in 1..5 {
       temp.overwrite_with(&t2);
       fe_square(&mut t2, &temp);
   }
-  temp.overwrite_with(&t1);
-  fe_mul(&mut t1, &t2, &temp);
+  t1 *= &t2;
   fe_square(&mut t2, &t1);
   for _ in 1..10 {
       temp.overwrite_with(&t2);
       fe_square(&mut t2, &temp);
   }
-  temp.overwrite_with(&t2);
-  fe_mul(&mut t2, &temp, &t1);
+  t2 *= &t1;
   fe_square(&mut t3, &t2);
   for _ in 1..20 {
       temp.overwrite_with(&t3);
       fe_square(&mut t3, &temp);
   }
-  temp.overwrite_with(&t2);
-  fe_mul(&mut t2, &t3, &temp);
+  t2 *= &t3;
   temp.overwrite_with(&t2);
   fe_square(&mut t2, &temp);
   for _ in 1..10 {
       temp.overwrite_with(&t2);
       fe_square(&mut t2, &temp);
   }
-  temp.overwrite_with(&t1);
-  fe_mul(&mut t1, &t2, &temp);
+  t1 *= &t2;
   fe_square(&mut t2, &t1);
   for _ in 1..50 {
       temp.overwrite_with(&t2);
       fe_square(&mut t2, &temp);
   }
-  temp.overwrite_with(&t2);
-  fe_mul(&mut t2, &temp, &t1);
+  t2 *= &t1;
   fe_square(&mut t3, &t2);
   for _ in 1..100 {
       temp.overwrite_with(&t3);
       fe_square(&mut t3, &temp);
   }
-  temp.overwrite_with(&t2);
-  fe_mul(&mut t2, &t3, &temp);
+  t2 *= &t3;
   temp.overwrite_with(&t2);
   fe_square(&mut t2, &temp);
   for _ in 1..50 {
       temp.overwrite_with(&t2);
       fe_square(&mut t2, &temp);
   }
-  temp.overwrite_with(&t1);
-  fe_mul(&mut t1, &t2, &temp);
+  t1 *= &t2;
   temp.overwrite_with(&t1);
   fe_square(&mut t1, &temp);
   for _ in 1..5 {
       temp.overwrite_with(&t1);
       fe_square(&mut t1, &temp);
   }
-  fe_mul(&mut out, &t1, &t0);
-  out
+  &t1 * &t0
 }
 
 #[cfg(test)]
@@ -1043,7 +1047,8 @@ fn square2() {
     });
 }
 
-pub fn fe_pow22523(out: &mut FieldElement, z: &FieldElement) {
+pub fn fe_pow22523(z: &FieldElement) -> FieldElement
+{
   let mut t0 = FieldElement::new();
   let mut t1 = FieldElement::new();
   let mut t2 = FieldElement::new();
@@ -1055,72 +1060,62 @@ pub fn fe_pow22523(out: &mut FieldElement, z: &FieldElement) {
       let temp = t1.clone();
       fe_square(&mut t1, &temp);
   }
-  temp = t1.clone();
-  fe_mul(&mut t1, &z, &temp);
-  temp = t0.clone();
-  fe_mul(&mut t0, &temp, &t1);
+  t1 *= &z;
+  t0 *= &t1;
   temp = t0.clone();
   fe_square(&mut t0, &temp);
-  temp = t0.clone();
-  fe_mul(&mut t0, &t1, &temp);
+  t0 *= &t1;
   fe_square(&mut t1, &t0);
   for _ in 1..5 {
       temp = t1.clone();
       fe_square(&mut t1, &temp);
   }
-  temp = t0.clone();
-  fe_mul(&mut t0, &t1, &temp);
+  t0 *= &t1;
   fe_square(&mut t1, &t0);
   for _ in 1..10 {
       temp = t1.clone();
       fe_square(&mut t1, &temp);
   }
-  temp = t1.clone();
-  fe_mul(&mut t1, &temp, &t0);
+  t1 *= &t0;
   fe_square(&mut t2, &t1);
   for _ in 1..20 {
       temp = t2.clone();
       fe_square(&mut t2, &temp);
   }
-  temp = t1.clone();
-  fe_mul(&mut t1, &t2, &temp);
+  t1 *= &t2;
   temp = t1.clone();
   fe_square(&mut t1, &temp);
   for _ in 1..10 {
       temp = t1.clone();
       fe_square(&mut t1, &temp);
   }
-  temp = t0.clone();
-  fe_mul(&mut t0, &t1, &temp);
+  t0 *= &t1;
   fe_square(&mut t1, &t0);
   for _ in 1..50 {
       temp = t1.clone();
       fe_square(&mut t1, &temp);
   }
-  temp = t1.clone();
-  fe_mul(&mut t1, &temp, &t0);
+  t1 *= &t0;
   fe_square(&mut t2, &t1);
   for _ in 1..100 {
       temp = t2.clone();
       fe_square(&mut t2, &temp);
   }
-  temp = t1.clone();
-  fe_mul(&mut t1, &t2, &temp);
+  t1 *= &t2;
   temp = t1.clone();
   fe_square(&mut t1, &temp);
   for _ in 1..50 {
       temp = t1.clone();
       fe_square(&mut t1, &temp);
   }
-  temp = t0.clone();
-  fe_mul(&mut t0, &t1, &temp);
+  t0 *= &t1;
   temp = t0.clone();
   fe_square(&mut t0, &temp);
   for _ in 1..2 {
       temp = t0.clone();
       fe_square(&mut t0, &temp);
   }
-  fe_mul(out, &t0, &z);
+  &t0 * &z
 }
 
 #[cfg(test)]
@@ -1132,10 +1127,9 @@ fn pow22523() {
         let (negc, cbytes) = case.get("c").unwrap();
 
         assert!(!nega && !negc);
-        let     a = test_from_bytes(&abytes);
-        let     c = test_from_bytes(&cbytes);
-        let mut r = FieldElement::new();
-        fe_pow22523(&mut r, &a);
+        let a = test_from_bytes(&abytes);
+        let c = test_from_bytes(&cbytes);
+        let r = fe_pow22523(&a);
         assert_eq!(r, c);
     });
 }
