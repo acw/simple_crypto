@@ -292,8 +292,7 @@ fn conversion() {
         let myt = Point2::from(&a);
         assert_eq!(myt, t);
 
-        let mut myo = PointP1P1::new();
-        ge_p3_dbl(&mut myo, &a);
+        let myo = a.double();
         assert_eq!(myo, o);
 
         let myd = Point2::from(&o);
@@ -305,24 +304,27 @@ fn conversion() {
 }
 
 /* r = 2 * p */
-fn ge_p2_dbl(r: &mut PointP1P1, p: &Point2)
-{
-    r.x = p.x.square();
-    r.z = p.y.square();
-    r.t = p.z.sq2();
-    r.y = &p.x + &p.y;
-    let t0 = r.y.square();
-    r.y = &r.z + &r.x;
-    r.z -= &r.x;
-    r.x = &t0 - &r.y;
-    r.t -= &r.z;
+impl Point2 {
+    fn double(&self) -> PointP1P1
+    {
+        let x0 = self.x.square();
+        let z0 = self.y.square();
+        let t0 = self.z.sq2();
+        let y0 = &self.x + &self.y;
+        let ry = &z0 + &x0;
+        let rz = &z0 - &x0;
+        let rx = &y0.square() - &ry;
+        let rt = &t0 - &rz;
+        PointP1P1 { x: rx, y: ry, z: rz, t: rt }
+    }
 }
 
 /* r = 2 * p */
-fn ge_p3_dbl(r: &mut PointP1P1, p: &Point)
-{
-    let q = Point2::from(p);
-    ge_p2_dbl(r, &q);
+impl Point {
+    fn double(&self) -> PointP1P1
+    {
+        Point2::from(self).double()
+    }
 }
 
 #[cfg(test)]
@@ -341,11 +343,10 @@ fn double() {
         let c = Point2::load_test_value(cbytes);
         let d = PointP1P1::load_test_value(dbytes);
 
-        let mut mine = PointP1P1::new();
-        ge_p3_dbl(&mut mine, &a);
-        assert_eq!(mine, b);
-        ge_p2_dbl(&mut mine, &c);
-        assert_eq!(mine, d);
+        let myb = a.double();
+        assert_eq!(myb, b);
+        let myd = c.double();
+        assert_eq!(myd, d);
     });
 }
 
@@ -533,13 +534,13 @@ impl Point {
           h = Point::from(&r);
       }
   
-      ge_p3_dbl(&mut r, &h);
+      r = h.double();
       let mut s = Point2::from(&r);
-      ge_p2_dbl(&mut r, &s);
+      r = s.double();
       s = Point2::from(&r);
-      ge_p2_dbl(&mut r, &s);
+      r = s.double();
       s = Point2::from(&r);
-      ge_p2_dbl(&mut r, &s);
+      r = s.double();
       h = Point::from(&r);
   
       for i in &[0,2,4,6,8,10,12,14,16,18,20,22,24,26,28,30,32,34,36,38,40,42,44,46,48,50,52,54,56,58,60,62] {
@@ -629,14 +630,13 @@ pub fn ge_double_scalarmult_vartime(a: &[u8], A: &Point, b: &[u8]) -> Point2
     #[allow(non_snake_case)]
     let mut Ai: [Cached; 8] = [Cached::new(), Cached::new(), Cached::new(), Cached::new(),
                                Cached::new(), Cached::new(), Cached::new(), Cached::new()];
-    let mut t = PointP1P1::new();
     #[allow(non_snake_case)]
 
     slide(&mut aslide, &a);
     slide(&mut bslide, &b);
 
     Ai[0] = Cached::from(A);
-    ge_p3_dbl(&mut t, &A);
+    let mut t = A.double();
     let A2 = Point::from(&t);
     x25519_ge_add(&mut t, &A2, &Ai[0]);
     let mut u = Point::from(&t);
@@ -674,7 +674,7 @@ pub fn ge_double_scalarmult_vartime(a: &[u8], A: &Point, b: &[u8]) -> Point2
     }
 
     while i >= 0 {
-        ge_p2_dbl(&mut t, &r);
+        t = r.double();
   
         if aslide[i as usize] > 0 {
             u = Point::from(&t);
