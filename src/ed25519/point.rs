@@ -14,16 +14,6 @@ pub struct Point {
 }
 
 impl Point {
-    pub fn new() -> Point
-    {
-        Point {
-            x: FieldElement::new(),
-            y: FieldElement::new(),
-            z: FieldElement::new(),
-            t: FieldElement::new()
-        }
-    }
-
     fn zero() -> Point
     {
         Point {
@@ -134,15 +124,6 @@ pub struct Point2 {
 }
 
 impl Point2 {
-    pub fn new() -> Point2
-    {
-        Point2 {
-            x: FieldElement::new(),
-            y: FieldElement::new(),
-            z: FieldElement::new()
-        }
-    }
-
     pub fn zero() -> Point2
     {
         Point2 {
@@ -168,11 +149,14 @@ impl Point2 {
     }
 }
 
-fn ge_p3_to_p2(r: &mut Point2, p: &Point)
-{
-    r.x.overwrite_with(&p.x);
-    r.y.overwrite_with(&p.y);
-    r.z.overwrite_with(&p.z);
+impl<'a> From<&'a Point> for Point2 {
+    fn from(p: &Point) -> Point2 {
+        Point2 {
+            x: p.x.clone(),
+            y: p.y.clone(),
+            z: p.z.clone(),
+        }
+    }
 }
 
 #[derive(Debug,PartialEq)]
@@ -243,29 +227,42 @@ const D2: FieldElement = FieldElement {
             15978800,  -12551817, -6495438,  29715968, 9444199]
 };
 
-fn x25519_ge_p3_to_cached(r: &mut Cached, p: &Point)
+impl<'a> From<&'a Point> for Cached
 {
-    r.yplusx = &p.y + &p.x;
-    r.yminusx = &p.y - &p.x;
-    r.z.overwrite_with(&p.z);
-    r.t2d = &p.t * &D2;
+    fn from(p: &Point) -> Cached
+    {
+        Cached {
+            yplusx: &p.y + &p.x,
+            yminusx: &p.y - &p.x,
+            z: p.z.clone(),
+            t2d: &p.t * &D2,
+        }    
+    }
 }
 
-/* r = p */
-fn x25519_ge_p1p1_to_p2(r: &mut Point2, p: &PointP1P1)
+impl<'a> From<&'a PointP1P1> for Point2
 {
-    r.x = &p.x * &p.t;
-    r.y = &p.y * &p.z;
-    r.z = &p.z * &p.t;
+    fn from(p: &PointP1P1) -> Point2
+    {
+        Point2 {
+            x: &p.x * &p.t,
+            y: &p.y * &p.z,
+            z: &p.z * &p.t,
+        }
+    }
 }
 
-/* r = p */
-fn x25519_ge_p1p1_to_p3(r: &mut Point, p: &PointP1P1)
+impl<'a> From<&'a PointP1P1> for Point 
 {
-    r.x = &p.x * &p.t;
-    r.y = &p.y * &p.z;
-    r.z = &p.z * &p.t;
-    r.t = &p.x * &p.y;
+    fn from(p: &PointP1P1) -> Point
+    {
+        Point {
+            x: &p.x * &p.t,
+            y: &p.y * &p.z,
+            z: &p.z * &p.t,
+            t: &p.x * &p.y,
+        }
+    }
 }
 
 #[cfg(test)]
@@ -289,24 +286,20 @@ fn conversion() {
 
         assert!(!nega && !negc && !negt && !nego && !negd && !negb);
 
-        let mut myc = Cached::new();
-        x25519_ge_p3_to_cached(&mut myc, &a);
+        let myc = Cached::from(&a);
         assert_eq!(myc, c);
 
-        let mut myt = Point2::new();
-        ge_p3_to_p2(&mut myt, &a);
+        let myt = Point2::from(&a);
         assert_eq!(myt, t);
 
         let mut myo = PointP1P1::new();
         ge_p3_dbl(&mut myo, &a);
         assert_eq!(myo, o);
 
-        let mut myd = Point2::new();
-        x25519_ge_p1p1_to_p2(&mut myd, &o);
+        let myd = Point2::from(&o);
         assert_eq!(myd, d);
 
-        let mut myb = Point::new();
-        x25519_ge_p1p1_to_p3(&mut myb, &o);
+        let myb = Point::from(&o);
         assert_eq!(myb, b);
     });
 }
@@ -328,8 +321,7 @@ fn ge_p2_dbl(r: &mut PointP1P1, p: &Point2)
 /* r = 2 * p */
 fn ge_p3_dbl(r: &mut PointP1P1, p: &Point)
 {
-    let mut q = Point2::new();
-    ge_p3_to_p2(&mut q, p);
+    let q = Point2::from(p);
     ge_p2_dbl(r, &q);
 }
 
@@ -515,46 +507,45 @@ impl Point {
     {
       let mut e: [i8; 64] = [0; 64];
       for i in 0..32 {
-        e[2 * i + 0] = ((a[i] >> 0) & 15) as i8;
-        e[2 * i + 1] = ((a[i] >> 4) & 15) as i8;
+          e[2 * i + 0] = ((a[i] >> 0) & 15) as i8;
+          e[2 * i + 1] = ((a[i] >> 4) & 15) as i8;
       }
       /* each e[i] is between 0 and 15 */
       /* e[63] is between 0 and 7 */
   
       let mut carry = 0;
       for i in 0..63 {
-        e[i] += carry;
-        carry = e[i] + 8;
-        carry >>= 4;
-        e[i] -= carry << 4;
+          e[i] += carry;
+          carry = e[i] + 8;
+          carry >>= 4;
+          e[i] -= carry << 4;
       }
       e[63] += carry;
       /* each e[i] is between -8 and 8 */
   
       let mut r = PointP1P1::new();
-      let mut s = Point2::new();
       let mut t;
   
       let mut h = Point::zero();
       for i in &[1,3,5,7,9,11,13,15,17,19,21,23,25,27,29,31,33,35,37,39,41,43,45,47,49,51,53,55,57,59,61,63] {
-        t = table_select(*i / 2, e[*i as usize]);
-        ge_madd(&mut r, &h, &t);
-        x25519_ge_p1p1_to_p3(&mut h, &r);
+          t = table_select(*i / 2, e[*i as usize]);
+          ge_madd(&mut r, &h, &t);
+          h = Point::from(&r);
       }
   
       ge_p3_dbl(&mut r, &h);
-      x25519_ge_p1p1_to_p2(&mut s, &r);
+      let mut s = Point2::from(&r);
       ge_p2_dbl(&mut r, &s);
-      x25519_ge_p1p1_to_p2(&mut s, &r);
+      s = Point2::from(&r);
       ge_p2_dbl(&mut r, &s);
-      x25519_ge_p1p1_to_p2(&mut s, &r);
+      s = Point2::from(&r);
       ge_p2_dbl(&mut r, &s);
-      x25519_ge_p1p1_to_p3(&mut h, &r);
+      h = Point::from(&r);
   
       for i in &[0,2,4,6,8,10,12,14,16,18,20,22,24,26,28,30,32,34,36,38,40,42,44,46,48,50,52,54,56,58,60,62] {
-        t = table_select(*i / 2, e[*i as usize]);
-        ge_madd(&mut r, &h, &t);
-        x25519_ge_p1p1_to_p3(&mut h, &r);
+          t = table_select(*i / 2, e[*i as usize]);
+          ge_madd(&mut r, &h, &t);
+          h = Point::from(&r);
       }
 
       h
@@ -639,37 +630,35 @@ pub fn ge_double_scalarmult_vartime(a: &[u8], A: &Point, b: &[u8]) -> Point2
     let mut Ai: [Cached; 8] = [Cached::new(), Cached::new(), Cached::new(), Cached::new(),
                                Cached::new(), Cached::new(), Cached::new(), Cached::new()];
     let mut t = PointP1P1::new();
-    let mut u = Point::new();
     #[allow(non_snake_case)]
-    let mut A2 = Point::new();
 
     slide(&mut aslide, &a);
     slide(&mut bslide, &b);
 
-    x25519_ge_p3_to_cached(&mut Ai[0], &A);
+    Ai[0] = Cached::from(A);
     ge_p3_dbl(&mut t, &A);
-    x25519_ge_p1p1_to_p3(&mut A2, &t);
+    let A2 = Point::from(&t);
     x25519_ge_add(&mut t, &A2, &Ai[0]);
-    x25519_ge_p1p1_to_p3(&mut u, &t);
-    x25519_ge_p3_to_cached(&mut Ai[1], &u);
+    let mut u = Point::from(&t);
+    Ai[1] = Cached::from(&u);
     x25519_ge_add(&mut t, &A2, &Ai[1]);
-    x25519_ge_p1p1_to_p3(&mut u, &t);
-    x25519_ge_p3_to_cached(&mut Ai[2], &u);
+    u = Point::from(&t);
+    Ai[2] = Cached::from(&u);
     x25519_ge_add(&mut t, &A2, &Ai[2]);
-    x25519_ge_p1p1_to_p3(&mut u, &t);
-    x25519_ge_p3_to_cached(&mut Ai[3], &u);
+    u = Point::from(&t);
+    Ai[3] = Cached::from(&u);
     x25519_ge_add(&mut t, &A2, &Ai[3]);
-    x25519_ge_p1p1_to_p3(&mut u, &t);
-    x25519_ge_p3_to_cached(&mut Ai[4], &u);
+    u = Point::from(&t);
+    Ai[4] = Cached::from(&u);
     x25519_ge_add(&mut t, &A2, &Ai[4]);
-    x25519_ge_p1p1_to_p3(&mut u, &t);
-    x25519_ge_p3_to_cached(&mut Ai[5], &u);
+    u = Point::from(&t);
+    Ai[5] = Cached::from(&u);
     x25519_ge_add(&mut t, &A2, &Ai[5]);
-    x25519_ge_p1p1_to_p3(&mut u, &t);
-    x25519_ge_p3_to_cached(&mut Ai[6], &u);
+    u = Point::from(&t);
+    Ai[6] = Cached::from(&u);
     x25519_ge_add(&mut t, &A2, &Ai[6]);
-    x25519_ge_p1p1_to_p3(&mut u, &t);
-    x25519_ge_p3_to_cached(&mut Ai[7], &u);
+    u = Point::from(&t);
+    Ai[7] = Cached::from(&u);
 
     let mut r = Point2::zero();
 
@@ -688,26 +677,26 @@ pub fn ge_double_scalarmult_vartime(a: &[u8], A: &Point, b: &[u8]) -> Point2
         ge_p2_dbl(&mut t, &r);
   
         if aslide[i as usize] > 0 {
-            x25519_ge_p1p1_to_p3(&mut u, &t);
+            u = Point::from(&t);
             let idx = (aslide[i as usize] / 2) as usize;
             x25519_ge_add(&mut t, &u, &Ai[idx]);
         } else if aslide[i as usize] < 0 {
-            x25519_ge_p1p1_to_p3(&mut u, &t);
+            u = Point::from(&t);
             let idx = ((-aslide[i as usize]) / 2) as usize;
             x25519_ge_sub(&mut t, &u, &Ai[idx]);
         }
   
         if bslide[i as usize] > 0 {
-            x25519_ge_p1p1_to_p3(&mut u, &t);
+            u = Point::from(&t);
             let idx = (bslide[i as usize] / 2) as usize;
             ge_madd(&mut t, &u, &BI[idx]);
         } else if bslide[i as usize] < 0 {
-            x25519_ge_p1p1_to_p3(&mut u, &t);
+            u = Point::from(&t);
             let idx = ((-bslide[i as usize]) / 2) as usize;
             ge_msub(&mut t, &u, &BI[idx]);
         }
-  
-        x25519_ge_p1p1_to_p2(&mut r, &t);
+
+        r = Point2::from(&t); 
         i -= 1;
     }
 
