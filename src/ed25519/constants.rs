@@ -10,7 +10,7 @@ pub struct Precomp {
 
 impl Precomp
 {
-    pub fn new() -> Precomp
+    fn new() -> Precomp
     {
         Precomp {
             yplusx: FieldElement::new(),
@@ -44,7 +44,45 @@ impl Precomp
         self.yminusx.cmov(&u.yminusx, b);
         self.xy2d.cmov(&u.xy2d, b);
     }
+
+    pub fn table_select(pos: i32, b: i8) -> Precomp
+    {
+        let mut minust = Precomp::new();
+        let mut res = Precomp::zero();
+        let bnegative = negative(b);
+        let babs = b - (((-(bnegative as i8)) & b) << 1);
+        
+        res.cmov(&K25519_PRECOMP[pos as usize][0], equal(babs, 1));
+        res.cmov(&K25519_PRECOMP[pos as usize][1], equal(babs, 2));
+        res.cmov(&K25519_PRECOMP[pos as usize][2], equal(babs, 3));
+        res.cmov(&K25519_PRECOMP[pos as usize][3], equal(babs, 4));
+        res.cmov(&K25519_PRECOMP[pos as usize][4], equal(babs, 5));
+        res.cmov(&K25519_PRECOMP[pos as usize][5], equal(babs, 6));
+        res.cmov(&K25519_PRECOMP[pos as usize][6], equal(babs, 7));
+        res.cmov(&K25519_PRECOMP[pos as usize][7], equal(babs, 8));
+        minust.yplusx.overwrite_with(&res.yminusx);
+        minust.yminusx.overwrite_with(&res.yplusx);
+        minust.xy2d = -&res.xy2d;
+        res.cmov(&minust, bnegative != 0);
+        res
+    }
 }
+
+fn equal(b: i8, c: i8) -> bool
+{
+    let ub = b;
+    let uc = c;
+    let x = ub ^ uc;  /* 0: yes; 1..255: no */
+    (x == 0)
+}
+
+fn negative(b: i8) -> u8
+{
+    let mut x = b as u32;
+    x >>= 31; /* 1: yes; 0: no */
+    x as u8
+}
+
 
 /* k25519Precomp[i][j] = (j+1)*256^i*B */
 pub const K25519_PRECOMP: [[Precomp; 8]; 32] = [

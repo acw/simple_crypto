@@ -149,7 +149,7 @@ impl ED25519Public {
         a.invert();
         let h_digest = eddsa_digest(signature_r, &self.public, msg);
         let h = digest_scalar(&h_digest);
-        let r = ge_double_scalarmult_vartime(&h, &a, &signature_s);
+        let r = Point2::double_scalarmult_vartime(&h, &a, &signature_s);
         let r_check = r.encode();
         signature_r.to_vec() == r_check
     }

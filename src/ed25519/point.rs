@@ -488,43 +488,6 @@ fn addsub() {
     });
 }
 
-fn equal(b: i8, c: i8) -> bool
-{
-    let ub = b;
-    let uc = c;
-    let x = ub ^ uc;  /* 0: yes; 1..255: no */
-    (x == 0)
-}
-
-fn negative(b: i8) -> u8
-{
-    let mut x = b as u32;
-    x >>= 31; /* 1: yes; 0: no */
-    x as u8
-}
-
-fn table_select(pos: i32, b: i8) -> Precomp
-{
-    let mut minust = Precomp::new();
-    let mut res = Precomp::zero();
-    let bnegative = negative(b);
-    let babs = b - (((-(bnegative as i8)) & b) << 1);
-    
-    res.cmov(&K25519_PRECOMP[pos as usize][0], equal(babs, 1));
-    res.cmov(&K25519_PRECOMP[pos as usize][1], equal(babs, 2));
-    res.cmov(&K25519_PRECOMP[pos as usize][2], equal(babs, 3));
-    res.cmov(&K25519_PRECOMP[pos as usize][3], equal(babs, 4));
-    res.cmov(&K25519_PRECOMP[pos as usize][4], equal(babs, 5));
-    res.cmov(&K25519_PRECOMP[pos as usize][5], equal(babs, 6));
-    res.cmov(&K25519_PRECOMP[pos as usize][6], equal(babs, 7));
-    res.cmov(&K25519_PRECOMP[pos as usize][7], equal(babs, 8));
-    minust.yplusx.overwrite_with(&res.yminusx);
-    minust.yminusx.overwrite_with(&res.yplusx);
-    minust.xy2d = -&res.xy2d;
-    res.cmov(&minust, bnegative != 0);
-    res
-}
-
 impl Point {
     /* h = a * B
      * where a = a[0]+256*a[1]+...+256^31 a[31]
@@ -557,7 +520,7 @@ impl Point {
   
       let mut h = Point::zero();
       for i in &[1,3,5,7,9,11,13,15,17,19,21,23,25,27,29,31,33,35,37,39,41,43,45,47,49,51,53,55,57,59,61,63] {
-          t = table_select(*i / 2, e[*i as usize]);
+          t = Precomp::table_select(*i / 2, e[*i as usize]);
           r = &h + &t;
           h = Point::from(&r);
       }
@@ -572,7 +535,7 @@ impl Point {
       h = Point::from(&r);
   
       for i in &[0,2,4,6,8,10,12,14,16,18,20,22,24,26,28,30,32,34,36,38,40,42,44,46,48,50,52,54,56,58,60,62] {
-          t = table_select(*i / 2, e[*i as usize]);
+          t = Precomp::table_select(*i / 2, e[*i as usize]);
           r = &h + &t;
           h = Point::from(&r);
       }
@@ -646,89 +609,92 @@ fn helper_slide() {
     });
 }
 
-/* r = a * A + b * B
- * where a = a[0]+256*a[1]+...+256^31 a[31].
- * and b = b[0]+256*b[1]+...+256^31 b[31].
- * B is the Ed25519 base point (x,4/5) with x positive. */
-#[allow(non_snake_case)]
-pub fn ge_double_scalarmult_vartime(a: &[u8], A: &Point, b: &[u8]) -> Point2
+impl Point2
 {
-    let mut aslide: [i8; 256] = [0; 256];
-    let mut bslide: [i8; 256] = [0; 256];
+    /* r = a * A + b * B
+     * where a = a[0]+256*a[1]+...+256^31 a[31].
+     * and b = b[0]+256*b[1]+...+256^31 b[31].
+     * B is the Ed25519 base point (x,4/5) with x positive. */
     #[allow(non_snake_case)]
-    let mut Ai: [Cached; 8] = [Cached::new(), Cached::new(), Cached::new(), Cached::new(),
-                               Cached::new(), Cached::new(), Cached::new(), Cached::new()];
-    #[allow(non_snake_case)]
-
-    slide(&mut aslide, &a);
-    slide(&mut bslide, &b);
-
-    Ai[0] = Cached::from(A);
-    let mut t = A.double();
-    let A2 = Point::from(&t);
-    t = &A2 + &Ai[0];
-    let mut u = Point::from(&t);
-    Ai[1] = Cached::from(&u);
-    t = &A2 + &Ai[1];
-    u = Point::from(&t);
-    Ai[2] = Cached::from(&u);
-    t = &A2 + &Ai[2];
-    u = Point::from(&t);
-    Ai[3] = Cached::from(&u);
-    t = &A2 + &Ai[3];
-    u = Point::from(&t);
-    Ai[4] = Cached::from(&u);
-    t = &A2 + &Ai[4];
-    u = Point::from(&t);
-    Ai[5] = Cached::from(&u);
-    t = &A2 + &Ai[5];
-    u = Point::from(&t);
-    Ai[6] = Cached::from(&u);
-    t = &A2 + &Ai[6];
-    u = Point::from(&t);
-    Ai[7] = Cached::from(&u);
-
-    let mut r = Point2::zero();
-
-    let mut i: i32 = 255;
-    loop {
-        if (aslide[i as usize] != 0) || (bslide[i as usize] != 0) {
-            break;
+    pub fn double_scalarmult_vartime(a: &[u8], A: &Point, b: &[u8]) -> Point2
+    {
+        let mut aslide: [i8; 256] = [0; 256];
+        let mut bslide: [i8; 256] = [0; 256];
+        #[allow(non_snake_case)]
+        let mut Ai: [Cached; 8] = [Cached::new(), Cached::new(), Cached::new(), Cached::new(),
+                                   Cached::new(), Cached::new(), Cached::new(), Cached::new()];
+        #[allow(non_snake_case)]
+    
+        slide(&mut aslide, &a);
+        slide(&mut bslide, &b);
+    
+        Ai[0] = Cached::from(A);
+        let mut t = A.double();
+        let A2 = Point::from(&t);
+        t = &A2 + &Ai[0];
+        let mut u = Point::from(&t);
+        Ai[1] = Cached::from(&u);
+        t = &A2 + &Ai[1];
+        u = Point::from(&t);
+        Ai[2] = Cached::from(&u);
+        t = &A2 + &Ai[2];
+        u = Point::from(&t);
+        Ai[3] = Cached::from(&u);
+        t = &A2 + &Ai[3];
+        u = Point::from(&t);
+        Ai[4] = Cached::from(&u);
+        t = &A2 + &Ai[4];
+        u = Point::from(&t);
+        Ai[5] = Cached::from(&u);
+        t = &A2 + &Ai[5];
+        u = Point::from(&t);
+        Ai[6] = Cached::from(&u);
+        t = &A2 + &Ai[6];
+        u = Point::from(&t);
+        Ai[7] = Cached::from(&u);
+    
+        let mut r = Point2::zero();
+    
+        let mut i: i32 = 255;
+        loop {
+            if (aslide[i as usize] != 0) || (bslide[i as usize] != 0) {
+                break;
+            }
+            i -= 1;
+            if i < 0 {
+                break;
+            }
         }
-        i -= 1;
-        if i < 0 {
-            break;
+    
+        while i >= 0 {
+            t = r.double();
+      
+            if aslide[i as usize] > 0 {
+                u = Point::from(&t);
+                let idx = (aslide[i as usize] / 2) as usize;
+                t = &u + &Ai[idx]
+            } else if aslide[i as usize] < 0 {
+                u = Point::from(&t);
+                let idx = ((-aslide[i as usize]) / 2) as usize;
+                t = &u - &Ai[idx];
+            }
+      
+            if bslide[i as usize] > 0 {
+                u = Point::from(&t);
+                let idx = (bslide[i as usize] / 2) as usize;
+                t = &u + &BI[idx];
+            } else if bslide[i as usize] < 0 {
+                u = Point::from(&t);
+                let idx = ((-bslide[i as usize]) / 2) as usize;
+                t = &u - &BI[idx];
+            }
+    
+            r = Point2::from(&t); 
+            i -= 1;
         }
+    
+        r
     }
-
-    while i >= 0 {
-        t = r.double();
-  
-        if aslide[i as usize] > 0 {
-            u = Point::from(&t);
-            let idx = (aslide[i as usize] / 2) as usize;
-            t = &u + &Ai[idx]
-        } else if aslide[i as usize] < 0 {
-            u = Point::from(&t);
-            let idx = ((-aslide[i as usize]) / 2) as usize;
-            t = &u - &Ai[idx];
-        }
-  
-        if bslide[i as usize] > 0 {
-            u = Point::from(&t);
-            let idx = (bslide[i as usize] / 2) as usize;
-            t = &u + &BI[idx];
-        } else if bslide[i as usize] < 0 {
-            u = Point::from(&t);
-            let idx = ((-bslide[i as usize]) / 2) as usize;
-            t = &u - &BI[idx];
-        }
-
-        r = Point2::from(&t); 
-        i -= 1;
-    }
-
-    r
 }
 
 #[cfg(test)]
@@ -744,7 +710,7 @@ fn double_scalarmult() {
         assert!(!nega && !negb && !negc && !negd);
         let b = Point::load_test_value(bbytes);
         let d = Point2::load_test_value(dbytes);
-        let mine = ge_double_scalarmult_vartime(&abytes, &b, &cbytes);
+        let mine = Point2::double_scalarmult_vartime(&abytes, &b, &cbytes);
         assert_eq!(mine, d);
     });
 }
