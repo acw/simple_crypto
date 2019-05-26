@@ -1,9 +1,7 @@
 #[cfg(test)]
 use byteorder::{LittleEndian,NativeEndian,ReadBytesExt};
 #[cfg(test)]
-use cryptonum::unsigned::{Decoder,U192};
-#[cfg(test)]
-use ed25519::point::curve25519_scalar_mask;
+use ed25519::scalars::curve25519_scalar_mask;
 #[cfg(test)]
 use quickcheck::{Arbitrary,Gen};
 #[cfg(test)]
@@ -11,6 +9,7 @@ use std::io::Cursor;
 #[cfg(test)]
 use testing::run_test;
 
+use ed25519::loads::{load3,load4};
 use std::ops::*;
 
 // This is all an extremely straightforward translation of the usual C
@@ -163,34 +162,6 @@ pub const KBOTTOM_25BITS : i64 = 0x1ffffffi64;
 pub const KBOTTOM_26BITS : i64 = 0x3ffffffi64;
 pub const KTOP_39BITS    : i64 = 0xfffffffffe000000u64 as i64;
 pub const KTOP_38BITS    : i64 = 0xfffffffffc000000u64 as i64;
-
-pub fn load3(x: &[u8]) -> u64
-{
-    (x[0] as u64) | ((x[1] as u64) << 8) | ((x[2] as u64) << 16)
-}
-
-pub fn load4(x: &[u8]) -> u64
-{
-    (x[0] as u64)         | ((x[1] as u64) << 8) |
-    ((x[2] as u64) << 16) | ((x[3] as u64) << 24)
-}
-
-#[cfg(test)]
-#[test]
-fn loads() {
-    let fname = "testdata/ed25519/load.test";
-    run_test(fname.to_string(), 3, |case| {
-        let (negx, xbytes) = case.get("x").unwrap();
-        let (nega, abytes) = case.get("a").unwrap();
-        let (negb, bbytes) = case.get("b").unwrap();
-
-        assert!(!negx && !nega && !negb);
-        let res3 = u64::from(U192::from_bytes(abytes));
-        let res4 = u64::from(U192::from_bytes(bbytes));
-        assert_eq!(res3, load3(&xbytes), "load3");
-        assert_eq!(res4, load4(&xbytes), "load4");
-    });
-}
 
 #[cfg(test)]
 #[test]

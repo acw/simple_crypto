@@ -1,11 +1,14 @@
 mod constants;
 mod fe;
+mod loads;
 mod point;
+mod scalars;
 
 use digest::Digest;
 use rand::Rng;
 use sha2::Sha512;
-use self::point::*;
+use self::scalars::{curve25519_scalar_mask,x25519_sc_muladd,x25519_sc_reduce};
+use self::point::{Point,Point2};
 #[cfg(test)]
 use testing::run_test;
 #[cfg(test)]
