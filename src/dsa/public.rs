@@ -7,11 +7,15 @@ use simple_asn1::{ASN1Block,ASN1Class,ASN1EncodeErr,ToASN1};
 use std::cmp::min;
 use utils::TranslateNums;
 
+/// A DSA public key, parameterized by its DSA parameters (so that you don't
+/// accidentally pass the wrong thing to the wrong function).
 pub struct DSAPublicKey<Params: DSAParameters> {
     pub(crate) params: Params,
     pub(crate) y: Params::L
 }
 
+/// An enumeration that hides exactly which parameters you're using. Use at
+/// your own risk, as the types won't save you.
 pub enum DSAPublic {
     DSAPublicL1024N160(DSAPublicKey<L1024N160>),
     DSAPublicL2048N224(DSAPublicKey<L2048N224>),

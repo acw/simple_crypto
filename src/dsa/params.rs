@@ -6,16 +6,30 @@ use simple_asn1::{ToASN1,ASN1Block,ASN1Class,ASN1EncodeErr};
 use rand::Rng;
 use utils::TranslateNums;
 
+/// A trait that describes what a set of DSA parameters must support in
+/// order to be used by the rest of the system.
 pub trait DSAParameters : ToASN1
 {
+    /// The fixed-width, unsigned type of values in L.
     type L;
+    /// The fixed-width, unsigned type of values in N.
     type N;
 
+    /// Given a `p`, `g`, and `q`, generate a new structure that includes
+    /// this information. Optionally, do any cross-checks needed.
     fn new(p: Self::L, g: Self::L, q: Self::N) -> Self;
+    /// Generate a new set of DSA parameters given the provided random
+    /// number generator. Just as with key generation, this should be a
+    /// cryptographically-strong random number generator. If it's not,
+    /// you may be writing compromisable code.
     fn generate<G: Rng>(rng: &mut G) -> Self;
+    /// Return the size of values of N in bits.
     fn n_size() -> usize;
+    /// Return the size of values of L in bits.
     fn l_size() -> usize;
-
+    /// Return the size of `q` in this particular instance of the parameters.
+    /// (Should be the same as `n_size()`, and the default implementation
+    /// simply uses `n_size(), but included for convenience)
     fn n_bits(&self) -> usize {
         Self::n_size()
     }
@@ -23,6 +37,7 @@ pub trait DSAParameters : ToASN1
 
 macro_rules! generate_parameters {
     ($name: ident, $ltype: ident, $ntype: ident, $l: expr, $n: expr) => {
+        /// DSA parameters to the given L and N, with the values given in bits.
         #[derive(Clone,PartialEq)]
         pub struct $name {
             pub p: $ltype,

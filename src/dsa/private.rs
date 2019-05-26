@@ -5,12 +5,16 @@ use dsa::params::*;
 use dsa::rfc6979::*;
 use hmac::{Hmac,Mac};
 
+/// A DSA private key, parameterized by its DSA parameters (so that you don't
+/// accidentally pass the wrong key to the wrong routine).
 pub struct DSAPrivateKey<Params: DSAParameters>
 {
     pub(crate) params: Params,
     pub(crate) x: Params::N
 }
 
+/// A generic DSA private key enum, which masks which kind of DSA key (1024,
+/// 2048 with the small `n`, 2048 with the normal `n`, or 3072) you're using.
 pub enum DSAPrivate {
     DSA1024Private(DSAPrivateKey<L1024N160>),
     DSA2048SmallPrivate(DSAPrivateKey<L2048N224>),

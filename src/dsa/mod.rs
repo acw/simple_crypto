@@ -2,6 +2,11 @@ mod errors;
 mod params;
 mod private;
 mod public;
+/// Support for RFC6979 signing, which provides a secure way to generate
+/// signatures without the use of a random number generator. This is used
+/// in DSA signing as well as in ECDSA signing, but appears here because
+/// ... well, because it was written for DSA first, both historically
+/// (I think) and by me.
 pub mod rfc6979;
 #[cfg(test)]
 mod tests;
@@ -15,6 +20,12 @@ use rand::Rng;
 use rand::distributions::Standard;
 use super::KeyPair;
 
+/// A DSA key pair, for use in signing and signature verification. Note
+/// that you probably shouldn't be using DSA any more; ECDSA or ED25519
+/// are probably better options.
+/// 
+/// DSA key pairs are parameterized by their DSA parameters, so that
+/// you can't accidentally use them in the wrong place.
 pub struct DSAKeyPair<P: DSAParameters>
 {
     pub private: DSAPrivateKey<P>,
@@ -32,10 +43,20 @@ impl<P: DSAParameters> KeyPair for DSAKeyPair<P>
     }
 }
 
+/// A trait that's useful to indicate that the given key pair can be
+/// generated at runtime, if necessary. Note, once again (I never get
+/// tired of this): You should probably only use this for testing or,
+/// for legacy protocols, because you probably shouldn't be using DSA
+/// in new systems.
 pub trait DSAKeyGeneration
 {
     type Params;
 
+    /// Generate a DSA key pair using the given parameters and random
+    /// number generator. Please make sure that the RNG you're using
+    /// is suitable for key generators (look for the term "cryptographic"
+    /// or "crypto strong" in its documentation, or see if it matches
+    /// any of the NIST-suggested RNG algorithms).
     fn generate<G: Rng>(params: &Self::Params, rng: &mut G) -> Self;
 }
 
