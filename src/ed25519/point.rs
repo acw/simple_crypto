@@ -51,7 +51,7 @@ impl Point {
       let mut hx = v3.square();
       hx *= &v;
       hx *= &u; /* x = uv^7 */
-      hx = fe_pow22523(&hx); /* x = (uv^7)^((q-5)/8) */
+      hx = hx.pow22523(); /* x = (uv^7)^((q-5)/8) */
       hx *= &v3;
       hx *= &u; /* x = uv^3(uv^7)^((q-5)/8) */
 
@@ -312,7 +312,7 @@ fn ge_p2_dbl(r: &mut PointP1P1, p: &Point2)
 {
   r.x = p.x.square();
   r.z = p.y.square();
-  fe_sq2(&mut r.t, &p.z);
+  r.t = p.z.sq2();
   r.y = &p.x + &p.y;
   let t0 = r.y.square();
   r.y = &r.z + &r.x;
