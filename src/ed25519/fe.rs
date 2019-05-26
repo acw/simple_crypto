@@ -821,13 +821,15 @@ fn negate() {
     });
 }
 
-pub fn fe_cmov(f: &mut FieldElement, g: &FieldElement, bl: bool)
-{
-    let b = if bl { -1 } else { 0 };
-    for i in 0..10 {
-        let mut x = f.value[i] ^ g.value[i];
-        x &= b;
-        f.value[i] ^= x;
+impl FieldElement {
+    pub fn cmov(&mut self, g: &FieldElement, bl: bool)
+    {
+        let b = if bl { -1 } else { 0 };
+        for i in 0..10 {
+            let mut x = self.value[i] ^ g.value[i];
+            x &= b;
+            self.value[i] ^= x;
+        }
     }
 }
 
@@ -845,25 +847,27 @@ fn cmov() {
         let b = bbytes.len() > 1;
         let c = test_from_bytes(&cbytes);
         let mut r = FieldElement::new();
-        fe_cmov(&mut r, &a, b);
+        r.cmov(&a, b);
         assert_eq!(r, c);
     });
 }
 
-pub fn fe_isnonzero(f: &FieldElement) -> bool
-{
-    let s = f.to_bytes();
-    let mut res = false;
-    for i in 0..32 {
-        res |= s[i] != 0;
+impl FieldElement {
+    pub fn isnonzero(&self) -> bool
+    {
+        let s = self.to_bytes();
+        let mut res = false;
+        for i in 0..32 {
+            res |= s[i] != 0;
+        }
+        res
     }
-    res
-}
 
-pub fn fe_isnegative(f: &FieldElement) -> bool
-{
-    let s = f.to_bytes();
-    s[0] & 1 == 1
+    pub fn isnegative(&self) -> bool
+    {
+        let s = self.to_bytes();
+        s[0] & 1 == 1
+    }
 }
 
 #[cfg(test)]
@@ -880,8 +884,8 @@ fn is_tests() {
         println!("a: {:?}", a);
         let z = zbytes.len() > 1;
         let n = nbytes.len() > 1;
-        assert_eq!(z, fe_isnonzero(&a));
-        assert_eq!(n, fe_isnegative(&a));
+        assert_eq!(z, a.isnonzero());
+        assert_eq!(n, a.isnegative());
     });
 }
 

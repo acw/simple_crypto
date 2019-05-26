@@ -58,15 +58,15 @@ impl Point {
       let mut vxx = hx.square();
       vxx *= &v;
       let mut check = &vxx - &u; /* vx^2-u */
-      if fe_isnonzero(&check) {
+      if check.isnonzero() {
         check = &vxx + &u;
-        if fe_isnonzero(&check) {
+        if check.isnonzero() {
           return None;
         }
         hx *= &SQRTM1;
       }
 
-      if fe_isnegative(&hx) != ((s[31] >> 7) == 1) {
+      if hx.isnegative() != ((s[31] >> 7) == 1) {
         hx = -&hx;
       }
 
@@ -473,9 +473,9 @@ fn equal(b: i8, c: i8) -> bool
 
 fn cmov(t: &mut Precomp, u: &Precomp, b: bool)
 {
-  fe_cmov(&mut t.yplusx, &u.yplusx, b);
-  fe_cmov(&mut t.yminusx, &u.yminusx, b);
-  fe_cmov(&mut t.xy2d, &u.xy2d, b);
+  t.yplusx.cmov(&u.yplusx, b);
+  t.yminusx.cmov(&u.yminusx, b);
+  t.xy2d.cmov(&u.xy2d, b);
 }
 
 fn negative(b: i8) -> u8
@@ -1796,7 +1796,7 @@ fn into_encoded_point(x: &FieldElement, y: &FieldElement, z: &FieldElement) -> V
     let x_over_z = x * &recip;
     let y_over_z = y * &recip;
     let mut bytes = y_over_z.to_bytes();
-    let sign_bit = if fe_isnegative(&x_over_z) { 1 } else { 0 };
+    let sign_bit = if x_over_z.isnegative() { 1 } else { 0 };
     // The preceding computations must execute in constant time, but this
     // doesn't need to.
     bytes[31] ^= sign_bit << 7;
