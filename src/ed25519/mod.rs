@@ -74,8 +74,7 @@ impl ED25519Private {
         result.private.copy_from_slice(private);
         result.prefix.copy_from_slice(prefix);
         curve25519_scalar_mask(&mut result.private);
-        let mut a = Point::new();
-        x25519_ge_scalarmult_base(&mut a, &result.private);
+        let a = Point::scalarmult_base(&result.private);
         result.public.copy_from_slice(&a.encode());
         result
     }
@@ -88,8 +87,7 @@ impl ED25519Private {
         ctx.input(&self.prefix);
         ctx.input(&msg);
         let nonce = digest_scalar(ctx.result().as_slice());
-        let mut r = Point::new();
-        x25519_ge_scalarmult_base(&mut r, &nonce);
+        let r = Point::scalarmult_base(&nonce);
         let signature_r = r.encode();
         let hram_digest = eddsa_digest(&signature_r, &self.public, &msg);
         let hram = digest_scalar(&hram_digest);
@@ -151,8 +149,7 @@ impl ED25519Public {
         a.invert();
         let h_digest = eddsa_digest(signature_r, &self.public, msg);
         let h = digest_scalar(&h_digest);
-        let mut r = Point2::new();
-        ge_double_scalarmult_vartime(&mut r, &h, &a, &signature_s);
+        let r = ge_double_scalarmult_vartime(&h, &a, &signature_s);
         let r_check = r.encode();
         signature_r.to_vec() == r_check
     }

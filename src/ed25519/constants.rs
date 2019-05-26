@@ -8,33 +8,42 @@ pub struct Precomp {
     pub xy2d:    FieldElement
 }
 
-pub fn ge_precomp_0(h: &mut Precomp)
-{
-    h.yplusx.overwrite_with(&FieldElement::one());
-    h.yminusx.overwrite_with(&FieldElement::one());
-    h.xy2d.overwrite_with(&FieldElement::zero());
-}
-
 impl Precomp
 {
-  pub fn new() -> Precomp
-  {
-    Precomp {
-      yplusx: FieldElement::new(),
-      yminusx: FieldElement::new(),
-      xy2d: FieldElement::new()
+    pub fn new() -> Precomp
+    {
+        Precomp {
+            yplusx: FieldElement::new(),
+            yminusx: FieldElement::new(),
+            xy2d: FieldElement::new()
+        }
     }
-  }
 
-  #[cfg(test)]
-  pub fn load_test_value(xs: &[u8]) -> Precomp {
-    assert!(xs.len() == 160);
-    Precomp {
-      yplusx: test_from_bytes(&xs[0..40]),
-      yminusx: test_from_bytes(&xs[40..80]),
-      xy2d: test_from_bytes(&xs[80..])
+    pub fn zero() -> Precomp
+    {
+        Precomp {
+            yplusx: FieldElement::one(),
+            yminusx: FieldElement::one(),
+            xy2d: FieldElement::zero()
+        }
     }
-  }
+  
+    #[cfg(test)]
+    pub fn load_test_value(xs: &[u8]) -> Precomp {
+        assert!(xs.len() == 160);
+        Precomp {
+            yplusx: test_from_bytes(&xs[0..40]),
+            yminusx: test_from_bytes(&xs[40..80]),
+            xy2d: test_from_bytes(&xs[80..])
+        }
+    }
+
+    pub fn cmov(&mut self, u: &Precomp, b: bool)
+    {
+        self.yplusx.cmov(&u.yplusx, b);
+        self.yminusx.cmov(&u.yminusx, b);
+        self.xy2d.cmov(&u.xy2d, b);
+    }
 }
 
 /* k25519Precomp[i][j] = (j+1)*256^i*B */
