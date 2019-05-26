@@ -39,21 +39,14 @@ impl Point {
   /// statically timed, so don't use it if that's important to you.
   pub fn from_bytes(s: &[u8]) -> Option<Point>
   {
-      let mut u = FieldElement::new();
-      let mut v = FieldElement::new();
-      let mut v3 = FieldElement::new();
-      let mut vxx = FieldElement::new();
-      let mut temp;
-
       let hy = FieldElement::from_bytes(s);
       let hz = FieldElement::one();
-      u = hy.square();
-      v = &u * &D;
-      temp = u.clone();
-      u = &temp - &hz; /* u = y^2-1 */
+      let mut u = hy.square();
+      let mut v = &u * &D;
+      u = &u - &hz; /* u = y^2-1 */
       v += &hz;
 
-      v3 = v.square();
+      let mut v3 = v.square();
       v3 *= &v; /* v3 = v^3 */
       let mut hx = v3.square();
       hx *= &v;
@@ -62,7 +55,7 @@ impl Point {
       hx *= &v3;
       hx *= &u; /* x = uv^3(uv^7)^((q-5)/8) */
 
-      vxx = hx.square();
+      let mut vxx = hx.square();
       vxx *= &v;
       let mut check = &vxx - &u; /* vx^2-u */
       if fe_isnonzero(&check) {
@@ -74,8 +67,7 @@ impl Point {
       }
 
       if fe_isnegative(&hx) != ((s[31] >> 7) == 1) {
-        temp = hx.clone();
-        fe_neg(&mut hx, &temp);
+        hx = -&hx;
       }
 
       let ht = &hx * &hy;
@@ -89,9 +81,8 @@ impl Point {
 
   pub fn invert(&mut self)
   {
-      let tmp = self.clone();
-      fe_neg(&mut self.x, &tmp.x);
-      fe_neg(&mut self.t, &tmp.t);
+      self.x = -&self.x;
+      self.t = -&self.t;
   }
 }
 
@@ -319,13 +310,11 @@ fn conversion() {
 /* r = 2 * p */
 fn ge_p2_dbl(r: &mut PointP1P1, p: &Point2)
 {
-  let mut t0 = FieldElement::new();
-
   r.x = p.x.square();
   r.z = p.y.square();
   fe_sq2(&mut r.t, &p.z);
   r.y = &p.x + &p.y;
-  t0 = r.y.square();
+  let t0 = r.y.square();
   r.y = &r.z + &r.x;
   r.z -= &r.x;
   r.x = &t0 - &r.y;
@@ -513,7 +502,7 @@ fn table_select(t: &mut Precomp, pos: i32, b: i8)
   cmov(t, &K25519_PRECOMP[pos as usize][7], equal(babs, 8));
   minust.yplusx.overwrite_with(&t.yminusx);
   minust.yminusx.overwrite_with(&t.yplusx);
-  fe_neg(&mut minust.xy2d, &t.xy2d);
+  minust.xy2d = -&t.xy2d;
   cmov(t, &minust, bnegative != 0);
 }
 
@@ -1803,12 +1792,9 @@ pub fn curve25519_scalar_mask(a: &mut [u8])
 //
 fn into_encoded_point(x: &FieldElement, y: &FieldElement, z: &FieldElement) -> Vec<u8>
 {
-    let mut x_over_z = FieldElement::new();
-    let mut y_over_z = FieldElement::new();
-
-    let recip = fe_invert(z);
-    x_over_z = x * &recip;
-    y_over_z = y * &recip;
+    let recip = z.invert();
+    let x_over_z = x * &recip;
+    let y_over_z = y * &recip;
     let mut bytes = y_over_z.to_bytes();
     let sign_bit = if fe_isnegative(&x_over_z) { 1 } else { 0 };
     // The preceding computations must execute in constant time, but this

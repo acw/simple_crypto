@@ -719,57 +719,59 @@ fn square() {
     });
 }
 
-pub fn fe_invert(z: &FieldElement) -> FieldElement
-{
-    let mut t0 = z.square();
-    let mut t1 = t0.square();
-    for _ in 1..2 {
+impl FieldElement {
+    pub fn invert(&self) -> FieldElement
+    {
+        let mut t0 = self.square();
+        let mut t1 = t0.square();
+        for _ in 1..2 {
+            t1.square_mut();
+        }
+        t1 *= &self;
+        t0 *= &t1;
+        let mut t2 = t0.square();
+        t1 *= &t2;
+        t2 = t1.square();
+        for _ in 1..5 {
+            t2.square_mut();
+        }
+        t1 *= &t2;
+        t2 = t1.square();
+        for _ in 1..10 {
+            t2.square_mut();
+        }
+        t2 *= &t1;
+        let mut t3 = t2.square();
+        for _ in 1..20 {
+            t3.square_mut();
+        }
+        t2 *= &t3;
+        t2.square_mut();
+        for _ in 1..10 {
+            t2.square_mut();
+        }
+        t1 *= &t2;
+        t2 = t1.square();
+        for _ in 1..50 {
+            t2.square_mut();
+        }
+        t2 *= &t1;
+        t3 = t2.square();
+        for _ in 1..100 {
+            t3.square_mut();
+        }
+        t2 *= &t3;
+        t2.square_mut();
+        for _ in 1..50 {
+            t2.square_mut();
+        }
+        t1 *= &t2;
         t1.square_mut();
+        for _ in 1..5 {
+            t1.square_mut();
+        }
+        &t1 * &t0
     }
-    t1 *= &z;
-    t0 *= &t1;
-    let mut t2 = t0.square();
-    t1 *= &t2;
-    t2 = t1.square();
-    for _ in 1..5 {
-        t2.square_mut();
-    }
-    t1 *= &t2;
-    t2 = t1.square();
-    for _ in 1..10 {
-        t2.square_mut();
-    }
-    t2 *= &t1;
-    let mut t3 = t2.square();
-    for _ in 1..20 {
-        t3.square_mut();
-    }
-    t2 *= &t3;
-    t2.square_mut();
-    for _ in 1..10 {
-        t2.square_mut();
-    }
-    t1 *= &t2;
-    t2 = t1.square();
-    for _ in 1..50 {
-        t2.square_mut();
-    }
-    t2 *= &t1;
-    t3 = t2.square();
-    for _ in 1..100 {
-        t3.square_mut();
-    }
-    t2 *= &t3;
-    t2.square_mut();
-    for _ in 1..50 {
-        t2.square_mut();
-    }
-    t1 *= &t2;
-    t1.square_mut();
-    for _ in 1..5 {
-        t1.square_mut();
-    }
-    &t1 * &t0
 }
 
 #[cfg(test)]
@@ -783,15 +785,23 @@ fn invert() {
         assert!(!nega && !negc);
         let a = test_from_bytes(&abytes);
         let c = test_from_bytes(&cbytes);
-        let r = fe_invert(&a);
+        let r = a.invert();
         assert_eq!(r, c);
     });
 }
 
-pub fn fe_neg(h: &mut FieldElement, f: &FieldElement)
-{
-    for i in 0..NUM_ELEMENT_LIMBS {
-        h.value[i] = -f.value[i];
+impl<'a> Neg for &'a FieldElement {
+    type Output = FieldElement;
+
+    fn neg(self) -> FieldElement
+    {
+        FieldElement {
+            value: [ -self.value[0], -self.value[1],
+                     -self.value[2], -self.value[3],
+                     -self.value[4], -self.value[5],
+                     -self.value[6], -self.value[7],
+                     -self.value[8], -self.value[9], ]
+        }
     }
 }
 
@@ -806,8 +816,7 @@ fn negate() {
         assert!(!nega && !negc);
         let a = test_from_bytes(&abytes);
         let c = test_from_bytes(&cbytes);
-        let mut r = FieldElement::new();
-        fe_neg(&mut r, &a);
+        let r = -&a;
         assert_eq!(r, c);
     });
 }
