@@ -110,20 +110,23 @@ impl ED25519Private {
 #[derive(Debug,PartialEq)]
 pub struct ED25519Public
 {
-    public:  [u8; 32]
+    bytes: [u8; 32],
+    point: Point
 }
 
 impl<'a> From<&'a ED25519Private> for ED25519Public
 {
     fn from(x: &ED25519Private) -> ED25519Public
     {
-        ED25519Public{ public: x.public.clone() }
+        ED25519Public::new(&x.public).expect("Broke converting private ED25519 to public. (?!)")
     }
 }
 
+#[derive(Debug)]
 pub enum ED25519PublicImportError
 {
-    WrongNumberOfBytes(usize)
+    WrongNumberOfBytes(usize),
+    InvalidPublicPoint
 }
 
 impl ED25519Public {
@@ -132,9 +135,15 @@ impl ED25519Public {
         if bytes.len() != 32 {
             return Err(ED25519PublicImportError::WrongNumberOfBytes(bytes.len()));
         }
-        let mut res = ED25519Public { public: [0; 32] };
-        res.public.copy_from_slice(bytes);
-        Ok(res)
+        match Point::from_bytes(&bytes) {
+            None =>
+                Err(ED25519PublicImportError::InvalidPublicPoint),
+            Some(a) => {
+                let mut res = ED25519Public{ bytes: [0; 32], point: a };
+                res.bytes.copy_from_slice(&bytes);
+                Ok(res)
+            }
+        }
     }
 
     pub fn verify(&self, msg: &[u8], sig: &[u8]) -> bool
@@ -148,18 +157,17 @@ impl ED25519Public {
             return false;
         }
 
-        let mut a = Point::from_bytes(&self.public).unwrap(); // FIXME!!
-        a.invert();
-        let h_digest = eddsa_digest(signature_r, &self.public, msg);
+        let ainv = self.point.invert();
+        let h_digest = eddsa_digest(signature_r, &self.bytes, msg);
         let h = digest_scalar(&h_digest);
-        let r = Point2::double_scalarmult_vartime(&h, &a, &signature_s);
+        let r = Point2::double_scalarmult_vartime(&h, &ainv, &signature_s);
         let r_check = r.encode();
         signature_r.to_vec() == r_check
     }
 
     pub fn to_bytes(&self) -> Vec<u8>
     {
-        self.public.to_vec()
+        self.bytes.to_vec()
     }
 }
 
@@ -190,7 +198,7 @@ fn run_signing_testcase(case: HashMap<String,(bool,Vec<u8>)>)
 
     assert!(!negr && !negu && !negm && !negs);
     let keypair = ED25519KeyPair::from_seed(rbytes);
-    assert_eq!(ubytes, &keypair.public.public.to_vec());
+    assert_eq!(ubytes, &keypair.public.bytes.to_vec());
     let mut privpub = Vec::new();
     privpub.append(&mut rbytes.clone());
     privpub.append(&mut ubytes.clone());

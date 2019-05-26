@@ -80,10 +80,14 @@ impl Point {
         into_encoded_point(&self.x, &self.y, &self.z)
     }
   
-    pub fn invert(&mut self)
+    pub fn invert(&self) -> Point
     {
-        self.x = -&self.x;
-        self.t = -&self.t;
+        Point {
+            x: -&self.x,
+            y: self.y.clone(),
+            z: self.z.clone(),
+            t: -&self.t,
+        }
     }
 }
 

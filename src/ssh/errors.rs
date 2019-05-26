@@ -42,7 +42,9 @@ impl From<ED25519PublicImportError> for SSHKeyParseError {
     fn from(e: ED25519PublicImportError) -> SSHKeyParseError {
         match e {
             ED25519PublicImportError::WrongNumberOfBytes(_) =>
-                SSHKeyParseError::InvalidPublicKeyMaterial
+                SSHKeyParseError::InvalidPublicKeyMaterial,
+            ED25519PublicImportError::InvalidPublicPoint =>
+                SSHKeyParseError::InvalidPublicKeyMaterial,
         }
     }
 }
