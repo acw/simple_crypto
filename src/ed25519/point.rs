@@ -3,6 +3,7 @@ use testing::run_test;
 
 use ed25519::fe::*;
 use ed25519::constants::*;
+use std::ops::*;
 
 // This is ge_p3 in the original source code
 #[derive(Clone,Debug,PartialEq)]
@@ -160,7 +161,7 @@ impl<'a> From<&'a Point> for Point2 {
 }
 
 #[derive(Debug,PartialEq)]
-struct PointP1P1 {
+pub struct PointP1P1 {
     x: FieldElement,
     y: FieldElement,
     z: FieldElement,
@@ -168,16 +169,6 @@ struct PointP1P1 {
 }
 
 impl PointP1P1 {
-    fn new() -> PointP1P1
-    {
-        PointP1P1 {
-            x: FieldElement::new(),
-            y: FieldElement::new(),
-            z: FieldElement::new(),
-            t: FieldElement::new(),
-        }
-    }
-  
     #[cfg(test)]
     fn load_test_value(xs: &[u8]) -> PointP1P1 {
         assert!(xs.len() == 160);
@@ -350,34 +341,51 @@ fn double() {
     });
 }
 
-/* r = p + q */
-fn ge_madd(r: &mut PointP1P1, p: &Point, q: &Precomp)
+impl<'a,'b> Add<&'a Precomp> for &'b Point
 {
-    r.x = &p.y + &p.x;
-    r.y = &p.y - &p.x;
-    r.z = &r.x * &q.yplusx;
-    r.y *= &q.yminusx;
-    r.t = &q.xy2d * &p.t;
-    let t0 = &p.z + &p.z;
-    r.x = &r.z - &r.y;
-    r.y += &r.z;
-    r.z = &t0 + &r.t;
-    r.t = &t0 - &r.t;
+    type Output = PointP1P1;
+
+    fn add(self, q: &Precomp) -> PointP1P1
+    {
+        let mut rx;
+        let mut ry;
+        let mut rz;
+        let mut rt;
+
+        rx = &self.y + &self.x;
+        ry = &self.y - &self.x;
+        rz = &rx * &q.yplusx;
+        ry *= &q.yminusx;
+        rt = &q.xy2d * &self.t;
+        let t0 = &self.z + &self.z;
+        rx = &rz - &ry;
+        ry += &rz;
+        rz = &t0 + &rt;
+        rt = &t0 - &rt;
+
+        PointP1P1 { x: rx, y: ry, z: rz, t: rt }
+    }
 }
 
-/* r = p - q */
-fn ge_msub(r: &mut PointP1P1, p: &Point, q: &Precomp)
+impl<'a,'b> Sub<&'a Precomp> for &'b Point
 {
-    r.x = &p.y + &p.x;
-    r.y = &p.y - &p.x;
-    r.z = &r.x * &q.yminusx;
-    r.y *= &q.yplusx;
-    r.t = &q.xy2d * &p.t;
-    let t0 = &p.z + &p.z;
-    r.x = &r.z - &r.y;
-    r.y += &r.z;
-    r.z = &t0 - &r.t;
-    r.t += &t0;
+    type Output = PointP1P1;
+
+    /* r = p - q */
+    fn sub(self, q: &Precomp) -> PointP1P1
+    {
+        let mut rx = &self.y + &self.x;
+        let mut ry = &self.y - &self.x;
+        let mut rz = &rx * &q.yminusx;
+        ry *= &q.yplusx;
+        let mut rt = &q.xy2d * &self.t;
+        let t0 = &self.z + &self.z;
+        rx = &rz - &ry;
+        ry += &rz;
+        rz = &t0 - &rt;
+        rt += &t0;
+        PointP1P1{ x: rx, y: ry, z: rz, t: rt }
+    }
 }
 
 #[cfg(test)]
@@ -396,44 +404,65 @@ fn maddsub() {
         let c = Precomp::load_test_value(cbytes);
         let d = PointP1P1::load_test_value(dbytes);
 
-        let mut mine = PointP1P1::new();
-        ge_madd(&mut mine, &a, &c);
-        assert_eq!(mine, b);
-        ge_msub(&mut mine, &a, &c);
-        assert_eq!(mine, d);
+        let myb = &a + &c;
+        assert_eq!(myb, b);
+        let myd = &a - &c;
+        assert_eq!(myd, d);
     });
 }
 
-/* r = p + q */
-fn x25519_ge_add(r: &mut PointP1P1, p: &Point, q: &Cached)
+impl<'a,'b> Add<&'a Cached> for &'b Point
 {
-    r.x = &p.y + &p.x;
-    r.y = &p.y - &p.x;
-    r.z = &r.x * &q.yplusx;
-    r.y *= &q.yminusx;
-    r.t = &q.t2d * &p.t;
-    r.x = &p.z * &q.z;
-    let t0 = &r.x + &r.x;
-    r.x = &r.z - &r.y;
-    r.y += &r.z;
-    r.z = &t0 + &r.t;
-    r.t = &t0 - &r.t;
+    type Output = PointP1P1;
+
+    fn add(self, q: &Cached) -> PointP1P1
+    {
+        let mut rx;
+        let mut ry;
+        let mut rz;
+        let mut rt;
+
+        rx = &self.y + &self.x;
+        ry = &self.y - &self.x;
+        rz = &rx * &q.yplusx;
+        ry *= &q.yminusx;
+        rt = &q.t2d * &self.t;
+        rx = &self.z * &q.z;
+        let t0 = &rx + &rx;
+        rx = &rz - &ry;
+        ry += &rz;
+        rz = &t0 + &rt;
+        rt = &t0 - &rt;
+
+        PointP1P1{ x: rx, y: ry, z: rz, t: rt }
+    }
 }
 
-/* r = p - q */
-fn x25519_ge_sub(r: &mut PointP1P1, p: &Point, q: &Cached)
+impl<'a,'b> Sub<&'a Cached> for &'b Point
 {
-    r.x = &p.y + &p.x;
-    r.y = &p.y - &p.x;
-    r.z = &r.x * &q.yminusx;
-    r.y *= &q.yplusx;
-    r.t = &q.t2d * &p.t;
-    r.x = &p.z * &q.z;
-    let t0 = &r.x + &r.x;
-    r.x = &r.z - &r.y;
-    r.y += &r.z;
-    r.z = &t0 - &r.t;
-    r.t += &t0;
+    type Output = PointP1P1;
+
+    fn sub(self, q: &Cached) -> PointP1P1
+    {
+        let mut rx;
+        let mut ry;
+        let mut rz;
+        let mut rt;
+
+        rx = &self.y + &self.x;
+        ry = &self.y - &self.x;
+        rz = &rx * &q.yminusx;
+        ry *= &q.yplusx;
+        rt = &q.t2d * &self.t;
+        rx = &self.z * &q.z;
+        let t0 = &rx + &rx;
+        rx = &rz - &ry;
+        ry += &rz;
+        rz = &t0 - &rt;
+        rt += &t0;
+
+        PointP1P1{ x: rx, y: ry, z: rz, t: rt }
+    }
 }
 
 #[cfg(test)]
@@ -452,11 +481,10 @@ fn addsub() {
         let c = Cached::load_test_value(cbytes);
         let d = PointP1P1::load_test_value(dbytes);
 
-        let mut mine = PointP1P1::new();
-        x25519_ge_add(&mut mine, &a, &c);
-        assert_eq!(mine, b);
-        x25519_ge_sub(&mut mine, &a, &c);
-        assert_eq!(mine, d);
+        let myb = &a + &c;
+        assert_eq!(myb, b);
+        let myd = &a - &c;
+        assert_eq!(myd, d);
     });
 }
 
@@ -524,13 +552,13 @@ impl Point {
       e[63] += carry;
       /* each e[i] is between -8 and 8 */
   
-      let mut r = PointP1P1::new();
+      let mut r;
       let mut t;
   
       let mut h = Point::zero();
       for i in &[1,3,5,7,9,11,13,15,17,19,21,23,25,27,29,31,33,35,37,39,41,43,45,47,49,51,53,55,57,59,61,63] {
           t = table_select(*i / 2, e[*i as usize]);
-          ge_madd(&mut r, &h, &t);
+          r = &h + &t;
           h = Point::from(&r);
       }
   
@@ -545,7 +573,7 @@ impl Point {
   
       for i in &[0,2,4,6,8,10,12,14,16,18,20,22,24,26,28,30,32,34,36,38,40,42,44,46,48,50,52,54,56,58,60,62] {
           t = table_select(*i / 2, e[*i as usize]);
-          ge_madd(&mut r, &h, &t);
+          r = &h + &t;
           h = Point::from(&r);
       }
 
@@ -638,25 +666,25 @@ pub fn ge_double_scalarmult_vartime(a: &[u8], A: &Point, b: &[u8]) -> Point2
     Ai[0] = Cached::from(A);
     let mut t = A.double();
     let A2 = Point::from(&t);
-    x25519_ge_add(&mut t, &A2, &Ai[0]);
+    t = &A2 + &Ai[0];
     let mut u = Point::from(&t);
     Ai[1] = Cached::from(&u);
-    x25519_ge_add(&mut t, &A2, &Ai[1]);
+    t = &A2 + &Ai[1];
     u = Point::from(&t);
     Ai[2] = Cached::from(&u);
-    x25519_ge_add(&mut t, &A2, &Ai[2]);
+    t = &A2 + &Ai[2];
     u = Point::from(&t);
     Ai[3] = Cached::from(&u);
-    x25519_ge_add(&mut t, &A2, &Ai[3]);
+    t = &A2 + &Ai[3];
     u = Point::from(&t);
     Ai[4] = Cached::from(&u);
-    x25519_ge_add(&mut t, &A2, &Ai[4]);
+    t = &A2 + &Ai[4];
     u = Point::from(&t);
     Ai[5] = Cached::from(&u);
-    x25519_ge_add(&mut t, &A2, &Ai[5]);
+    t = &A2 + &Ai[5];
     u = Point::from(&t);
     Ai[6] = Cached::from(&u);
-    x25519_ge_add(&mut t, &A2, &Ai[6]);
+    t = &A2 + &Ai[6];
     u = Point::from(&t);
     Ai[7] = Cached::from(&u);
 
@@ -679,21 +707,21 @@ pub fn ge_double_scalarmult_vartime(a: &[u8], A: &Point, b: &[u8]) -> Point2
         if aslide[i as usize] > 0 {
             u = Point::from(&t);
             let idx = (aslide[i as usize] / 2) as usize;
-            x25519_ge_add(&mut t, &u, &Ai[idx]);
+            t = &u + &Ai[idx]
         } else if aslide[i as usize] < 0 {
             u = Point::from(&t);
             let idx = ((-aslide[i as usize]) / 2) as usize;
-            x25519_ge_sub(&mut t, &u, &Ai[idx]);
+            t = &u - &Ai[idx];
         }
   
         if bslide[i as usize] > 0 {
             u = Point::from(&t);
             let idx = (bslide[i as usize] / 2) as usize;
-            ge_madd(&mut t, &u, &BI[idx]);
+            t = &u + &BI[idx];
         } else if bslide[i as usize] < 0 {
             u = Point::from(&t);
             let idx = ((-bslide[i as usize]) / 2) as usize;
-            ge_msub(&mut t, &u, &BI[idx]);
+            t = &u - &BI[idx];
         }
 
         r = Point2::from(&t); 
