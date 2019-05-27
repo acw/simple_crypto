@@ -15,6 +15,7 @@ use testing::run_test;
 use std::collections::HashMap;
 use super::KeyPair;
 
+/// An ED25519 key pair
 pub struct ED25519KeyPair
 {
     pub public: ED25519Public,
@@ -37,6 +38,9 @@ impl KeyPair for ED25519KeyPair
 
 impl ED25519KeyPair
 {
+    /// Generate a random ED25519 key pair, using the given random number
+    /// generator. You really need to use a good, cryptographically-strong
+    /// RNG if you want good keys.
     pub fn generate<G: Rng>(rng: &mut G) -> ED25519KeyPair
     {
         let mut seed = [0; 32];
@@ -46,6 +50,8 @@ impl ED25519KeyPair
         ED25519KeyPair::new(public, private)
     }
 
+    /// Generate the ED25519 key pair defined by the given seed value.
+    /// This should be a block of 32 bytes.
     pub fn from_seed(seed: &[u8]) -> ED25519KeyPair
     {
         let private = ED25519Private::from_seed(seed);
@@ -54,6 +60,7 @@ impl ED25519KeyPair
     }
 }
 
+/// An ED25519 private key.
 #[derive(Debug,PartialEq)]
 pub struct ED25519Private
 {
@@ -64,6 +71,8 @@ pub struct ED25519Private
 }
 
 impl ED25519Private {
+    /// Generate the ED25519 private key defined by the given 32 byte seed
+    /// value.
     pub fn from_seed(seed: &[u8]) -> ED25519Private {
         let mut result = ED25519Private {
             seed: [0; 32],
@@ -82,6 +91,9 @@ impl ED25519Private {
         result
     }
 
+    /// Sign the given message, returning the signature. Unlike most other
+    /// public/private schemes, you don't get a choice on the hash used to
+    /// compute this signature. (On the bright side, it's SHA2-512.)
     pub fn sign(&self, msg: &[u8]) -> Vec<u8>
     {
         let mut signature_s = [0u8; 32];
@@ -101,12 +113,15 @@ impl ED25519Private {
         result
     }
 
+    /// Covert the given private key into its byte representation. This is
+    /// guaranteed to be exactly 32 bytes.
     pub fn to_bytes(&self) -> Vec<u8>
     {
         self.seed.to_vec()
     }
 }
 
+/// An ED25519 Public key
 #[derive(Debug,PartialEq)]
 pub struct ED25519Public
 {
@@ -122,6 +137,8 @@ impl<'a> From<&'a ED25519Private> for ED25519Public
     }
 }
 
+/// The kinds of errors you can get when you try to generate a public key from,
+/// for example, an unknown block of bytes.
 #[derive(Debug)]
 pub enum ED25519PublicImportError
 {
@@ -130,6 +147,9 @@ pub enum ED25519PublicImportError
 }
 
 impl ED25519Public {
+    /// Generate an ED25519 public key given the provided (32 byte) bytes. This
+    /// can return errors if the value isn't a reasonable representation of an
+    /// ED25519 point.
     pub fn new(bytes: &[u8]) -> Result<ED25519Public,ED25519PublicImportError>
     {
         if bytes.len() != 32 {
@@ -146,6 +166,7 @@ impl ED25519Public {
         }
     }
 
+    /// Verify that the given signature matches the given message.
     pub fn verify(&self, msg: &[u8], sig: &[u8]) -> bool
     {
         assert_eq!(sig.len(), 64);
@@ -165,6 +186,8 @@ impl ED25519Public {
         signature_r.to_vec() == r_check
     }
 
+    /// Turn the ED25519 into its byte representation. This will always be a
+    /// 32 byte block.
     pub fn to_bytes(&self) -> Vec<u8>
     {
         self.bytes.to_vec()
