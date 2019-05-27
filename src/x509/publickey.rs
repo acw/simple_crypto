@@ -2,7 +2,7 @@ use cryptonum::unsigned::{U3072,U2048,U1024,U256,U192};
 use dsa::{DSAPublic,DSAPublicKey,DSAParameters};
 use dsa::{L3072N256,L2048N256,L2048N224,L1024N160};
 use ecdsa::{ECDSAEncodeErr,ECDSAPublic,ECCPublicKey};
-use ecdsa::curve::{P192,P224,P256,P384,P521};
+use ecdsa::{P192,P224,P256,P384,P521};
 use num::BigUint;
 use rsa::RSAPublic;
 use simple_asn1::{ASN1Block,ASN1Class,ASN1EncodeErr,FromASN1,OID,ToASN1,

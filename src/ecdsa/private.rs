@@ -7,6 +7,7 @@ use ecdsa::point::{ECCPoint,Point};
 use hmac::{Hmac,Mac};
 use std::fmt;
 
+/// A private key for the given curve.
 #[derive(PartialEq)]
 pub struct ECCPrivateKey<Curve: EllipticCurve> {
     pub(crate) d: Curve::Unsigned
@@ -19,6 +20,7 @@ impl<Curve: EllipticCurve> fmt::Debug for ECCPrivateKey<Curve> {
     }
 }
 
+/// A generic private key.
 pub enum ECDSAPrivate {
     P192(ECCPrivateKey<P192>),
     P224(ECCPrivateKey<P224>),
@@ -32,11 +34,14 @@ macro_rules! generate_privates
     ($curve: ident, $base: ident, $sig: ident, $dbl: ident, $quad: ident) => {
         impl ECCPrivateKey<$curve>
         {
+            /// Generate a new private key using the given private scalar.
             pub fn new(d: $base) -> ECCPrivateKey<$curve>
             {
                 ECCPrivateKey{ d }
             }
-        
+
+            /// Sign the given message with the current key, using the hash provided
+            /// in the type.
             pub fn sign<Hash>(&self, m: &[u8]) -> DSASignature<$base>
               where
                 Hash: BlockInput + Clone + Default + Digest + FixedOutput + Input + Reset,

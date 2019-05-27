@@ -8,11 +8,14 @@ use hmac::{Hmac,Mac};
 use simple_asn1::{ASN1Block,ASN1Class,ASN1DecodeErr,ASN1EncodeErr,FromASN1,ToASN1};
 use std::cmp::min;
 
+/// An ECDSA public key for the given curve.
 #[derive(Debug,PartialEq)]
 pub struct ECCPublicKey<Curve: EllipticCurve> {
     pub(crate) q: Point<Curve>
 }
 
+/// A generic ECDSA public key, when you're not sure which curve you're
+/// going to get.
 pub enum ECDSAPublic {
     P192(ECCPublicKey<P192>),
     P224(ECCPublicKey<P224>),
@@ -21,6 +24,8 @@ pub enum ECDSAPublic {
     P521(ECCPublicKey<P521>),
 }
 
+/// An error that can occur when encoding an ECDSA public key as an ASN.1
+/// object.
 pub enum ECDSAEncodeErr {
     ASN1EncodeErr(ASN1EncodeErr),
     XValueNegative, YValueNegative
@@ -32,6 +37,8 @@ impl From<ASN1EncodeErr> for ECDSAEncodeErr {
     }
 }
 
+/// An error that can occur when decoding an ECDSA public key from an
+/// ASN.1 blob.
 #[derive(Debug)]
 pub enum ECDSADecodeErr {
     ASN1DecodeErr(ASN1DecodeErr),
@@ -50,11 +57,14 @@ macro_rules! public_impl {
     ($curve: ident, $un: ident, $si: ident) => {
         impl ECCPublicKey<$curve>
         {
+            /// Generate a new public key object from the given public point.
             pub fn new(q: Point<$curve>) -> ECCPublicKey<$curve>
             {
                 ECCPublicKey{ q }
             }
 
+            /// Returns true if the given message matches the given signature,
+            /// assuming the provided hash function.
             pub fn verify<Hash>(&self, m: &[u8], sig: &DSASignature<$un>) -> bool
               where
                Hash: BlockInput + Clone + Default + Digest + FixedOutput + Input + Reset,

@@ -1,30 +1,54 @@
 use cryptonum::signed::{I192,I256,I384,I576};
 use cryptonum::unsigned::{Decoder};
 use cryptonum::unsigned::{U192,U256,U384,U576};
+use ecdsa::point::Point;
 use std::fmt::Debug;
 
+/// Elliptic curves must implement this trait in order to work with the rest
+/// of the ECDSA system. I've included instances for the core NIST curves
+/// used in most systems, but this could be extended without issues.
+/// (Eventually the curves defined here should actually be extended in
+/// interesting ways to make the math faster, but we haven't gotten there
+/// yet.)
 #[allow(non_snake_case)]
 pub trait EllipticCurve {
+    /// The unsigned numeric type that fits constants for this curve.
     type Unsigned : Clone;
+    /// The signed numeric type that fits constants for this curve.
     type Signed : Clone + Debug + PartialEq;
+    /// The type of a point on the curve
+    type Point;
 
+    /// The size of the curve in bits.
     fn size() -> usize;
+    /// The `p` value for the curve.
     fn p() -> Self::Unsigned;
+    /// The `p` value for the curve.
     fn n() -> Self::Unsigned;
+    /// The seed value for the curve.
     fn SEED() -> Self::Unsigned;
+    /// The `c` value for the curve.
     fn c() -> Self::Unsigned;
+    /// The `a` value for the curve.
     fn a() -> Self::Unsigned;
+    /// The `b` value for the curve.
     fn b() -> Self::Unsigned;
+    /// The `x` coordinate of the base point for the curve.
     fn Gx() -> Self::Signed;
+    /// The `y` coordinate of the base point for the curve.
     fn Gy() -> Self::Signed;
+    /// Generate a point for the curve given the provided values.
+    fn new_point(x: Self::Unsigned, y: Self::Unsigned) -> Self::Point;
 }
 
+/// NIST curve P-192 (FIPS 186-4, page 101-102), a.k.a. secp192r1 from RFC5480
 #[derive(Debug,PartialEq)]
-pub enum P192 {}
+pub struct P192 {}
 
 impl EllipticCurve for P192 {
     type Unsigned = U192;
     type Signed = I192;
+    type Point = Point<P192>;
 
     fn size() -> usize {
         192
@@ -61,14 +85,20 @@ impl EllipticCurve for P192 {
     fn Gy() -> I192 {
         I192::from(U192::from([0x73f977a11e794811, 0x631011ed6b24cdd5, 0x07192b95ffc8da78]))
     }
+
+    fn new_point(x: Self::Unsigned, y: Self::Unsigned) -> Self::Point {
+        Point::<P192>{ x: I192::from(x), y: I192::from(y) }
+    }
 }
 
+/// NIST curve P-224 (FIPS 186-4, page 102), a.k.a. secp224r1 from RFC5480
 #[derive(Debug,PartialEq)]
-pub enum P224 {}
+pub struct P224 {}
 
 impl EllipticCurve for P224 {
     type Unsigned = U256;
     type Signed = I256;
+    type Point = Point<P224>;
 
     fn size() -> usize {
         224
@@ -144,14 +174,20 @@ impl EllipticCurve for P224 {
                 0x85, 0x00, 0x7e, 0x34
         ]))
     }
+
+    fn new_point(x: Self::Unsigned, y: Self::Unsigned) -> Self::Point {
+        Point::<P224>{ x: I256::from(x), y: I256::from(y) }
+    }
 }
 
+/// NIST curve P-256 (FIPS 186-4, page 102-103), a.k.a. secp256r1 from RFC5480
 #[derive(Debug,PartialEq)]
-pub enum P256 {}
+pub struct P256 {}
 
 impl EllipticCurve for P256 {
     type Signed = I256;
     type Unsigned = U256;
+    type Point = Point<P256>;
 
     fn size() -> usize {
         256
@@ -228,14 +264,20 @@ impl EllipticCurve for P256 {
                 0xcb, 0xb6, 0x40, 0x68, 0x37, 0xbf, 0x51, 0xf5
         ]))
     }
+
+    fn new_point(x: Self::Unsigned, y: Self::Unsigned) -> Self::Point {
+        Point::<P256>{ x: I256::from(x), y: I256::from(y) }
+    }
 }
 
+/// NIST curve P-384 (FIPS 186-4, page 103-104), a.k.a. secp384r1 from RFC5480
 #[derive(Debug,PartialEq)]
-pub enum P384 {}
+pub struct P384 {}
 
 impl EllipticCurve for P384 {
     type Signed = I384;
     type Unsigned = U384;
+    type Point = Point<P384>;
 
     fn size() -> usize {
         384
@@ -325,14 +367,20 @@ impl EllipticCurve for P384 {
                 0x7a, 0x43, 0x1d, 0x7c, 0x90, 0xea, 0x0e, 0x5f
         ]))
     }
+
+    fn new_point(x: Self::Unsigned, y: Self::Unsigned) -> Self::Point {
+        Point::<P384>{ x: I384::from(x), y: I384::from(y) }
+    }
 }
 
+/// NIST curve P-521 (FIPS 186-4, page 104), a.k.a. secp521r1 from RFC5480
 #[derive(Debug,PartialEq)]
-pub enum P521 {}
+pub struct P521 {}
 
 impl EllipticCurve for P521 {
     type Signed = I576;
     type Unsigned = U576;
+    type Point = Point<P521>;
 
     fn size() -> usize {
         521
@@ -442,5 +490,9 @@ impl EllipticCurve for P521 {
                 0xc2, 0x40, 0x88, 0xbe, 0x94, 0x76, 0x9f, 0xd1,
                 0x66, 0x50
         ]))
+    }
+
+    fn new_point(x: Self::Unsigned, y: Self::Unsigned) -> Self::Point {
+        Point::<P521>{ x: I576::from(x), y: I576::from(y) }
     }
 }

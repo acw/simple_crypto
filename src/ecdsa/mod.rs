@@ -1,25 +1,28 @@
-pub mod curve;
-pub mod point;
-pub mod private;
-pub mod public;
+mod curve;
+pub(crate) mod point;
+mod private;
+mod public;
 
 use cryptonum::signed::{I192,I256,I384,I576};
 use cryptonum::unsigned::{CryptoNum,Decoder};
 use cryptonum::unsigned::{U192,U256,U384,U576};
 use rand::Rng;
 use rand::distributions::Standard;
-use self::curve::{EllipticCurve,P192,P224,P256,P384,P521};
+pub use self::curve::{EllipticCurve,P192,P224,P256,P384,P521};
 use self::point::{ECCPoint,Point};
 pub use self::private::{ECDSAPrivate,ECCPrivateKey};
 pub use self::public::{ECDSAPublic,ECCPublicKey};
 pub use self::public::{ECDSADecodeErr,ECDSAEncodeErr};
 use super::KeyPair;
 
+/// An ECDSA key pair for the given curve.
 pub struct ECDSAKeyPair<Curve: EllipticCurve> {
     pub public: ECCPublicKey<Curve>,
     pub private: ECCPrivateKey<Curve>
 }
 
+/// A generic ECDSA key pair that implements one of our known curves, for cases
+/// when you're not sure which one you're going to have.
 pub enum ECDSAPair {
     P192(ECCPublicKey<P192>,ECCPrivateKey<P192>),
     P224(ECCPublicKey<P224>,ECCPrivateKey<P224>),
@@ -57,7 +60,12 @@ macro_rules! generate_impl {
                 ECDSAKeyPair{ public, private }
             }
         }
+
         impl ECDSAKeyPair<$curve> {
+            /// Generate a fresh ECDSA key pair for this curve, given the
+            /// provided random number generator. THIS MUST BE A CRYPTO
+            /// STRONG RNG. If it's not, then you're going to generate weak
+            /// keys and the crypto gremlins will get you.
             pub fn generate<G: Rng>(rng: &mut G) -> ECDSAKeyPair<$curve>
             {
                 loop {

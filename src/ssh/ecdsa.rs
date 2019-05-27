@@ -1,8 +1,6 @@
-use cryptonum::signed::*;
 use cryptonum::unsigned::*;
 use ecdsa::{ECDSAPair,ECDSAPublic,ECCPublicKey,ECDSAPrivate,ECCPrivateKey};
-use ecdsa::curve::{P256,P384,P521};
-use ecdsa::point::Point;
+use ecdsa::{EllipticCurve,P256,P384,P521};
 use std::io::{Read,Write};
 use ssh::errors::{SSHKeyParseError,SSHKeyRenderError};
 use ssh::frame::*;
@@ -33,7 +31,7 @@ impl SSHKey for ECDSAPair {
                 }
                 let x = U256::from_bytes(&val[1..33]);
                 let y = U256::from_bytes(&val[33..]);
-                let p = Point::<P256>{ x: I256::from(x), y: I256::from(y) };
+                let p = P256::new_point(x, y);
                 let pbl = ECCPublicKey::<P256>::new(p);
                 Ok(ECDSAPublic::P256(pbl))
             }
@@ -44,7 +42,7 @@ impl SSHKey for ECDSAPair {
                 }
                 let x = U384::from_bytes(&val[1..49]);
                 let y = U384::from_bytes(&val[49..]);
-                let p = Point::<P384>{ x: I384::from(x), y: I384::from(y) };
+                let p = P384::new_point(x, y);
                 let pbl = ECCPublicKey::<P384>::new(p);
                 Ok(ECDSAPublic::P384(pbl))
             }
@@ -55,7 +53,7 @@ impl SSHKey for ECDSAPair {
                 }
                 let x = U576::from_bytes(&val[1..67]);
                 let y = U576::from_bytes(&val[67..]);
-                let p = Point::<P521>{ x: I576::from(x), y: I576::from(y) };
+                let p = P521::new_point(x, y);
                 let pbl = ECCPublicKey::<P521>::new(p);
                 Ok(ECDSAPublic::P521(pbl))
             }
