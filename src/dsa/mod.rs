@@ -43,30 +43,16 @@ impl<P: DSAParameters> KeyPair for DSAKeyPair<P>
     }
 }
 
-/// A trait that's useful to indicate that the given key pair can be
-/// generated at runtime, if necessary. Note, once again (I never get
-/// tired of this): You should probably only use this for testing or,
-/// for legacy protocols, because you probably shouldn't be using DSA
-/// in new systems.
-pub trait DSAKeyGeneration
-{
-    type Params;
-
-    /// Generate a DSA key pair using the given parameters and random
-    /// number generator. Please make sure that the RNG you're using
-    /// is suitable for key generators (look for the term "cryptographic"
-    /// or "crypto strong" in its documentation, or see if it matches
-    /// any of the NIST-suggested RNG algorithms).
-    fn generate<G: Rng>(params: &Self::Params, rng: &mut G) -> Self;
-}
-
 macro_rules! generate_dsa_pair {
     ($ptype: ident, $ltype: ident, $ntype: ident, $nbig: ident) => {
-        impl DSAKeyGeneration for DSAKeyPair<$ptype>
+        impl DSAKeyPair<$ptype>
         {
-            type Params = $ptype;
-
-            fn generate<G: Rng>(params: &$ptype, rng: &mut G) -> Self
+            /// Generate a DSA key pair using the given parameters and random
+            /// number generator. Please make sure that the RNG you're using
+            /// is suitable for key generators (look for the term "cryptographic"
+            /// or "crypto strong" in its documentation, or see if it matches
+            /// any of the NIST-suggested RNG algorithms).
+            pub fn generate<G: Rng>(params: &$ptype, rng: &mut G) -> Self
             {
                 // 1. N = len(q); L = len(p);
                 let n = $ptype::n_size();
