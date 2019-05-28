@@ -1,11 +1,13 @@
 use simple_asn1::{ASN1Block,ASN1Class,ASN1EncodeErr,FromASN1,ToASN1};
 use std::ops::Index;
 use x509::error::X509ParseError;
-use x509::name::X520Name;
+pub use x509::name::X520Name;
 
+/// All of the various bits of information that are encoded within an x.509
+/// certificate.
 #[derive(Clone,Debug)]
 pub struct InfoBlock {
-    fields: Vec<AttributeTypeValue>
+    pub fields: Vec<AttributeTypeValue>
 }
 
 const EMPTY_STRING: &'static str = "";
@@ -116,11 +118,11 @@ impl ToASN1 for InfoBlock {
     }
 }
 
-
+/// An attribute within an x.509 key and its associated string value.
 #[derive(Clone,Debug,PartialEq)]
-struct AttributeTypeValue {
-    attrtype: X520Name,
-    value:    String
+pub struct AttributeTypeValue {
+    pub attrtype: X520Name,
+    pub value:    String
 }
 
 fn decode_attribute_type_value(x: &ASN1Block)

@@ -2,10 +2,11 @@ use chrono::{DateTime,Utc};
 use simple_asn1::{ASN1Block,ASN1Class,ASN1EncodeErr,FromASN1,ToASN1};
 use x509::error::X509ParseError;
 
+/// The range of dates in which this certificate is valid.
 #[derive(Clone,Debug,PartialEq)]
 pub struct Validity {
-    not_before: DateTime<Utc>,
-    not_after:  DateTime<Utc>
+    pub not_before: DateTime<Utc>,
+    pub not_after:  DateTime<Utc>
 }
 
 fn decode_validity_data(bs: &ASN1Block) -> Result<Validity,X509ParseError> {

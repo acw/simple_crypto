@@ -2,6 +2,8 @@ use num::BigUint;
 use simple_asn1::{ASN1Block,ASN1Class,ASN1EncodeErr,FromASN1,OID,ToASN1};
 use x509::error::X509ParseError;
 
+/// One of the various attributes that can be encoded within an x.509 name. To
+/// see one of these paired with its value, consider `AttributeTypeValue`.
 #[derive(Copy,Clone,Debug,Eq,Hash,PartialEq)]
 pub enum X520Name {
     Name, Surname, GivenName, Initials, GenerationQualifier, CommonName,

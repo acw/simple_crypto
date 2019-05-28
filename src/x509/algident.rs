@@ -2,12 +2,28 @@ use num::BigUint;
 use simple_asn1::{ASN1Block,ASN1Class,ASN1EncodeErr,FromASN1,OID,ToASN1};
 use x509::error::X509ParseError;
 
+/// A supported x509 hash algorithm
 #[derive(Clone,Copy,Debug,PartialEq)]
 pub enum HashAlgorithm { SHA1, SHA224, SHA256, SHA384, SHA512 }
 
+/// A supported x509 asymmetric crypto algorithm
 #[derive(Clone,Copy,Debug,PartialEq)]
 pub enum PublicKeyInfo { RSA, DSA, ECDSA }
 
+/// The algorithm used, either in a certificate or as part of the signing
+/// process. We only actually support a subset of the possible values,
+/// here, although we try to catch them all.
+/// 
+/// Specifically, this library supports:
+/// 
+///   |          | *RSA* | *DSA* | *ECDSA* |
+///   |----------|-------|-------|---------|
+///   | *SHA1*   |   X   |   X   |    X    |
+///   | *SHA224* |   X   |   X   |    X    |
+///   | *SHA256* |   X   |   X   |    X    |
+///   | *SHA384* |   X   |       |    X    |
+///   | *SHA512* |   X   |       |    X    |
+/// 
 #[derive(Clone,Debug,PartialEq)]
 pub struct AlgorithmIdentifier {
     pub hash: HashAlgorithm,

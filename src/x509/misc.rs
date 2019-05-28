@@ -3,6 +3,7 @@ use num::bigint::ToBigInt;
 use simple_asn1::{ASN1Block,ASN1Class,ASN1EncodeErr,FromASN1,ToASN1};
 use x509::error::X509ParseError;
 
+/// Which version of x.509 certificate this is.
 #[derive(Clone,Copy,Debug,PartialEq)]
 pub enum X509Version { V1, V2, V3 }
 
@@ -65,6 +66,7 @@ impl ToASN1 for X509Version {
 
 /******************************************************************************/
 
+/// The serial number for this certificate.
 #[derive(Clone,Debug,PartialEq)]
 pub struct X509Serial {
     num: BigUint

@@ -10,6 +10,8 @@ use simple_asn1::{ASN1Block,ASN1Class,ASN1EncodeErr,FromASN1,OID,ToASN1,
 use utils::TranslateNums;
 use x509::error::X509ParseError;
 
+/// A general type that includes all the supported public key types that we
+/// could read in an x.509 certificate.
 pub enum X509PublicKey {
     DSA(DSAPublic),
     RSA(RSAPublic),

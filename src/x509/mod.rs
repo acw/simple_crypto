@@ -12,13 +12,14 @@ use rsa::{SIGNING_HASH_SHA1,SIGNING_HASH_SHA224,SIGNING_HASH_SHA256,SIGNING_HASH
 use sha1::Sha1;
 use sha2::{Sha224,Sha256,Sha384,Sha512};
 use simple_asn1::{ASN1Block,FromASN1,der_decode,from_der};
-use x509::validity::Validity;
-use x509::algident::{AlgorithmIdentifier,HashAlgorithm,PublicKeyInfo,
-                     decode_algorithm_ident};
-use x509::atv::InfoBlock;
+pub use x509::validity::Validity;
+pub use x509::algident::{AlgorithmIdentifier,HashAlgorithm,PublicKeyInfo};
+use x509::algident::{decode_algorithm_ident};
+pub use x509::atv::InfoBlock;
 use x509::error::X509ParseError;
-use x509::misc::{X509Serial,X509Version,decode_signature};
-use x509::publickey::X509PublicKey;
+pub use x509::misc::{X509Serial,X509Version};
+use x509::misc::{decode_signature};
+pub use x509::publickey::X509PublicKey;
 
 /*******************************************************************************
  *
@@ -88,6 +89,8 @@ fn decode_certificate(x: &ASN1Block)
  *
  ******************************************************************************/
 
+/// Parse an X.590 certificate in memory into a generic certificate that can
+/// be used by a program.
 pub fn parse_x509(buffer: &[u8]) -> Result<GenericCertificate,X509ParseError> {
     let blocks = from_der(&buffer[..])?;
     match blocks.first() {
