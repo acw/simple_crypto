@@ -45,10 +45,17 @@ pub mod ssh;
 /// used by TLS and others.
 pub mod x509;
 
+/// A generic trait for defining what a key pair looks like. This is useful
+/// in a couple places in which we want to define code regardless of the
+/// kind of key it is, but is unlikely to be hugely useful to users of the
+/// library.
 pub trait KeyPair {
+    /// The type of the public key of this pair.
     type Public;
+    /// The type of the private key of this pair.
     type Private;
 
+    /// Generate a key pair given the provided public and private keys.
     fn new(pbl: Self::Public, prv: Self::Private) -> Self;
 }
 
