@@ -57,11 +57,24 @@ fn diff<T>(a: &T, b: &T) -> T
     }
 }
 
+/// An RSA key pair containing keys of the given size; keeping them in the
+/// type means you'll never forget which one you have.
+/// 
+/// As an aside:
+///   * `U512` should only be used for testing
+///   * `U1024` should only be used to support old protocols or devices
+///   * `U2048` is probably your bare minimum
+///   * `U3072` is a very reasonable choice
+///   * **`U4096` is what you should use**
+///   * `U8192` is starting to get a bit silly (and slow)
+///   * `U15360` is for when you're using encryption to heat your house or server room
 pub struct RSAKeyPair<R: RSAMode> {
     pub public:  RSAPublicKey<R>,
     pub private: RSAPrivateKey<R>
 }
 
+/// A generic RSA key pair that is agnostic about its key size. It's not
+/// totally clear why this is useful, at this point.
 #[derive(PartialEq)]
 pub enum RSAPair {
     R512(RSAPublicKey<U512>,     RSAPrivateKey<U512>),

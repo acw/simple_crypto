@@ -3,6 +3,8 @@ use num::bigint::BigUint;
 use rsa::errors::RSAError;
 use simple_asn1::{ASN1Block,ASN1DecodeErr};
 
+/// A valid key size for RSA keys, basically, and a (slightly annoying)
+/// trait that is used to tie these types to their Barrett value types.
 pub trait RSAMode {
     type Barrett;
 }

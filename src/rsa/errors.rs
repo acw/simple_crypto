@@ -1,6 +1,8 @@
 use simple_asn1::ASN1DecodeErr;
 use rand;
 
+/// A bunch of errors that you can get generating, reading, or
+/// writing RSA keys.
 #[derive(Debug)]
 pub enum RSAError {
     BadMessageSize,

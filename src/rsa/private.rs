@@ -5,6 +5,8 @@ use rsa::errors::RSAError;
 use rsa::oaep::OAEPParams;
 use rsa::signing_hashes::SigningHash;
 
+/// An RSA private key. Useful for signing messages and decrypting encrypted
+/// content.
 #[derive(Clone,PartialEq)]
 pub struct RSAPrivateKey<R: RSAMode>
 {
@@ -12,6 +14,7 @@ pub struct RSAPrivateKey<R: RSAMode>
     pub(crate) d:  R
 }
 
+/// A generic RSA private key which is agnostic to its key size.
 #[derive(Clone,PartialEq)]
 pub enum RSAPrivate {
     Key512(RSAPrivateKey<U512>),
@@ -27,11 +30,19 @@ macro_rules! generate_rsa_private
 {
     ($num: ident, $bar: ident, $size: expr) => {
         impl RSAPrivateKey<$num> {
+            /// Generate a new private key with the given modulus and private
+            /// number (`d`). This operation actually does a bit of computation
+            /// under the hood, in order to speed up future ones, so you might
+            /// want to strongly consider sharing rather than multiple
+            /// instantiation. But you do you.
             pub fn new(n: $num, d: $num) -> RSAPrivateKey<$num> {
                 let nu = $bar::new(n.clone());
                 RSAPrivateKey{ nu: nu, d: d }
             }
 
+            /// Sign the given message with the given SigningHash, returning
+            /// the signature. This uses a deterministic PKCS1 method for
+            /// signing messages, so no RNG required.
             pub fn sign(&self, signhash: &SigningHash, msg: &[u8])
                 -> Vec<u8>
             {
@@ -43,6 +54,13 @@ macro_rules! generate_rsa_private
                 sig
             }
 
+            /// Decrypted the provided encrypted blob using the given
+            /// parameters. This does standard RSA OAEP decryption, which is
+            /// rather slow. If you have a choice, you should probably do
+            /// something clever, like only use this encryption/decryption
+            /// method to encrypt/decrypt a shared symmetric key, like an
+            /// AES key. That way, you only do this operation (which is
+            /// SO SLOW) for a relatively small amount of data.
             pub fn decrypt<H>(&self, oaep: &OAEPParams<H>, msg: &[u8])
                 -> Result<Vec<u8>,RSAError>
              where H: Default + Digest + FixedOutput

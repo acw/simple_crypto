@@ -12,6 +12,8 @@ use simple_asn1::{ASN1Block,ASN1DecodeErr,ASN1EncodeErr,
 use std::fmt;
 use utils::TranslateNums;
 
+/// An RSA public key. Useful for verifying signatures or encrypting data to
+/// send to the private key holder.
 #[derive(Clone,PartialEq)]
 pub struct RSAPublicKey<R: RSAMode> {
     pub(crate) n:  R,
@@ -19,6 +21,7 @@ pub struct RSAPublicKey<R: RSAMode> {
     pub(crate) e:  R 
 }
 
+/// A generic private key that is agnostic to the key size.
 #[derive(Clone,PartialEq)]
 pub enum RSAPublic {
     Key512(  RSAPublicKey<U512>),
@@ -31,6 +34,9 @@ pub enum RSAPublic {
 }
 
 impl RSAPublic {
+    /// Verify that the given signature is for the given message, passing
+    /// in the same signing arguments used to sign the message in the
+    /// first place.
     pub fn verify(&self, signhash: &SigningHash, msg: &[u8], sig: &[u8]) -> bool
     {
         match self {
