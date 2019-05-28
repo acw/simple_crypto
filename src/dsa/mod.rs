@@ -1,3 +1,35 @@
+//! If you want to use this module to generate keys, which you really
+//! really shouldn't, there are two ways to do so, depending on whether
+//! you've previously agreed on a set of DSA parameters for this key
+//! pair. If you haven't, you can generate the parameters using a good
+//! random number generator.
+//! 
+//! ```rust
+//! extern crate sha2;
+//! 
+//! use simple_crypto::dsa::{DSAKeyPair,DSAParameters,L2048N256};
+//! use sha2::Sha224;
+//! 
+//! // Generate a set of DSA parameters, assuming you don't have
+//! // them already
+//! let mut rng = rand::rngs::OsRng::new().unwrap();
+//! let params = L2048N256::generate(&mut rng);
+//! 
+//! // Given those parameters, you can generate a key pair like so:
+//! let kp = DSAKeyPair::<L2048N256>::generate(&params, &mut rng);
+//! // Keeping in mind that you can re-use the parameters across multiple
+//! // keys, and that their secrecy isn't paramout for the security of the
+//! // algorithm.
+//!
+//! // Now that you have this key pair, you can sign and verify messages
+//! // using it. For example, to sign the vector [0,1,2,3,4] with SHA224
+//! // and then verify that signature, we would write: 
+//! let msg = vec![0,1,2,3,4];
+//! let sig = kp.private.sign::<Sha224>(&msg);
+//! assert!( kp.public.verify::<Sha224>(&msg, &sig) );
+//! ```
+
+
 mod errors;
 mod params;
 mod private;

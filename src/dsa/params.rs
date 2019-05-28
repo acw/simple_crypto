@@ -86,7 +86,7 @@ macro_rules! generate_parameters {
 
         impl $name
         {
-            fn generate_primes<G: Rng>(rng: &mut G) -> ($ltype,$ntype,U256,usize)
+            pub fn generate_primes<G: Rng>(rng: &mut G) -> ($ltype,$ntype,U256,usize)
             {
                 // This is A.1.1.2 from FIPS 186-4, with seedlen hardcoded to 256
                 // (since that's guaranteed to be >= N), and with the hash
@@ -106,7 +106,7 @@ macro_rules! generate_parameters {
                 // 2. If (seedlen < N), then return INVALID.
                 // [This is always true.]
                 //
-                // 3. n = L/outlen – 1. 
+                // 3. n = L/outlen – 1.
                 let n = ((L + 255) / 256) - 1;
                 // 4. b = L – 1 – (n ∗ outlen). 
                 let b = L - 1 - (n * outlen);
@@ -120,10 +120,9 @@ macro_rules! generate_parameters {
                     #[allow(non_snake_case)]
                     let U = $ntype::from_bytes(&ubytes);
                     // 7. q = 2^(N–1) + U + 1 – (U mod 2).
-                    let ulow = if U.is_even() { 0 } else { 1 };
-                    let mut q = $ntype::from(1u64) << (N - 1);
-                    q += U;
-                    q += $ntype::from(1u64 + ulow);
+                    let highbit = $ntype::from(1u64) << (N - 1);
+                    let lowbit  = $ntype::from(1u64);
+                    let q = U | highbit | lowbit;
                     // 8. Test whether or not q is prime as specified in Appendix C.3. 
                     let q_is_prime = q.probably_prime(rng, 40);
                     // 9. If q is not a prime, then go to step 5. 
@@ -141,7 +140,7 @@ macro_rules! generate_parameters {
                         for j in 0..n {
                             let val = &domain_parameter_seed + U256::from(offset + j);
                             let bytes = hash(&val, 32);
-                            assert_eq!(seedlen, bytes.len());
+                            assert_eq!(seedlen, bytes.len() * 8);
                             V.push(bytes);
                         }
                         // 11.2 W = V_0 + ( V_1 ∗ 2^outlen) + ... + ( V_(n–1) ∗ 2^(n –1) ∗ outlen) + ((V_n mod 2^b) ∗ 2^(n ∗ outlen).
