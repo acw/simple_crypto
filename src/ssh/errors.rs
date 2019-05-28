@@ -2,6 +2,8 @@ use base64::DecodeError;
 use ed25519::ED25519PublicImportError;
 use std::io;
 
+/// A whole pile of errors that you can get when parsing an SSH key from
+/// disk or memory.
 #[derive(Debug)]
 pub enum SSHKeyParseError
 {
@@ -49,6 +51,8 @@ impl From<ED25519PublicImportError> for SSHKeyParseError {
     }
 }
 
+/// A much smaller set of errors you can get when rendering an SSH key into
+/// a file or memory block.
 #[derive(Debug)]
 pub enum SSHKeyRenderError {
     IOError(io::Error),

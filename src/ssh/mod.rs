@@ -2,7 +2,7 @@ mod dsa;
 mod ecdsa;
 mod ed25519;
 mod errors;
-mod frame;
+pub mod frame;
 mod rsa;
 
 pub use self::errors::{SSHKeyParseError,SSHKeyRenderError};
@@ -14,16 +14,35 @@ use std::io::{Cursor,Read,Write};
 use std::path::Path;
 use super::KeyPair;
 
+/// A trait defining keys that can be parsed / rendered by this library. Note
+/// that you probably don't want to use these routines directly; they're mostly
+/// used by the internal functions. Perhaps the only reason to use them is to
+/// implement them, because you've got another kind of key you want to parse that
+/// isn't already part of the library. (In that case, though ... maybe send a
+/// patch?)
 pub trait SSHKey: Sized + KeyPair {
+    /// Return true if the given string is a valid key type identifier for this
+    /// key type. (i.e., "ssh-ed25519" is the identifier for ED25519, and "dss"
+    /// and "ssh-dss" are both valid identifiers for DSA keys.)
     fn valid_keytype(s: &str) -> bool;
 
+    /// Parse the public blob info within an SSH blob. I strongly recommend
+    /// using the functions in `ssh::frame` for this.
     fn parse_ssh_public_info<I: Read>(inp: &mut I) -> Result<Self::Public,SSHKeyParseError>;
+    /// Parse the private blob info within an SSH blob. I strongly recommend
+    /// using the functions in `ssh::frame` for this.
     fn parse_ssh_private_info<I: Read>(inp: &mut I) -> Result<(Self::Private,String),SSHKeyParseError>;
 
+    /// Render the public blob info within an SSH blob. I strongly recommend
+    /// using the functions in `ssh::frame` for this.
     fn render_ssh_public_info<O: Write>(&self, out: &mut O) -> Result<(),SSHKeyRenderError>;
+    /// Render the private blob info within an SSH blob. I strongly recommend
+    /// using the functions in `ssh::frame` for this.
     fn render_ssh_private_info<O: Write>(&self, out: &mut O) -> Result<(),SSHKeyRenderError>;
 }
 
+/// Decode a string containing a private key into the appropriate key type and
+/// the comment associated with it, usually an email address or similar.
 pub fn decode_ssh<KP: SSHKey>(x: &str) -> Result<(KP, String),SSHKeyParseError>
 {
     let bytes = parse_ssh_private_key_data(x)?;
@@ -61,6 +80,8 @@ pub fn decode_ssh<KP: SSHKey>(x: &str) -> Result<(KP, String),SSHKeyParseError>
     Ok((KP::new(public, private), comment))
 }
 
+/// Decode a string containing a public key into an appropriate key type and
+/// the comment associated with it, usually an email address or similar.
 pub fn decode_ssh_pubkey<KP: SSHKey>(s: &str) -> Result<(KP::Public, String),SSHKeyParseError>
 {
     let mut splitter = s.split_whitespace();
@@ -82,6 +103,8 @@ pub fn decode_ssh_pubkey<KP: SSHKey>(s: &str) -> Result<(KP::Public, String),SSH
     }
 }
 
+/// Load an SSH private key file, returning the appropriate key type and the
+/// comment associated with it.
 pub fn load_ssh_keyfile<KP,P>(path: P) -> Result<(KP, String),SSHKeyParseError>
  where
   KP: SSHKey,
@@ -93,6 +116,7 @@ pub fn load_ssh_keyfile<KP,P>(path: P) -> Result<(KP, String),SSHKeyParseError>
     decode_ssh(&contents)
 }
 
+/// Load all the public keys from a file into memory.
 pub fn load_ssh_pubkeys<KP,P>(path: P) -> Result<Vec<(KP::Public, String)>,SSHKeyParseError>
  where
   KP: SSHKey,
@@ -110,6 +134,7 @@ pub fn load_ssh_pubkeys<KP,P>(path: P) -> Result<Vec<(KP::Public, String)>,SSHKe
     Ok(result)
 }
 
+/// Encode a supported key into its ASCII SSH format, with the given comment.
 pub fn encode_ssh<KP: SSHKey>(x: &KP, comment: &str) -> Result<String,SSHKeyRenderError>
 {
     let mut pubkeybin = Vec::with_capacity(8192);
@@ -140,6 +165,7 @@ pub fn encode_ssh<KP: SSHKey>(x: &KP, comment: &str) -> Result<String,SSHKeyRend
     Ok(render_ssh_private_key_data(&binary))
 }
 
+/// Encode a supported key into the given file, with the given comment.
 pub fn write_ssh_keyfile<KP,P>(path: P, x: &KP, comment: &str) -> Result<(),SSHKeyRenderError>
  where
   KP: SSHKey,

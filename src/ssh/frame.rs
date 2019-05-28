@@ -13,6 +13,9 @@ use std::iter::Iterator;
 const OPENER: &'static str = "-----BEGIN OPENSSH PRIVATE KEY-----\n";
 const CLOSER: &'static str = "-----END OPENSSH PRIVATE KEY-----";
 
+/// Given a string defining an ASCII SSH key blob (one that starts with
+/// "--BEGIN..."), decode the body of the blob and return it as binary
+/// data.
 pub fn parse_ssh_private_key_data(s: &str) -> Result<Vec<u8>,SSHKeyParseError>
 {
     if s.starts_with(OPENER) {
@@ -28,6 +31,8 @@ pub fn parse_ssh_private_key_data(s: &str) -> Result<Vec<u8>,SSHKeyParseError>
     }
 }
 
+/// Once you've figured out the binary data you want to produce for an SSH key
+/// blob, use this routine to render it into its ASCII encoding.
 pub fn render_ssh_private_key_data(bytes: &[u8]) -> String
 {
     let mut bytestr = encode(bytes);
@@ -52,6 +57,7 @@ pub fn render_ssh_private_key_data(bytes: &[u8]) -> String
 const OPENSSH_MAGIC_HEADER: &'static str = "openssh-key-v1\0";
 const OPENSSH_MAGIC_HEADER_LEN: usize = 15;
 
+/// Parse the magic header in an SSH key file.
 pub fn parse_openssh_header<R: Read>(input: &mut R) -> Result<(),SSHKeyParseError>
 {
     let mut limited_input_header = input.take(OPENSSH_MAGIC_HEADER_LEN as u64);
@@ -70,6 +76,7 @@ pub fn parse_openssh_header<R: Read>(input: &mut R) -> Result<(),SSHKeyParseErro
     Ok(())
 }
 
+/// Render the magic header in an SSH key file.
 pub fn render_openssh_header<O: Write>(output: &mut O) -> Result<(),SSHKeyRenderError>
 {
     Ok(output.write_all(OPENSSH_MAGIC_HEADER.as_bytes())?)
@@ -77,6 +84,8 @@ pub fn render_openssh_header<O: Write>(output: &mut O) -> Result<(),SSHKeyRender
 
 //------------------------------------------------------------------------------
 
+/// Parse an unsigned u32 from the SSH key stream. (This does the appropriate
+/// conversion from network order to native order.)
 pub fn parse_openssh_u32<I: Read>(input: &mut I) -> Result<u32,SSHKeyParseError>
 {
     let mut limited_input_header = input.take(4);
@@ -84,6 +93,8 @@ pub fn parse_openssh_u32<I: Read>(input: &mut I) -> Result<u32,SSHKeyParseError>
     Ok(res)
 }
 
+/// Render an unsigned u32 from the SSH key stream. (This does the appropriate
+/// conversion from network order to native order.)
 pub fn render_openssh_u32<O: Write>(output: &mut O, val: u32) -> Result<(),SSHKeyRenderError>
 {
     Ok(output.write_u32::<BigEndian>(val)?)
@@ -91,6 +102,9 @@ pub fn render_openssh_u32<O: Write>(output: &mut O, val: u32) -> Result<(),SSHKe
 
 //------------------------------------------------------------------------------
 
+/// Parse a string from the SSH key stream. This does some validation to ensure
+/// that the data being read is actually in a form that Rust will recognize as
+/// being a valid string.
 pub fn parse_openssh_string<I: Read>(input: &mut I) -> Result<String,SSHKeyParseError>
 {
     let length = parse_openssh_u32(input)?;
@@ -100,6 +114,7 @@ pub fn parse_openssh_string<I: Read>(input: &mut I) -> Result<String,SSHKeyParse
     Ok(result)
 }
 
+/// Render a string into the SSH key stream.
 pub fn render_openssh_string<O: Write>(output: &mut O, v: &str) -> Result<(),SSHKeyRenderError>
 {
     let vbytes: Vec<u8> = v.bytes().collect();
@@ -116,6 +131,7 @@ pub fn render_openssh_string<O: Write>(output: &mut O, v: &str) -> Result<(),SSH
 
 //------------------------------------------------------------------------------
 
+/// Read a buffer from the SSH key stream.
 pub fn parse_openssh_buffer<I: Read>(input: &mut I) -> Result<Vec<u8>,SSHKeyParseError>
 {
     let length = parse_openssh_u32(input)?;
@@ -125,6 +141,7 @@ pub fn parse_openssh_buffer<I: Read>(input: &mut I) -> Result<Vec<u8>,SSHKeyPars
     Ok(res)
 }
 
+/// Render a buffer into the SSH key stream.
 pub fn render_openssh_buffer<O: Write>(output: &mut O, b: &[u8]) -> Result<(),SSHKeyRenderError>
 {
     if b.len() > 0xFFFFFFFF {
@@ -141,6 +158,7 @@ pub fn render_openssh_buffer<O: Write>(output: &mut O, b: &[u8]) -> Result<(),SS
 
 //------------------------------------------------------------------------------
 
+/// Parse a fixed-width number from the SSH key stream and return it.
 pub fn parse_openssh_number<I,D>(input: &mut I) -> Result<D,SSHKeyParseError>
  where
   I: Read,
@@ -151,6 +169,7 @@ pub fn parse_openssh_number<I,D>(input: &mut I) -> Result<D,SSHKeyParseError>
     Ok(D::from_bytes(&buffer))
 }
 
+/// Render a fixed-width number into the SSH key stream.
 pub fn render_openssh_number<O,D>(output: &mut O, n: &D) -> Result<(),SSHKeyRenderError>
  where
   O: Write,
