@@ -1,5 +1,3 @@
-- Build RSA test cases from Haskell examples
-- Build DSA test cases from Haskell examples
 - Add negative test cases (RSA, DSA, ECDSA)
 - Make Point::double_scalar_mult() not truly awful
 - Use std::Default instead of the bespoke default() in Point?
@@ -8,3 +6,6 @@
 - De-macro. Surely some of this stuff could be turned into trait invocations?
 - Test cases for key generation
 - Better, timing-resistant ECC point math
+- Make the x.509 library not terrible
+- Ability to generate a SSH public key line / file
+- Extend SSH examples with public key reading/writing
