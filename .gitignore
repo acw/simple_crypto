@@ -22,4 +22,5 @@ Cargo.lock
 FlameGraph
 *.user_stacks
 **/.ghc.environment.*
-tests/rsa/dist*
+
+test.ed25519

@@ -5,8 +5,6 @@
 //! you're not sure, this is a pretty good choice.
 //!
 //! ```rust
-//! extern crate sha2;
-//! 
 //! use simple_crypto::ed25519::ED25519KeyPair;
 //! 
 //! // Generate a new ED25519 key
@@ -39,6 +37,7 @@ use std::collections::HashMap;
 use super::KeyPair;
 
 /// An ED25519 key pair
+#[derive(Debug,PartialEq)]
 pub struct ED25519KeyPair
 {
     pub public: ED25519Public,

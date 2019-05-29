@@ -1,3 +1,35 @@
+//! Most of the routines you want are exported from this module as functions,
+//! not as structs, macros, enums, or what have you. In particular, you
+//! probably want the `decode` or `encode` functions, or one of the functions
+//! that `load`s data from disk or `write`s it. Here's some example code
+//! to get you started, using a generated ED25519 key for fun:
+//!
+//! ```rust
+//! use simple_crypto::ed25519::ED25519KeyPair;
+//! use simple_crypto::ssh::*;
+//! 
+//! // Generate a new ED25519 key
+//! let mut rng = rand::rngs::OsRng::new().unwrap();
+//! let kp = ED25519KeyPair::generate(&mut rng);
+//! 
+//! // Now that we have it, we can encode it as a handy ASCII string in memory,
+//! // using a totally fake email address for fun:
+//! let ascii_rep = encode_ssh(&kp, "fake@email.addr").expect("Encode failure!");
+//! 
+//! // As usual, we should be able to decode anything we encode, and the
+//! // keys should match:
+//! let (kp2, addr2) = decode_ssh(&ascii_rep).expect("Decode failure!");
+//! assert_eq!(kp, kp2);
+//! assert_eq!(&addr2, "fake@email.addr");
+//!
+//! // If you want to write this to a file, you can just do so directly:
+//! write_ssh_keyfile("test.ed25519", &kp, "fake@email.addr").expect("write error");
+//! // And then load it back:
+//! let (kp3, addr3) = load_ssh_keyfile("test.ed25519").expect("load error");
+//! // And, of course, it should be the same.
+//! assert_eq!(kp, kp3);
+//! assert_eq!(addr2, addr3);
+//! ```
 mod dsa;
 mod ecdsa;
 mod ed25519;
