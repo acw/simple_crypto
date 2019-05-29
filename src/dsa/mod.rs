@@ -96,7 +96,7 @@ macro_rules! generate_dsa_pair {
                 //    strength of requested_security_strength or more. If an ERROR
                 //    indication is returned, then return an ERROR indication,
                 //    Invalid_x, and Invalid_y.
-                let returned_bits: Vec<u8> = rng.sample_iter(&Standard).take(n + 8).collect();
+                let returned_bits: Vec<u8> = rng.sample_iter(&Standard).take( (n + 64) / 8 ).collect();
                 // 5. Convert returned_bits to the (non-negative) integer c.
                 let c = $nbig::from_bytes(&returned_bits);
                 // 6. x = (c mod (q-1)) + 1.
