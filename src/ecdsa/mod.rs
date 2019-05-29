@@ -1,3 +1,26 @@
+//! The generation and use of ECDSA keys is pretty straightforward, compared
+//! to DSA and RSA. You should be able to find what you want to do in the
+//! following code snippet, as an example:
+//!
+//! ```rust
+//! extern crate sha2;
+//! 
+//! use simple_crypto::ecdsa::{ECDSAKeyPair,P384};
+//! use sha2::Sha256;
+//! 
+//! // Generate a new ECDSA key for curve P384 (this is a good choice, by
+//! // the way, if you're wondering which curve to use).
+//! let mut rng = rand::rngs::OsRng::new().unwrap();
+//! let kp = ECDSAKeyPair::<P384>::generate(&mut rng);
+//! 
+//! // Now that you have this key pair, you can sign and verify messages
+//! // using it. For example, to sign the vector [0,1,2,3,4] with SHA256
+//! // and then verify that signature, we would write: 
+//! let msg = vec![0,1,2,3,4];
+//! let sig = kp.private.sign::<Sha256>(&msg);
+//! assert!( kp.public.verify::<Sha256>(&msg, &sig) );
+//! ```
+
 mod curve;
 pub(crate) mod point;
 mod private;
