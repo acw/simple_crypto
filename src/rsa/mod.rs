@@ -17,6 +17,39 @@
 //! Encryption and decryption are via the OAEP mechanism, as described in
 //! NIST documents.
 //!
+//! The following is an example of generating an RSA2048 key pair, then using
+//! it to sign, verify, encrypt, and decrypt some data.
+//! 
+//! ```rust
+//! extern crate cryptonum;
+//! extern crate sha2;
+//! 
+//! use simple_crypto::rsa::RSAKeyPair;
+//! use simple_crypto::rsa::SIGNING_HASH_SHA256;
+//! use simple_crypto::rsa::OAEPParams;
+//! use sha2::Sha256;
+//! use cryptonum::unsigned::U2048;
+//! 
+//! // Generate a new RSA with key size 2048. (This is an acceptable but
+//! // not great key size, but is a nice compromise given that this little
+//! // example runs as part of the test suite.)
+//! let mut rng = rand::rngs::OsRng::new().unwrap();
+//! let kp = RSAKeyPair::<U2048>::generate(&mut rng);
+//! 
+//! // Now that you have this key pair, you can sign and verify messages
+//! // using it. For example, to sign the vector [0,1,2,3,4] with SHA256
+//! // and then verify that signature, we would write: 
+//! let msg = vec![0,1,2,3,4];
+//! let sig = kp.private.sign(&SIGNING_HASH_SHA256, &msg);
+//! assert!( kp.public.verify(&SIGNING_HASH_SHA256, &msg, &sig) );
+//!
+//! // We can also use RSA public keys to encrypt data, which can then be
+//! // decrypted by the private key.
+//! let params = OAEPParams::<Sha256>::new(String::from("example!"));
+//! let cipher = kp.public.encrypt(&params, &msg).expect("Encryption error");
+//! let msg2 = kp.private.decrypt(&params, &cipher).expect("Decryption error");
+//! assert_eq!(msg, msg2);
+//! ```
 mod core;
 mod errors;
 mod oaep;
