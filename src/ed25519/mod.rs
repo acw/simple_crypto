@@ -1,3 +1,26 @@
+//! The generation and use of ED25519 keys is the most straightforward
+//! of all the asymmetric crypto schemes, because you basically get no
+//! choices. There's just one key size, and you're going to use the
+//! built-in hash (which is a good one, if you were worried). So if
+//! you're not sure, this is a pretty good choice.
+//!
+//! ```rust
+//! extern crate sha2;
+//! 
+//! use simple_crypto::ed25519::ED25519KeyPair;
+//! 
+//! // Generate a new ED25519 key
+//! let mut rng = rand::rngs::OsRng::new().unwrap();
+//! let kp = ED25519KeyPair::generate(&mut rng);
+//! 
+//! // Now that you have this key pair, you can sign and verify messages
+//! // using it. For example, to sign the vector [0,1,2,3,4] and then
+//! // verify that signature, we would write: 
+//! let msg = vec![0,1,2,3,4];
+//! let sig = kp.private.sign(&msg);
+//! assert!( kp.public.verify(&msg, &sig) );
+//! ```
+
 mod constants;
 mod fe;
 mod loads;
