@@ -10,7 +10,7 @@ use std::io::Read;
 use std::io::Write;
 use std::iter::Iterator;
 
-const OPENER: &'static str = "-----BEGIN OPENSSH PRIVATE KEY-----\n";
+const OPENER: &'static str = "-----BEGIN OPENSSH PRIVATE KEY-----";
 const CLOSER: &'static str = "-----END OPENSSH PRIVATE KEY-----";
 
 /// Given a string defining an ASCII SSH key blob (one that starts with
@@ -20,7 +20,7 @@ pub fn parse_ssh_private_key_data(s: &str) -> Result<Vec<u8>,SSHKeyParseError>
 {
     if s.starts_with(OPENER) {
         if let Some(endidx) = s.find(CLOSER) {
-            let b64str: String = s[OPENER.len()..endidx].chars().filter(|x| *x != '\n').collect();
+            let b64str: String = s[OPENER.len()..endidx].chars().filter(|x| !x.is_whitespace()).collect();
             let bytes = decode(&b64str)?;
             Ok(bytes)
         } else {
@@ -39,13 +39,20 @@ pub fn render_ssh_private_key_data(bytes: &[u8]) -> String
     let mut output = String::new();
 
     output.push_str(OPENER);
+    #[cfg(target_os="windows")]
+    output.push_str("\r");
+    output.push_str("\n");
     while bytestr.len() > 70 {
         let rest = bytestr.split_off(70);
         output.push_str(&bytestr);
+        #[cfg(target_os="windows")]
+        output.push_str("\r");
         output.push_str("\n");
         bytestr = rest;
     }
     output.push_str(&bytestr);
+    #[cfg(target_os="windows")]
+    output.push_str("\r");
     output.push_str("\n");
     output.push_str(CLOSER);
 
@@ -197,7 +204,8 @@ quickcheck! {
         let mut is_ok = true;
 
         for line in rendered.lines() {
-            is_ok &= line.len() <= 70;
+            let clean_line: String = line.chars().filter(|x| *x != '\r').collect();
+            is_ok &= clean_line.len() <= 70;
         }
 
         is_ok
@@ -293,8 +301,12 @@ fn pregenerated_reencode() {
         fd.read_to_string(&mut contents).unwrap();
         let parsed = parse_ssh_private_key_data(&contents).unwrap();
         let rendered = render_ssh_private_key_data(&parsed);
-        // starts_with() avoids newline unpleasantness
-        assert!(contents.starts_with(&rendered));
+        // we remove white space in this to avoid a couple issues with files
+        // generated in Windows or not, as well as trailing white space that
+        // doesn't really matter.
+        let cleaned_orig: String = contents.chars().filter(|x| !x.is_whitespace()).collect();
+        let cleaned_rend: String = rendered.chars().filter(|x| !x.is_whitespace()).collect();
+        assert_eq!(cleaned_orig, cleaned_rend);
     }
 }
 
