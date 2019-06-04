@@ -44,6 +44,10 @@ pub mod ssh;
 /// The `x509` module supports parsing and generating x.509 certificates, as
 /// used by TLS and others.
 pub mod x509;
+/// An implementation of the SHA family of hashes, including the relatively
+/// weak SHA1 and a bunch of hashes you should use, like SHA2-256, SHA2-384,
+/// and SHA2-512.
+pub mod sha;
 
 /// A generic trait for defining what a key pair looks like. This is useful
 /// in a couple places in which we want to define code regardless of the
@@ -57,6 +61,32 @@ pub trait KeyPair {
 
     /// Generate a key pair given the provided public and private keys.
     fn new(pbl: Self::Public, prv: Self::Private) -> Self;
+}
+
+/// A generic trait for defining a hash function.
+pub trait Hash: Sized
+{
+    /// Generate a fresh instance of this hash function, set to the
+    /// appropriate initial state.
+    fn new() -> Self;
+    /// Update the hash function with some more data for it to chew on.
+    /// Nom nom nom. If you give it more information after calling
+    /// `finalize`, the implementation is welcome to do anything it
+    /// wants; mostly they will just ignore additional data, but
+    /// maybe just don't do that.
+    fn update(&mut self, data: &[u8]);
+    /// Finalize the hash function, returning the hash value.
+    fn finalize(&mut self) -> Vec<u8>;
+
+    /// This is a convenience routine that runs new(), update(), and
+    /// finalize() on a piece of data all at once. Because that's
+    /// mostly what people want to do.
+    fn hash(data: &[u8]) -> Vec<u8>
+    {
+        let mut x = Self::new();
+        x.update(&data);
+        x.finalize()
+    }
 }
 
 #[cfg(test)]
