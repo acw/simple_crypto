@@ -277,6 +277,11 @@ impl Hash for SHA1
         output.write_u32::<BigEndian>(self.state[4]).expect("Broken writing value to pre-allocated Vec?");
         output
     }
+
+    fn block_size() -> usize
+    {
+        512
+    }
 }
 
 #[cfg(test)]

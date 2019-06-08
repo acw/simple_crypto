@@ -41,10 +41,13 @@ pub mod ed25519;
 /// The `ssh` module provides support for parsing OpenSSH-formatted SSH keys,
 /// both public and private.
 pub mod ssh;
-/// The `shake` modules provides support for SHAKE128 and SHAKE256, two
+/// The `shake` module provides support for SHAKE128 and SHAKE256, two
 /// variable-length hash functions that derive from the same core hash
 /// as SHA3.
 pub mod shake;
+/// The `hmac` module provides support for keyed-hash message authentication,
+/// or HMAC, based on any of the hash functions defined in this module.
+pub mod hmac2;
 /// The `x509` module supports parsing and generating x.509 certificates, as
 /// used by TLS and others.
 pub mod x509;
@@ -81,6 +84,9 @@ pub trait Hash: Sized
     fn update(&mut self, data: &[u8]);
     /// Finalize the hash function, returning the hash value.
     fn finalize(&mut self) -> Vec<u8>;
+    /// Return the block size of the underlying hash function, in
+    /// bits. This is mostly useful internally to this crate.
+    fn block_size() -> usize;
 
     /// This is a convenience routine that runs new(), update(), and
     /// finalize() on a piece of data all at once. Because that's

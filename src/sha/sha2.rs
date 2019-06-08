@@ -54,6 +54,11 @@ impl Hash for SHA224 {
         output.write_u32::<BigEndian>(self.state.state[6]).expect("Broken writing value to pre-allocated Vec?");
         output
      }
+
+    fn block_size() -> usize
+    {
+        512
+    }
 }
 
 /// The SHA2-256 hash. [GOOD]
@@ -108,6 +113,11 @@ impl Hash for SHA256 {
         output.write_u32::<BigEndian>(self.state.state[6]).expect("Broken writing value to pre-allocated Vec?");
         output.write_u32::<BigEndian>(self.state.state[7]).expect("Broken writing value to pre-allocated Vec?");
         output
+    }
+
+    fn block_size() -> usize
+    {
+        512
     }
 }
 
@@ -164,6 +174,11 @@ impl Hash for SHA384 {
         output.write_u64::<BigEndian>(self.state.state[5]).expect("Broken writing value to pre-allocated Vec?");
         output
      }
+
+    fn block_size() -> usize
+    {
+        1024
+    }
 }
 
 /// The SHA2-512 hash. [BEST]
@@ -221,6 +236,11 @@ impl Hash for SHA512 {
         output.write_u64::<BigEndian>(self.state.state[7]).expect("Broken writing value to pre-allocated Vec?");
         output
      }
+
+    fn block_size() -> usize
+    {
+        1024
+    }
 }
 
 macro_rules! bsig256_0 {

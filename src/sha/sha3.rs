@@ -264,6 +264,11 @@ impl Hash for SHA3_224 {
         self.state.tag_and_pad(0x06);
         self.state.squeeze(224 / 8)
     }
+
+    fn block_size() -> usize
+    {
+        1152
+    }
 }
 
 #[cfg(test)]
@@ -349,6 +354,11 @@ impl Hash for SHA3_256 {
     {
         self.state.tag_and_pad(0x06);
         self.state.squeeze(256 / 8)
+    }
+
+    fn block_size() -> usize
+    {
+        1088
     }
 }
 
@@ -436,6 +446,11 @@ impl Hash for SHA3_384 {
     {
         self.state.tag_and_pad(0x06);
         self.state.squeeze(384 / 8)
+    }
+
+    fn block_size() -> usize
+    {
+        832
     }
 }
 
@@ -527,6 +542,11 @@ impl Hash for SHA3_512 {
     {
         self.state.tag_and_pad(0x06);
         self.state.squeeze(512 / 8)
+    }
+
+    fn block_size() -> usize
+    {
+        576
     }
 }
 
