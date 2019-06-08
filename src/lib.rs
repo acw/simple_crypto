@@ -45,8 +45,8 @@ pub mod ssh;
 /// used by TLS and others.
 pub mod x509;
 /// An implementation of the SHA family of hashes, including the relatively
-/// weak SHA1 and a bunch of hashes you should use, like SHA2-256, SHA2-384,
-/// and SHA2-512.
+/// weak SHA1 and a bunch of hashes you should use, like the SHA2 and SHA3
+/// hashes.
 pub mod sha;
 
 /// A generic trait for defining what a key pair looks like. This is useful

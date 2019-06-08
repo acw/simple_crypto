@@ -2,6 +2,25 @@ use byteorder::{BigEndian,WriteBytesExt};
 use super::super::Hash;
 use sha::shared::calculate_k;
 
+/// The SHA1 hash. Don't use this except to support legacy systems.
+/// 
+/// To use, you can run it in incremental mode -- by calling new(),
+/// update() zero or more times, and then finalize() -- or you can
+/// just invoke the hash directly. For example:
+/// 
+/// ```rust
+/// use simple_crypto::sha::{Hash,SHA1};
+/// 
+/// let empty = [0; 0];
+/// // Do the hash using the incremental API
+/// let mut hashf = SHA1::new();
+/// hashf.update(&empty);
+/// let result_incremental = hashf.finalize();
+/// // Do the hash using the direct API
+/// let result_direct = SHA1::hash(&empty);
+/// // ... and they should be the same
+/// assert_eq!(result_incremental,result_direct);
+/// ```
 pub struct SHA1 {
     state: [u32; 5],
     buffer: Vec<u8>,

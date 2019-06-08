@@ -225,7 +225,26 @@ impl Keccak {
     }
 }
 
-struct SHA3_224 {
+/// The SHA3-224 hash.
+/// 
+/// To use, you can run it in incremental mode -- by calling new(),
+/// update() zero or more times, and then finalize() -- or you can
+/// just invoke the hash directly. For example:
+/// 
+/// ```rust
+/// use simple_crypto::sha::{Hash,SHA3_224};
+/// 
+/// let empty = [0; 0];
+/// // Do the hash using the incremental API
+/// let mut hashf = SHA3_224::new();
+/// hashf.update(&empty);
+/// let result_incremental = hashf.finalize();
+/// // Do the hash using the direct API
+/// let result_direct = SHA3_224::hash(&empty);
+/// // ... and they should be the same
+/// assert_eq!(result_incremental,result_direct);
+/// ```
+pub struct SHA3_224 {
     state: Keccak
 }
 
@@ -292,6 +311,25 @@ mod sha224 {
     }
 }
 
+/// The SHA3-256 hash. [GOOD]
+/// 
+/// To use, you can run it in incremental mode -- by calling new(),
+/// update() zero or more times, and then finalize() -- or you can
+/// just invoke the hash directly. For example:
+/// 
+/// ```rust
+/// use simple_crypto::sha::{Hash,SHA3_256};
+/// 
+/// let empty = [0; 0];
+/// // Do the hash using the incremental API
+/// let mut hashf = SHA3_256::new();
+/// hashf.update(&empty);
+/// let result_incremental = hashf.finalize();
+/// // Do the hash using the direct API
+/// let result_direct = SHA3_256::hash(&empty);
+/// // ... and they should be the same
+/// assert_eq!(result_incremental,result_direct);
+/// ```
 pub struct SHA3_256 {
     state: Keccak
 }
@@ -360,6 +398,25 @@ mod sha256 {
     }
 }
 
+/// The SHA3-384 hash. [BETTER]
+/// 
+/// To use, you can run it in incremental mode -- by calling new(),
+/// update() zero or more times, and then finalize() -- or you can
+/// just invoke the hash directly. For example:
+/// 
+/// ```rust
+/// use simple_crypto::sha::{Hash,SHA3_384};
+/// 
+/// let empty = [0; 0];
+/// // Do the hash using the incremental API
+/// let mut hashf = SHA3_384::new();
+/// hashf.update(&empty);
+/// let result_incremental = hashf.finalize();
+/// // Do the hash using the direct API
+/// let result_direct = SHA3_384::hash(&empty);
+/// // ... and they should be the same
+/// assert_eq!(result_incremental,result_direct);
+/// ```
 pub struct SHA3_384 {
     state: Keccak
 }
@@ -432,6 +489,25 @@ mod sha384 {
     }
 }
 
+/// The SHA3-512 hash. [BEST]
+/// 
+/// To use, you can run it in incremental mode -- by calling new(),
+/// update() zero or more times, and then finalize() -- or you can
+/// just invoke the hash directly. For example:
+/// 
+/// ```rust
+/// use simple_crypto::sha::{Hash,SHA3_512};
+/// 
+/// let empty = [0; 0];
+/// // Do the hash using the incremental API
+/// let mut hashf = SHA3_512::new();
+/// hashf.update(&empty);
+/// let result_incremental = hashf.finalize();
+/// // Do the hash using the direct API
+/// let result_direct = SHA3_512::hash(&empty);
+/// // ... and they should be the same
+/// assert_eq!(result_incremental,result_direct);
+/// ```
 pub struct SHA3_512 {
     state: Keccak
 }
