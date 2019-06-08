@@ -1,6 +1,6 @@
 use super::super::Hash;
 
-struct Keccak {
+pub(crate) struct Keccak {
     rate_in_bytes: usize,
     rate_in_longs: usize,
     buffer: Vec<u8>,
@@ -47,7 +47,7 @@ macro_rules! absorb {
 }
 
 impl Keccak {
-    fn new(rate: usize) -> Self
+    pub fn new(rate: usize) -> Self
     {
         assert_eq!(rate % 64, 0);
         Keccak {
@@ -151,7 +151,7 @@ impl Keccak {
         }
     }
 
-    fn process(&mut self, bytes: &[u8])
+    pub fn process(&mut self, bytes: &[u8])
     {
         if self.output.is_none() {
             let mut offset = 0;
@@ -184,7 +184,7 @@ impl Keccak {
         }
     }
 
-    fn tag_and_pad(&mut self, tag_byte: u8)
+    pub fn tag_and_pad(&mut self, tag_byte: u8)
     {
         if self.output.is_none() {
             assert!(self.buffer.len() < self.rate_in_bytes);
@@ -197,7 +197,7 @@ impl Keccak {
         }
     }
 
-    fn squeeze(&mut self, output_len: usize) -> Vec<u8>
+    pub fn squeeze(&mut self, output_len: usize) -> Vec<u8>
     {
         if let Some(ref result) = self.output {
             result.clone()

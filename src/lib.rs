@@ -41,6 +41,10 @@ pub mod ed25519;
 /// The `ssh` module provides support for parsing OpenSSH-formatted SSH keys,
 /// both public and private.
 pub mod ssh;
+/// The `shake` modules provides support for SHAKE128 and SHAKE256, two
+/// variable-length hash functions that derive from the same core hash
+/// as SHA3.
+pub mod shake;
 /// The `x509` module supports parsing and generating x.509 certificates, as
 /// used by TLS and others.
 pub mod x509;

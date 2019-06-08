@@ -61,3 +61,4 @@ pub use super::Hash;
 pub use self::sha1::SHA1;
 pub use self::sha2::{SHA224,SHA256,SHA384,SHA512};
 pub use self::sha3::{SHA3_224,SHA3_256,SHA3_384,SHA3_512};
+pub(crate) use self::sha3::Keccak;
