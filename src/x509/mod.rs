@@ -9,8 +9,7 @@ mod validity;
 use dsa::DSAPublic;
 use ecdsa::ECDSAPublic;
 use rsa::{SIGNING_HASH_SHA1,SIGNING_HASH_SHA224,SIGNING_HASH_SHA256,SIGNING_HASH_SHA384,SIGNING_HASH_SHA512};
-use sha1::Sha1;
-use sha2::{Sha224,Sha256,Sha384,Sha512};
+use sha::{SHA1,SHA224,SHA256,SHA384,SHA512};
 use simple_asn1::{ASN1Block,FromASN1,der_decode,from_der};
 pub use x509::validity::Validity;
 pub use x509::algident::{AlgorithmIdentifier,HashAlgorithm,PublicKeyInfo};
@@ -137,10 +136,10 @@ fn check_signature(alg: &AlgorithmIdentifier,
             let dsa_sig = der_decode(&sig)?;
             match alg.hash {
                 HashAlgorithm::SHA1
-                    if key.verify::<Sha1>(block, &dsa_sig) => Ok(()),
+                    if key.verify::<SHA1>(block, &dsa_sig) => Ok(()),
                 HashAlgorithm::SHA224
-                    if key.verify::<Sha224>(block, &dsa_sig) => Ok(()),
-                HashAlgorithm::SHA256 if key.verify::<Sha256>(block, &dsa_sig) =>
+                    if key.verify::<SHA224>(block, &dsa_sig) => Ok(()),
+                HashAlgorithm::SHA256 if key.verify::<SHA256>(block, &dsa_sig) =>
                         Ok(()),
                 _                     =>
                     Err(X509ParseError::InvalidSignatureHash)
@@ -150,10 +149,10 @@ fn check_signature(alg: &AlgorithmIdentifier,
             let dsa_sig = der_decode(&sig)?;
             match alg.hash {
                 HashAlgorithm::SHA1
-                    if key.verify::<Sha1>(block, &dsa_sig) => Ok(()),
+                    if key.verify::<SHA1>(block, &dsa_sig) => Ok(()),
                 HashAlgorithm::SHA224
-                    if key.verify::<Sha224>(block, &dsa_sig) => Ok(()),
-                HashAlgorithm::SHA256 if key.verify::<Sha256>(block, &dsa_sig) =>
+                    if key.verify::<SHA224>(block, &dsa_sig) => Ok(()),
+                HashAlgorithm::SHA256 if key.verify::<SHA256>(block, &dsa_sig) =>
                         Ok(()),
                 _                     =>
                     Err(X509ParseError::InvalidSignatureHash)
@@ -163,10 +162,10 @@ fn check_signature(alg: &AlgorithmIdentifier,
             let dsa_sig = der_decode(&sig)?;
             match alg.hash {
                 HashAlgorithm::SHA1
-                    if key.verify::<Sha1>(block, &dsa_sig) => Ok(()),
+                    if key.verify::<SHA1>(block, &dsa_sig) => Ok(()),
                 HashAlgorithm::SHA224
-                    if key.verify::<Sha224>(block, &dsa_sig) => Ok(()),
-                HashAlgorithm::SHA256 if key.verify::<Sha256>(block, &dsa_sig) =>
+                    if key.verify::<SHA224>(block, &dsa_sig) => Ok(()),
+                HashAlgorithm::SHA256 if key.verify::<SHA256>(block, &dsa_sig) =>
                         Ok(()),
                 _                     =>
                     Err(X509ParseError::InvalidSignatureHash)
@@ -176,10 +175,10 @@ fn check_signature(alg: &AlgorithmIdentifier,
             let dsa_sig = der_decode(&sig)?;
             match alg.hash {
                 HashAlgorithm::SHA1
-                    if key.verify::<Sha1>(block, &dsa_sig) => Ok(()),
+                    if key.verify::<SHA1>(block, &dsa_sig) => Ok(()),
                 HashAlgorithm::SHA224
-                    if key.verify::<Sha224>(block, &dsa_sig) => Ok(()),
-                HashAlgorithm::SHA256 if key.verify::<Sha256>(block, &dsa_sig) =>
+                    if key.verify::<SHA224>(block, &dsa_sig) => Ok(()),
+                HashAlgorithm::SHA256 if key.verify::<SHA256>(block, &dsa_sig) =>
                         Ok(()),
                 _                     =>
                     Err(X509ParseError::InvalidSignatureHash)
@@ -188,11 +187,11 @@ fn check_signature(alg: &AlgorithmIdentifier,
         (PublicKeyInfo::ECDSA, &X509PublicKey::ECDSA(ECDSAPublic::P192(ref key))) => {
             let ecdsa_sig = der_decode(&sig)?;
             match alg.hash {
-                HashAlgorithm::SHA1   if key.verify::<Sha1>(block, &ecdsa_sig)   => Ok(()),
-                HashAlgorithm::SHA224 if key.verify::<Sha224>(block, &ecdsa_sig) => Ok(()),
-                HashAlgorithm::SHA256 if key.verify::<Sha256>(block, &ecdsa_sig) => Ok(()),
-                HashAlgorithm::SHA384 if key.verify::<Sha384>(block, &ecdsa_sig) => Ok(()),
-                HashAlgorithm::SHA512 if key.verify::<Sha512>(block, &ecdsa_sig) => Ok(()),
+                HashAlgorithm::SHA1   if key.verify::<SHA1>(block, &ecdsa_sig)   => Ok(()),
+                HashAlgorithm::SHA224 if key.verify::<SHA224>(block, &ecdsa_sig) => Ok(()),
+                HashAlgorithm::SHA256 if key.verify::<SHA256>(block, &ecdsa_sig) => Ok(()),
+                HashAlgorithm::SHA384 if key.verify::<SHA384>(block, &ecdsa_sig) => Ok(()),
+                HashAlgorithm::SHA512 if key.verify::<SHA512>(block, &ecdsa_sig) => Ok(()),
                 _ =>
                     Err(X509ParseError::InvalidSignatureHash)
             }
@@ -200,11 +199,11 @@ fn check_signature(alg: &AlgorithmIdentifier,
         (PublicKeyInfo::ECDSA, &X509PublicKey::ECDSA(ECDSAPublic::P224(ref key))) => {
             let ecdsa_sig = der_decode(&sig)?;
             match alg.hash {
-                HashAlgorithm::SHA1   if key.verify::<Sha1>(block, &ecdsa_sig)   => Ok(()),
-                HashAlgorithm::SHA224 if key.verify::<Sha224>(block, &ecdsa_sig) => Ok(()),
-                HashAlgorithm::SHA256 if key.verify::<Sha256>(block, &ecdsa_sig) => Ok(()),
-                HashAlgorithm::SHA384 if key.verify::<Sha384>(block, &ecdsa_sig) => Ok(()),
-                HashAlgorithm::SHA512 if key.verify::<Sha512>(block, &ecdsa_sig) => Ok(()),
+                HashAlgorithm::SHA1   if key.verify::<SHA1>(block, &ecdsa_sig)   => Ok(()),
+                HashAlgorithm::SHA224 if key.verify::<SHA224>(block, &ecdsa_sig) => Ok(()),
+                HashAlgorithm::SHA256 if key.verify::<SHA256>(block, &ecdsa_sig) => Ok(()),
+                HashAlgorithm::SHA384 if key.verify::<SHA384>(block, &ecdsa_sig) => Ok(()),
+                HashAlgorithm::SHA512 if key.verify::<SHA512>(block, &ecdsa_sig) => Ok(()),
                 _ =>
                     Err(X509ParseError::InvalidSignatureHash)
             }
@@ -212,11 +211,11 @@ fn check_signature(alg: &AlgorithmIdentifier,
         (PublicKeyInfo::ECDSA, &X509PublicKey::ECDSA(ECDSAPublic::P256(ref key))) => {
             let ecdsa_sig = der_decode(&sig)?;
             match alg.hash {
-                HashAlgorithm::SHA1   if key.verify::<Sha1>(block, &ecdsa_sig)   => Ok(()),
-                HashAlgorithm::SHA224 if key.verify::<Sha224>(block, &ecdsa_sig) => Ok(()),
-                HashAlgorithm::SHA256 if key.verify::<Sha256>(block, &ecdsa_sig) => Ok(()),
-                HashAlgorithm::SHA384 if key.verify::<Sha384>(block, &ecdsa_sig) => Ok(()),
-                HashAlgorithm::SHA512 if key.verify::<Sha512>(block, &ecdsa_sig) => Ok(()),
+                HashAlgorithm::SHA1   if key.verify::<SHA1>(block, &ecdsa_sig)   => Ok(()),
+                HashAlgorithm::SHA224 if key.verify::<SHA224>(block, &ecdsa_sig) => Ok(()),
+                HashAlgorithm::SHA256 if key.verify::<SHA256>(block, &ecdsa_sig) => Ok(()),
+                HashAlgorithm::SHA384 if key.verify::<SHA384>(block, &ecdsa_sig) => Ok(()),
+                HashAlgorithm::SHA512 if key.verify::<SHA512>(block, &ecdsa_sig) => Ok(()),
                 _ =>
                     Err(X509ParseError::InvalidSignatureHash)
             }
@@ -224,11 +223,11 @@ fn check_signature(alg: &AlgorithmIdentifier,
         (PublicKeyInfo::ECDSA, &X509PublicKey::ECDSA(ECDSAPublic::P384(ref key))) => {
             let ecdsa_sig = der_decode(&sig)?;
             match alg.hash {
-                HashAlgorithm::SHA1   if key.verify::<Sha1>(block, &ecdsa_sig)   => Ok(()),
-                HashAlgorithm::SHA224 if key.verify::<Sha224>(block, &ecdsa_sig) => Ok(()),
-                HashAlgorithm::SHA256 if key.verify::<Sha256>(block, &ecdsa_sig) => Ok(()),
-                HashAlgorithm::SHA384 if key.verify::<Sha384>(block, &ecdsa_sig) => Ok(()),
-                HashAlgorithm::SHA512 if key.verify::<Sha512>(block, &ecdsa_sig) => Ok(()),
+                HashAlgorithm::SHA1   if key.verify::<SHA1>(block, &ecdsa_sig)   => Ok(()),
+                HashAlgorithm::SHA224 if key.verify::<SHA224>(block, &ecdsa_sig) => Ok(()),
+                HashAlgorithm::SHA256 if key.verify::<SHA256>(block, &ecdsa_sig) => Ok(()),
+                HashAlgorithm::SHA384 if key.verify::<SHA384>(block, &ecdsa_sig) => Ok(()),
+                HashAlgorithm::SHA512 if key.verify::<SHA512>(block, &ecdsa_sig) => Ok(()),
                 _ =>
                     Err(X509ParseError::InvalidSignatureHash)
             }
@@ -236,11 +235,11 @@ fn check_signature(alg: &AlgorithmIdentifier,
         (PublicKeyInfo::ECDSA, &X509PublicKey::ECDSA(ECDSAPublic::P521(ref key))) => {
             let ecdsa_sig = der_decode(&sig)?;
             match alg.hash {
-                HashAlgorithm::SHA1   if key.verify::<Sha1>(block, &ecdsa_sig)   => Ok(()),
-                HashAlgorithm::SHA224 if key.verify::<Sha224>(block, &ecdsa_sig) => Ok(()),
-                HashAlgorithm::SHA256 if key.verify::<Sha256>(block, &ecdsa_sig) => Ok(()),
-                HashAlgorithm::SHA384 if key.verify::<Sha384>(block, &ecdsa_sig) => Ok(()),
-                HashAlgorithm::SHA512 if key.verify::<Sha512>(block, &ecdsa_sig) => Ok(()),
+                HashAlgorithm::SHA1   if key.verify::<SHA1>(block, &ecdsa_sig)   => Ok(()),
+                HashAlgorithm::SHA224 if key.verify::<SHA224>(block, &ecdsa_sig) => Ok(()),
+                HashAlgorithm::SHA256 if key.verify::<SHA256>(block, &ecdsa_sig) => Ok(()),
+                HashAlgorithm::SHA384 if key.verify::<SHA384>(block, &ecdsa_sig) => Ok(()),
+                HashAlgorithm::SHA512 if key.verify::<SHA512>(block, &ecdsa_sig) => Ok(()),
                 _ =>
                     Err(X509ParseError::InvalidSignatureHash)
             }

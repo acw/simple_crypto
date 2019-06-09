@@ -13,15 +13,11 @@ extern crate base64;
 extern crate byteorder;
 extern crate chrono;
 extern crate cryptonum;
-extern crate digest;
-extern crate hmac;
 extern crate num;
 #[cfg(test)]
 #[macro_use]
 extern crate quickcheck;
 extern crate rand;
-extern crate sha1;
-extern crate sha2;
 #[macro_use]
 extern crate simple_asn1;
 
@@ -47,7 +43,7 @@ pub mod ssh;
 pub mod shake;
 /// The `hmac` module provides support for keyed-hash message authentication,
 /// or HMAC, based on any of the hash functions defined in this module.
-pub mod hmac2;
+pub mod hmac;
 /// The `x509` module supports parsing and generating x.509 certificates, as
 /// used by TLS and others.
 pub mod x509;

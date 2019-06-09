@@ -3,10 +3,8 @@
 //! following code snippet, as an example:
 //!
 //! ```rust
-//! extern crate sha2;
-//! 
 //! use simple_crypto::ecdsa::{ECDSAKeyPair,P384};
-//! use sha2::Sha256;
+//! use simple_crypto::sha::SHA256;
 //! 
 //! // Generate a new ECDSA key for curve P384 (this is a good choice, by
 //! // the way, if you're wondering which curve to use).
@@ -17,8 +15,8 @@
 //! // using it. For example, to sign the vector [0,1,2,3,4] with SHA256
 //! // and then verify that signature, we would write: 
 //! let msg = vec![0,1,2,3,4];
-//! let sig = kp.private.sign::<Sha256>(&msg);
-//! assert!( kp.public.verify::<Sha256>(&msg, &sig) );
+//! let sig = kp.private.sign::<SHA256>(&msg);
+//! assert!( kp.public.verify::<SHA256>(&msg, &sig) );
 //! ```
 
 mod curve;

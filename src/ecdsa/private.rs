@@ -1,10 +1,9 @@
 use cryptonum::signed::*;
 use cryptonum::unsigned::*;
-use digest::{BlockInput,Digest,Input,FixedOutput,Reset};
 use dsa::rfc6979::{DSASignature,KIterator,bits2int};
 use ecdsa::curve::{EllipticCurve,P192,P224,P256,P384,P521};
 use ecdsa::point::{ECCPoint,Point};
-use hmac::{Hmac,Mac};
+use sha::Hash;
 use std::fmt;
 
 /// A private key for the given curve.
@@ -42,10 +41,7 @@ macro_rules! generate_privates
 
             /// Sign the given message with the current key, using the hash provided
             /// in the type.
-            pub fn sign<Hash>(&self, m: &[u8]) -> DSASignature<$base>
-              where
-                Hash: BlockInput + Clone + Default + Digest + FixedOutput + Input + Reset,
-                Hmac<Hash>: Mac
+            pub fn sign<H: Hash + Clone>(&self, m: &[u8]) -> DSASignature<$base>
             {
                 // This algorithm is per RFC 6979, which has a nice, relatively
                 // straightforward description of how to do DSA signing.
@@ -58,7 +54,7 @@ macro_rules! generate_privates
                 //     As was noted in the description of bits2octets, the extra
                 //     modular reduction is no more than a conditional subtraction.
                 //
-                let h1 = <Hash>::digest(m);
+                let h1 = <H>::hash(m);
                 let size = <$curve>::size();
                 let h0: $base = bits2int(&h1, size);
                 let n = <$curve>::n();
@@ -70,7 +66,7 @@ macro_rules! generate_privates
                 //     process used to generate k.  In plain DSA or ECDSA, k should
                 //     be selected through a random selection that chooses a value
                 //     among the q-1 possible values with uniform probability.
-                for k in KIterator::<Hash,$base>::new(&h1, size, &n, &self.d) {
+                for k in KIterator::<H,$base>::new(&h1, size, &n, &self.d) {
                     // 3. A value r (modulo q) is computed from k and the key
                     //    parameters:
                     //     *  For DSA ...
@@ -118,7 +114,7 @@ generate_privates!(P521, U576, I576, U1152, U2304);
 /************* TESTING ********************************************************/
 
 #[cfg(test)]
-use sha2::{Sha224,Sha256,Sha384,Sha512};
+use sha::{SHA224,SHA256,SHA384,SHA512};
 #[cfg(test)]
 use testing::*;
 
@@ -148,10 +144,10 @@ macro_rules! sign_test_body
 
             let private = ECCPrivateKey::<$curve>::new(d);
             let sig = match usize::from(h) {
-                        224 => private.sign::<Sha224>(mbytes),
-                        256 => private.sign::<Sha256>(mbytes),
-                        384 => private.sign::<Sha384>(mbytes),
-                        512 => private.sign::<Sha512>(mbytes),
+                        224 => private.sign::<SHA224>(mbytes),
+                        256 => private.sign::<SHA256>(mbytes),
+                        384 => private.sign::<SHA384>(mbytes),
+                        512 => private.sign::<SHA512>(mbytes),
                         x   => panic!("Unknown hash algorithm {}", x)
             };
             assert_eq!(r, sig.r, "r signature check");

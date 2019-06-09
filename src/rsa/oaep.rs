@@ -1,16 +1,16 @@
 use byteorder::{BigEndian,ByteOrder};
-use digest::{Digest,FixedOutput};
+use sha::Hash;
 use std::marker::PhantomData;
 
 /// Parameters for OAEP encryption and decryption: a hash function to use as
 /// part of the message generation function (MGF1, if you're curious),
 /// and any labels you want to include as part of the encryption.
-pub struct OAEPParams<H: Default + Digest + FixedOutput> {
+pub struct OAEPParams<H: Hash> {
     pub label: String,
     phantom: PhantomData<H>
 }
 
-impl<H: Default + Digest + FixedOutput> OAEPParams<H> {
+impl<H: Hash> OAEPParams<H> {
     pub fn new(label: String)
         -> OAEPParams<H>
     {
@@ -18,11 +18,11 @@ impl<H: Default + Digest + FixedOutput> OAEPParams<H> {
     }
 
     pub fn hash_len(&self) -> usize {
-        H::default().fixed_result().as_slice().len()
+        H::hash(&[]).len()
     }
 
     pub fn hash(&self, input: &[u8]) -> Vec<u8> {
-        H::digest(input).as_slice().to_vec()
+        H::hash(input)
     }
 
     pub fn mgf1(&self, input: &[u8], len: usize) -> Vec<u8> {
@@ -32,10 +32,10 @@ impl<H: Default + Digest + FixedOutput> OAEPParams<H> {
         while res.len() < len {
             let mut buffer = [0; 4];
             BigEndian::write_u32(&mut buffer, counter);
-            let mut digest = H::default();
-            digest.input(input);
-            digest.input(&buffer);
-            let chunk = digest.fixed_result();
+            let mut digest = H::new();
+            digest.update(input);
+            digest.update(&buffer);
+            let chunk = digest.finalize();
             res.extend_from_slice(chunk.as_slice());
             counter = counter + 1;
         }

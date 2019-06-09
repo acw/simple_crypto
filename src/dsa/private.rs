@@ -1,9 +1,8 @@
 use cryptonum::unsigned::*;
 use cryptonum::signed::ModInv;
-use digest::{BlockInput,Digest,Input,FixedOutput,Reset};
 use dsa::params::*;
 use dsa::rfc6979::*;
-use hmac::{Hmac,Mac};
+use sha::Hash;
 
 /// A DSA private key, parameterized by its DSA parameters (so that you don't
 /// accidentally pass the wrong key to the wrong routine).
@@ -31,10 +30,7 @@ macro_rules! privkey_impls {
                DSAPrivateKey{ params, x }
            }
 
-           pub fn sign<Hash>(&self, m: &[u8]) -> DSASignature<$ntype>
-             where
-              Hash: BlockInput + Clone + Default + Digest + FixedOutput + Input + Reset,
-              Hmac<Hash>: Mac
+           pub fn sign<H: Hash + Clone>(&self, m: &[u8]) -> DSASignature<$ntype>
            {
                // This algorithm is per RFC 6979, which has a nice, relatively
                // straightforward description of how to do DSA signing.
@@ -47,7 +43,7 @@ macro_rules! privkey_impls {
                //     As was noted in the description of bits2octets, the extra
                //     modular reduction is no more than a conditional subtraction.
                //
-               let h1 = <Hash>::digest(m);
+               let h1 = <H>::hash(m);
                let n  = $ptype::n_size();
                let h0: $ntype = bits2int(&h1, $ptype::n_size());
                let q = &self.params.q;
@@ -59,7 +55,7 @@ macro_rules! privkey_impls {
                //     process used to generate k.  In plain DSA or ECDSA, k should
                //     be selected through a random selection that chooses a value
                //     among the q-1 possible values with uniform probability.
-               for k in KIterator::<Hash,$ntype>::new(&h1, n, q, &self.x) {
+               for k in KIterator::<H,$ntype>::new(&h1, n, q, &self.x) {
                    // 3. A value r (modulo q) is computed from k and the key
                    //    parameters:
                    //     *  For DSA:
@@ -111,7 +107,7 @@ macro_rules! generate_tests {
             use cryptonum::unsigned::Decoder;
             use super::*;
             use testing::run_test;
-            use sha2::{Sha224,Sha256,Sha384,Sha512};
+            use sha::{SHA224,SHA256,SHA384,SHA512};
 
             #[test]
             fn verify() {
@@ -141,10 +137,10 @@ macro_rules! generate_tests {
                     let params = $params::new(p,g,q);
                     let private = DSAPrivateKey::<$params>::new(params, x);
                     let sig = match h {
-                        224 => private.sign::<Sha224>(mbytes),
-                        256 => private.sign::<Sha256>(mbytes),
-                        384 => private.sign::<Sha384>(mbytes),
-                        512 => private.sign::<Sha512>(mbytes),
+                        224 => private.sign::<SHA224>(mbytes),
+                        256 => private.sign::<SHA256>(mbytes),
+                        384 => private.sign::<SHA384>(mbytes),
+                        512 => private.sign::<SHA512>(mbytes),
                         _   => panic!("Unexpected hash {}", h)
                     };
                     assert_eq!(r, sig.r);

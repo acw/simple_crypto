@@ -1,9 +1,9 @@
 use cryptonum::unsigned::*;
-use digest::{Digest,FixedOutput};
 use rsa::core::{RSAMode,drop0s,pkcs1_pad,xor_vecs};
 use rsa::errors::RSAError;
 use rsa::oaep::OAEPParams;
 use rsa::signing_hashes::SigningHash;
+use sha::Hash;
 
 /// An RSA private key. Useful for signing messages and decrypting encrypted
 /// content.
@@ -61,9 +61,8 @@ macro_rules! generate_rsa_private
             /// method to encrypt/decrypt a shared symmetric key, like an
             /// AES key. That way, you only do this operation (which is
             /// SO SLOW) for a relatively small amount of data.
-            pub fn decrypt<H>(&self, oaep: &OAEPParams<H>, msg: &[u8])
+            pub fn decrypt<H: Hash>(&self, oaep: &OAEPParams<H>, msg: &[u8])
                 -> Result<Vec<u8>,RSAError>
-             where H: Default + Digest + FixedOutput
             {
                 let mut res = Vec::new();
 
@@ -83,10 +82,8 @@ macro_rules! generate_rsa_private
                 c.modexp(&self.d, &self.nu)
             }
 
-            fn oaep_decrypt<H>(&self, oaep: &OAEPParams<H>, c: &[u8])
+            fn oaep_decrypt<H: Hash>(&self, oaep: &OAEPParams<H>, c: &[u8])
                 -> Result<Vec<u8>,RSAError>
-             where
-              H: Default + Digest + FixedOutput
             {
                 let byte_len = $size / 8;
                 // Step 1b
@@ -204,10 +201,10 @@ macro_rules! decrypt_test_body {
             let privkey = RSAPrivateKey{ nu: nu, d: d };
             let lstr = String::from_utf8(lbytes.clone()).unwrap();
             let message = match usize::from($num::from_bytes(hbytes)) {
-                224 => privkey.decrypt(&OAEPParams::<Sha224>::new(lstr), &cbytes),
-                256 => privkey.decrypt(&OAEPParams::<Sha256>::new(lstr), &cbytes),
-                384 => privkey.decrypt(&OAEPParams::<Sha384>::new(lstr), &cbytes),
-                512 => privkey.decrypt(&OAEPParams::<Sha512>::new(lstr), &cbytes),
+                224 => privkey.decrypt(&OAEPParams::<SHA224>::new(lstr), &cbytes),
+                256 => privkey.decrypt(&OAEPParams::<SHA256>::new(lstr), &cbytes),
+                384 => privkey.decrypt(&OAEPParams::<SHA384>::new(lstr), &cbytes),
+                512 => privkey.decrypt(&OAEPParams::<SHA512>::new(lstr), &cbytes),
                 x   => panic!("Unknown hash number: {}", x)
             };
             assert!(message.is_ok());
@@ -225,7 +222,7 @@ macro_rules! generate_tests {
             use super::*;
             use testing::run_test;
             use rsa::signing_hashes::*;
-            use sha2::{Sha224,Sha256,Sha384,Sha512};
+            use sha::{SHA224,SHA256,SHA384,SHA512};
 
             #[test]
             fn sign() {
@@ -246,7 +243,7 @@ macro_rules! generate_tests {
             use super::*;
             use testing::run_test;
             use rsa::signing_hashes::*;
-            use sha2::{Sha224,Sha256,Sha384,Sha512};
+            use sha::{SHA224,SHA256,SHA384,SHA512};
 
             #[ignore]
             #[test]

@@ -21,6 +21,7 @@ use super::super::Hash;
 /// // ... and they should be the same
 /// assert_eq!(result_incremental,result_direct);
 /// ```
+#[derive(Clone)]
 pub struct SHA224 {
     state: SHA256State
 }
@@ -80,6 +81,7 @@ impl Hash for SHA224 {
 /// // ... and they should be the same
 /// assert_eq!(result_incremental,result_direct);
 /// ```
+#[derive(Clone)]
 pub struct SHA256 {
     state: SHA256State
 }
@@ -140,6 +142,7 @@ impl Hash for SHA256 {
 /// // ... and they should be the same
 /// assert_eq!(result_incremental,result_direct);
 /// ```
+#[derive(Clone)]
 pub struct SHA384 {
     state: SHA512State
 }
@@ -200,6 +203,7 @@ impl Hash for SHA384 {
 /// // ... and they should be the same
 /// assert_eq!(result_incremental,result_direct);
 /// ```
+#[derive(Clone)]
 pub struct SHA512 {
     state: SHA512State
 }
@@ -267,6 +271,7 @@ macro_rules! lsig256_1 {
     };
 }
 
+#[derive(Clone)]
 struct SHA256State {
     state: [u32; 8],
     buffer: Vec<u8>,
@@ -525,6 +530,7 @@ macro_rules! process_u64_block {
     }};
 }
 
+#[derive(Clone)]
 struct SHA512State {
     state: [u64; 8],
     buffer: Vec<u8>,

@@ -1,7 +1,6 @@
 use cryptonum::unsigned::{CryptoNum,Decoder,Encoder,ModExp,PrimeGen};
 use cryptonum::unsigned::{U192,U256,U1024,U2048,U3072};
-use digest::Digest;
-use sha2::Sha256;
+use sha::{Hash,SHA256};
 use simple_asn1::{ToASN1,ASN1Block,ASN1Class,ASN1EncodeErr};
 use rand::Rng;
 use utils::TranslateNums;
@@ -222,5 +221,5 @@ fn hash<T>(x: &T, len: usize) -> Vec<u8>
     while base.len() < bytelen {
         base.insert(0,0);
     }
-    Sha256::digest(&base).as_slice().to_vec()
+    SHA256::hash(&base)
 }

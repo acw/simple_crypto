@@ -1,5 +1,6 @@
 use super::super::Hash;
 
+#[derive(Clone)]
 pub(crate) struct Keccak {
     rate_in_bytes: usize,
     rate_in_longs: usize,
@@ -244,6 +245,7 @@ impl Keccak {
 /// // ... and they should be the same
 /// assert_eq!(result_incremental,result_direct);
 /// ```
+#[derive(Clone)]
 pub struct SHA3_224 {
     state: Keccak
 }
@@ -335,6 +337,7 @@ mod sha224 {
 /// // ... and they should be the same
 /// assert_eq!(result_incremental,result_direct);
 /// ```
+#[derive(Clone)]
 pub struct SHA3_256 {
     state: Keccak
 }
@@ -427,6 +430,7 @@ mod sha256 {
 /// // ... and they should be the same
 /// assert_eq!(result_incremental,result_direct);
 /// ```
+#[derive(Clone)]
 pub struct SHA3_384 {
     state: Keccak
 }
@@ -523,6 +527,7 @@ mod sha384 {
 /// // ... and they should be the same
 /// assert_eq!(result_incremental,result_direct);
 /// ```
+#[derive(Clone)]
 pub struct SHA3_512 {
     state: Keccak
 }

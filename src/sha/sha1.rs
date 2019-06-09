@@ -21,6 +21,7 @@ use sha::shared::calculate_k;
 /// // ... and they should be the same
 /// assert_eq!(result_incremental,result_direct);
 /// ```
+#[derive(Clone)]
 pub struct SHA1 {
     state: [u32; 5],
     buffer: Vec<u8>,

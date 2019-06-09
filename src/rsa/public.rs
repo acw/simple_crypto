@@ -1,11 +1,11 @@
 use cryptonum::unsigned::*;
-use digest::{Digest,FixedOutput};
 use rand::Rng;
 use rand::rngs::OsRng;
 use rsa::core::{RSAMode,decode_biguint,pkcs1_pad,xor_vecs};
 use rsa::errors::RSAError;
 use rsa::oaep::OAEPParams;
 use rsa::signing_hashes::SigningHash;
+use sha::Hash;
 use simple_asn1::{ASN1Block,ASN1DecodeErr,ASN1EncodeErr,
                   ASN1Class,FromASN1,ToASN1};
 #[cfg(test)]
@@ -200,7 +200,7 @@ macro_rules! generate_rsa_public
                 -> Result<Vec<u8>,RSAError>
              where
               G: Rng,
-              H: Default + Digest + FixedOutput
+              H: Hash
             {
                 let byte_len = $size / 8;
                 let mut res = Vec::new();
@@ -224,10 +224,8 @@ macro_rules! generate_rsa_public
             /// with that symmetric key.
             ///
             /// This variant will just use the system RNG for its randomness.
-            pub fn encrypt<H>(&self,oaep:&OAEPParams<H>,msg:&[u8])
+            pub fn encrypt<H: Hash>(&self,oaep:&OAEPParams<H>,msg:&[u8])
                 -> Result<Vec<u8>,RSAError>
-             where
-              H: Default + Digest + FixedOutput
             {
                 let mut g = OsRng::new()?;
                 self.encrypt_rng(&mut g, oaep, msg)
@@ -245,7 +243,7 @@ macro_rules! generate_rsa_public
                 -> Result<Vec<u8>,RSAError>
              where
               G: Rng,
-              H: Default + Digest + FixedOutput
+              H: Hash
             {
                 let byte_len = $size / 8;
                 // Step 1b
@@ -450,18 +448,18 @@ macro_rules! encrypt_test_body {
             let privkey = RSAPrivateKey{ nu: nu, d: d };
             let lstr = String::from_utf8(lbytes.clone()).unwrap();
             let cipher = match usize::from($num::from_bytes(hbytes)) {
-                224 => pubkey.encrypt(&OAEPParams::<Sha224>::new(lstr.clone()), mbytes),
-                256 => pubkey.encrypt(&OAEPParams::<Sha256>::new(lstr.clone()), mbytes),
-                384 => pubkey.encrypt(&OAEPParams::<Sha384>::new(lstr.clone()), mbytes),
-                512 => pubkey.encrypt(&OAEPParams::<Sha512>::new(lstr.clone()), mbytes),
+                224 => pubkey.encrypt(&OAEPParams::<SHA224>::new(lstr.clone()), mbytes),
+                256 => pubkey.encrypt(&OAEPParams::<SHA256>::new(lstr.clone()), mbytes),
+                384 => pubkey.encrypt(&OAEPParams::<SHA384>::new(lstr.clone()), mbytes),
+                512 => pubkey.encrypt(&OAEPParams::<SHA512>::new(lstr.clone()), mbytes),
                 x   => panic!("Unknown hash number: {}", x)
             };
             assert!(cipher.is_ok());
             let message = match usize::from($num::from_bytes(hbytes)) {
-                224 => privkey.decrypt(&OAEPParams::<Sha224>::new(lstr), &cipher.unwrap()),
-                256 => privkey.decrypt(&OAEPParams::<Sha256>::new(lstr), &cipher.unwrap()),
-                384 => privkey.decrypt(&OAEPParams::<Sha384>::new(lstr), &cipher.unwrap()),
-                512 => privkey.decrypt(&OAEPParams::<Sha512>::new(lstr), &cipher.unwrap()),
+                224 => privkey.decrypt(&OAEPParams::<SHA224>::new(lstr), &cipher.unwrap()),
+                256 => privkey.decrypt(&OAEPParams::<SHA256>::new(lstr), &cipher.unwrap()),
+                384 => privkey.decrypt(&OAEPParams::<SHA384>::new(lstr), &cipher.unwrap()),
+                512 => privkey.decrypt(&OAEPParams::<SHA512>::new(lstr), &cipher.unwrap()),
                 x   => panic!("Unknown hash number: {}", x)
             };
             assert!(message.is_ok());
@@ -480,7 +478,7 @@ macro_rules! generate_tests {
             use testing::run_test;
             use rsa::private::*;
             use rsa::signing_hashes::*;
-            use sha2::{Sha224,Sha256,Sha384,Sha512};
+            use sha::{SHA224,SHA256,SHA384,SHA512};
 
             #[test]
             fn new() { new_test_body!($mod, $num, $bar, $num64, $size); }
@@ -501,7 +499,7 @@ macro_rules! generate_tests {
             use testing::run_test;
             use rsa::private::*;
             use rsa::signing_hashes::*;
-            use sha2::{Sha224,Sha256,Sha384,Sha512};
+            use sha::{SHA224,SHA256,SHA384,SHA512};
 
             #[ignore]
             #[test]

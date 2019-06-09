@@ -1,7 +1,6 @@
 use cryptonum::unsigned::{CryptoNum,Decoder,Encoder};
-use digest::{BlockInput,Digest,FixedOutput,Input,Reset};
-use digest::generic_array::ArrayLength;
-use hmac::{Hmac,Mac};
+use hmac::HMAC;
+use sha::Hash;
 use num::BigInt;
 use simple_asn1::{ASN1Block,ASN1Class,ASN1DecodeErr,ASN1EncodeErr};
 use simple_asn1::{FromASN1,ToASN1};
@@ -26,11 +25,10 @@ impl<N> DSASignature<N>
 #[allow(non_snake_case)]
 pub struct KIterator<H,N>
  where
-  H: BlockInput + Clone + Default + Digest + FixedOutput + Input + Reset,
+  H: Hash + Clone,
   N: Clone + Decoder + Encoder + PartialOrd + Shr<usize,Output=N>,
-  Hmac<H>: Mac
 {
-    hmac_k: Hmac<H>,
+    hmac_k: HMAC<H>,
     V: Vec<u8>,
     q: N,
     qlen: usize
@@ -38,9 +36,8 @@ pub struct KIterator<H,N>
 
 impl<H,N> KIterator<H,N>
  where
-  H: BlockInput + Clone + Default + Digest + FixedOutput + Input + Reset,
+  H: Hash + Clone,
   N: Clone + Decoder + Encoder + PartialOrd + Shr<usize,Output=N> + Sub<Output=N>,
-  Hmac<H>: Mac
 {
     pub fn new(h1: &[u8], qlen: usize, q: &N, x: &N) -> KIterator<H,N>
     {
@@ -95,11 +92,11 @@ impl<H,N> KIterator<H,N>
         input.push(0x00);
         input.extend_from_slice(&xbytes);
         input.extend_from_slice(&h1bytes);
-        K = hmac(&K, &input);
+        K = HMAC::<H>::hmac(&K, &input);
         // e.  Set:
         //
         //           V = HMAC_K(V)
-        V = hmac(&K, &V);
+        V = HMAC::<H>::hmac(&K, &V);
         // f. Set:
         //
         //           K = HMAC_K(V || 0x01 || int2octets(x) || bits2octets(h1))
@@ -110,14 +107,14 @@ impl<H,N> KIterator<H,N>
         input.push(0x01);
         input.extend_from_slice(&xbytes);
         input.extend_from_slice(&h1bytes);
-        K = hmac(&K, &input);
+        K = HMAC::<H>::hmac(&K, &input);
         // g. Set:
         //
         //          V = HMAC_K(V)
-        V = hmac(&K, &V);
+        V = HMAC::<H>::hmac(&K, &V);
         // h is for later ...
         KIterator {
-            hmac_k: Hmac::<H>::new_varkey(&K).unwrap(),
+            hmac_k: HMAC::<H>::new(&K),
             V: V,
             q: q.clone(),
             qlen: qlen
@@ -127,9 +124,8 @@ impl<H,N> KIterator<H,N>
 
 impl<H,N> Iterator for KIterator<H,N>
  where
-  H: BlockInput + Clone + Default + Digest + FixedOutput + Input + Reset,
+  H: Hash + Clone,
   N: Clone + CryptoNum + Decoder + Encoder + PartialOrd + Shr<usize,Output=N>,
-  Hmac<H>: Mac
 {
     type Item = N;
 
@@ -170,7 +166,7 @@ impl<H,N> Iterator for KIterator<H,N>
            #[allow(non_snake_case)]
            let K = runhmac(&self.hmac_k, &input);
            //               V = HMAC_K(V)
-           self.hmac_k = Hmac::<H>::new_varkey(&K).unwrap();
+           self.hmac_k = HMAC::<H>::new(&K);
            self.V = runhmac(&self.hmac_k, &self.V);
            //
            //          and loop (try to generate a new T, and so on).
@@ -224,26 +220,11 @@ fn int2octets<X>(x: &X, qlen_bits: usize) -> Vec<u8>
     base
 }
 
-fn runhmac<H>(base: &Hmac<H>, m: &[u8]) -> Vec<u8>
-  where
-    H: Clone + BlockInput + Default + Input + FixedOutput + Reset,
-    Hmac<H>: Clone + Mac,
-    H::BlockSize : ArrayLength<u8>
+fn runhmac<H: Hash + Clone>(base: &HMAC<H>, m: &[u8]) -> Vec<u8>
 {
     let mut runner = base.clone();
-    runner.input(&m);
-    runner.result().code().as_slice().to_vec()
-}
-
-fn hmac<H>(k: &[u8], m: &[u8]) -> Vec<u8>
-  where
-    H: BlockInput + Clone + Default + Input + FixedOutput + Reset,
-    Hmac<H>: Clone + Mac,
-    H::BlockSize : ArrayLength<u8>
-{
-    let mut runner = Hmac::<H>::new_varkey(&k).unwrap();
-    runner.input(&m);
-    runner.result().code().as_slice().to_vec()
+    runner.update(&m);
+    runner.finalize()
 }
 
 #[derive(Clone,Debug,PartialEq)]
@@ -304,7 +285,7 @@ impl<N> ToASN1 for DSASignature<N>
 #[cfg(test)]
 mod tests {
     use cryptonum::unsigned::U192;
-    use sha2::{Sha224,Sha256,Sha384,Sha512};
+    use sha::{SHA224,SHA256,SHA384,SHA512};
     use super::*;
     use testing::*;
 
@@ -343,7 +324,7 @@ mod tests {
     fn k_gen_example() {
         let q = U192::from_bytes(&QBYTES);
         let x = U192::from_bytes(&XBYTES);
-        let mut iter = KIterator::<Sha256,U192>::new(&H1, 163, &q, &x);
+        let mut iter = KIterator::<SHA256,U192>::new(&H1, 163, &q, &x);
         match iter.next() {
             None =>
                 assert!(false),
@@ -428,9 +409,9 @@ mod tests {
         };
     }
 
-    k_generator_tests!(kgen_sha224, Sha224, "SHA224");
-    k_generator_tests!(kgen_sha256, Sha256, "SHA256");
-    k_generator_tests!(kgen_sha384, Sha384, "SHA384");
-    k_generator_tests!(kgen_sha512, Sha512, "SHA512");
+    k_generator_tests!(kgen_sha224, SHA224, "SHA224");
+    k_generator_tests!(kgen_sha256, SHA256, "SHA256");
+    k_generator_tests!(kgen_sha384, SHA384, "SHA384");
+    k_generator_tests!(kgen_sha512, SHA512, "SHA512");
 
 }

@@ -22,12 +22,11 @@
 //! 
 //! ```rust
 //! extern crate cryptonum;
-//! extern crate sha2;
 //! 
 //! use simple_crypto::rsa::RSAKeyPair;
 //! use simple_crypto::rsa::SIGNING_HASH_SHA256;
 //! use simple_crypto::rsa::OAEPParams;
-//! use sha2::Sha256;
+//! use simple_crypto::sha::SHA256;
 //! use cryptonum::unsigned::U2048;
 //! 
 //! // Generate a new RSA with key size 2048. (This is an acceptable but
@@ -45,7 +44,7 @@
 //!
 //! // We can also use RSA public keys to encrypt data, which can then be
 //! // decrypted by the private key.
-//! let params = OAEPParams::<Sha256>::new(String::from("example!"));
+//! let params = OAEPParams::<SHA256>::new(String::from("example!"));
 //! let cipher = kp.public.encrypt(&params, &msg).expect("Encryption error");
 //! let msg2 = kp.private.decrypt(&params, &cipher).expect("Decryption error");
 //! assert_eq!(msg, msg2);

@@ -1,10 +1,9 @@
 use cryptonum::signed::*;
 use cryptonum::unsigned::*;
-use digest::{BlockInput,Digest,Input,FixedOutput,Reset};
 use dsa::rfc6979::DSASignature;
 use ecdsa::curve::{EllipticCurve,P192,P224,P256,P384,P521};
 use ecdsa::point::{ECCPoint,Point};
-use hmac::{Hmac,Mac};
+use sha::Hash;
 use simple_asn1::{ASN1Block,ASN1Class,ASN1DecodeErr,ASN1EncodeErr,FromASN1,ToASN1};
 use std::cmp::min;
 
@@ -65,10 +64,7 @@ macro_rules! public_impl {
 
             /// Returns true if the given message matches the given signature,
             /// assuming the provided hash function.
-            pub fn verify<Hash>(&self, m: &[u8], sig: &DSASignature<$un>) -> bool
-              where
-               Hash: BlockInput + Clone + Default + Digest + FixedOutput + Input + Reset,
-               Hmac<Hash>: Mac
+            pub fn verify<H: Hash>(&self, m: &[u8], sig: &DSASignature<$un>) -> bool
             {
                 let n = <$curve>::n();
 
@@ -81,7 +77,7 @@ macro_rules! public_impl {
                 }
 
                 // e = the leftmost min(N, outlen) bits of Hash(M').
-                let mut digest_bytes = <Hash>::digest(m).to_vec();
+                let mut digest_bytes = <H>::hash(m);
                 let len = min(digest_bytes.len(), $curve::size() / 8);
                 digest_bytes.truncate(len);
 
@@ -169,7 +165,7 @@ public_impl!(P384, U384, I384);
 public_impl!(P521, U576, I576);
 
 #[cfg(test)]
-use sha2::{Sha224,Sha256,Sha384,Sha512};
+use sha::{SHA224,SHA256,SHA384,SHA512};
 #[cfg(test)]
 use testing::*;
 
@@ -201,10 +197,10 @@ macro_rules! verify_test_body
             let public = ECCPublicKey::<$curve>::new(point);
             let sig = DSASignature::new(r, s);
             match usize::from(h) {
-                224 => assert!(public.verify::<Sha224>(mbytes, &sig)),
-                256 => assert!(public.verify::<Sha256>(mbytes, &sig)),
-                384 => assert!(public.verify::<Sha384>(mbytes, &sig)),
-                512 => assert!(public.verify::<Sha512>(mbytes, &sig)),
+                224 => assert!(public.verify::<SHA224>(mbytes, &sig)),
+                256 => assert!(public.verify::<SHA256>(mbytes, &sig)),
+                384 => assert!(public.verify::<SHA384>(mbytes, &sig)),
+                512 => assert!(public.verify::<SHA512>(mbytes, &sig)),
                 x   => panic!("Unknown hash algorithm {}", x)
             };
         });

@@ -1,9 +1,9 @@
 use cryptonum::unsigned::*;
 use cryptonum::signed::ModInv;
-use digest::Digest;
 use dsa::params::*;
 use dsa::rfc6979::DSASignature;
 use simple_asn1::{ASN1Block,ASN1Class,ASN1EncodeErr,ToASN1};
+use sha::Hash;
 use std::cmp::min;
 use utils::TranslateNums;
 
@@ -32,8 +32,7 @@ macro_rules! pubkey_impls {
                 DSAPublicKey{ params, y }
             }
 
-            pub fn verify<Hash>(&self, m: &[u8], sig: &DSASignature<$ntype>) -> bool
-             where Hash: Digest
+            pub fn verify<H: Hash>(&self, m: &[u8], sig: &DSASignature<$ntype>) -> bool
             {
                 if sig.r >= self.params.q {
                     return false;
@@ -44,7 +43,7 @@ macro_rules! pubkey_impls {
                 // w = (s')^-1 mod q;
                 if let Some(w) = sig.s.modinv(&self.params.q) {
                     // z = the leftmost min(N, outlen) bits of Hash(M').
-                    let mut digest_bytes = <Hash>::digest(m).to_vec();
+                    let mut digest_bytes = <H>::hash(m);
                     let len = min(digest_bytes.len(), $ptype::n_size() / 8);
                     digest_bytes.truncate(len);
                     let z = $ntype::from_bytes(&digest_bytes);
@@ -95,7 +94,7 @@ macro_rules! generate_tests {
             use cryptonum::unsigned::Decoder;
             use super::*;
             use testing::run_test;
-            use sha2::{Sha224,Sha256,Sha384,Sha512};
+            use sha::{SHA224,SHA256,SHA384,SHA512};
 
             #[test]
             fn verify() {
@@ -126,10 +125,10 @@ macro_rules! generate_tests {
                     let public = DSAPublicKey::<$params>::new(params, y);
                     let sig = DSASignature::<$nt>::new(r, s);
                     match h {
-                        224 => assert!(public.verify::<Sha224>(mbytes, &sig)),
-                        256 => assert!(public.verify::<Sha256>(mbytes, &sig)),
-                        384 => assert!(public.verify::<Sha384>(mbytes, &sig)),
-                        512 => assert!(public.verify::<Sha512>(mbytes, &sig)),
+                        224 => assert!(public.verify::<SHA224>(mbytes, &sig)),
+                        256 => assert!(public.verify::<SHA256>(mbytes, &sig)),
+                        384 => assert!(public.verify::<SHA384>(mbytes, &sig)),
+                        512 => assert!(public.verify::<SHA512>(mbytes, &sig)),
                         _   => panic!("Unexpected hash {}", h)
                     }
                 });

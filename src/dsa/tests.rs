@@ -1,7 +1,5 @@
 use cryptonum::unsigned::*;
-use digest::Digest;
-use sha1::Sha1;
-use sha2::{Sha224,Sha256,Sha384,Sha512};
+use sha::{Hash,SHA1,SHA224,SHA256,SHA384,SHA512};
 use simple_asn1::{der_decode,der_encode};
 use dsa::params::{DSAParameters,L1024N160,L2048N256};
 use dsa::private::DSAPrivateKey;
@@ -13,7 +11,7 @@ macro_rules! run_rfc6979_test {
      k $k: expr,
      r $r: expr,
      s $s: expr) => ({
-        let h1 = <$hash>::digest(&$val);
+        let h1 = <$hash>::hash(&$val);
         let rbytes = $r;
         let sbytes = $s;
         let r = $ntype::from_bytes(&rbytes);
@@ -108,7 +106,7 @@ fn appendix_a21() {
     //    k = 7BDB6B0FF756E1BB5D53583EF979082F9AD5BD5B
     //    r = 2E1A0C2562B2912CAAF89186FB0F42001585DA55
     //    s = 29EFB6B0AFF2D7A68EB70CA313022253B9A88DF5
-    run_rfc6979_test!(Sha1, U192, sample, params, public, private,
+    run_rfc6979_test!(SHA1, U192, sample, params, public, private,
       k vec![0x7B, 0xDB, 0x6B, 0x0F, 0xF7, 0x56, 0xE1, 0xBB,
              0x5D, 0x53, 0x58, 0x3E, 0xF9, 0x79, 0x08, 0x2F,
              0x9A, 0xD5, 0xBD, 0x5B],
@@ -122,7 +120,7 @@ fn appendix_a21() {
     //     k = 562097C06782D60C3037BA7BE104774344687649
     //     r = 4BC3B686AEA70145856814A6F1BB53346F02101E
     //     s = 410697B92295D994D21EDD2F4ADA85566F6F94C1
-    run_rfc6979_test!(Sha224, U192, sample, params, public, private,
+    run_rfc6979_test!(SHA224, U192, sample, params, public, private,
        k vec![0x56, 0x20, 0x97, 0xC0, 0x67, 0x82, 0xD6, 0x0C,
               0x30, 0x37, 0xBA, 0x7B, 0xE1, 0x04, 0x77, 0x43,
               0x44, 0x68, 0x76, 0x49],
@@ -136,7 +134,7 @@ fn appendix_a21() {
     //    k = 519BA0546D0C39202A7D34D7DFA5E760B318BCFB
     //    r = 81F2F5850BE5BC123C43F71A3033E9384611C545
     //    s = 4CDD914B65EB6C66A8AAAD27299BEE6B035F5E89
-    run_rfc6979_test!(Sha256, U192, sample, params, public, private,
+    run_rfc6979_test!(SHA256, U192, sample, params, public, private,
         k vec![0x51, 0x9B, 0xA0, 0x54, 0x6D, 0x0C, 0x39, 0x20,
                0x2A, 0x7D, 0x34, 0xD7, 0xDF, 0xA5, 0xE7, 0x60,
                0xB3, 0x18, 0xBC, 0xFB],
@@ -150,7 +148,7 @@ fn appendix_a21() {
     //    k = 95897CD7BBB944AA932DBC579C1C09EB6FCFC595
     //    r = 07F2108557EE0E3921BC1774F1CA9B410B4CE65A
     //    s = 54DF70456C86FAC10FAB47C1949AB83F2C6F7595
-    run_rfc6979_test!(Sha384, U192, sample, params, public, private,
+    run_rfc6979_test!(SHA384, U192, sample, params, public, private,
         k vec![0x95, 0x89, 0x7C, 0xD7, 0xBB, 0xB9, 0x44, 0xAA,
                0x93, 0x2D, 0xBC, 0x57, 0x9C, 0x1C, 0x09, 0xEB,
                0x6F, 0xCF, 0xC5, 0x95],
@@ -164,7 +162,7 @@ fn appendix_a21() {
     //    k = 09ECE7CA27D0F5A4DD4E556C9DF1D21D28104F8B
     //    r = 16C3491F9B8C3FBBDD5E7A7B667057F0D8EE8E1B
     //    s = 02C36A127A7B89EDBB72E4FFBC71DABC7D4FC69C
-    run_rfc6979_test!(Sha512, U192, sample, params, public, private,
+    run_rfc6979_test!(SHA512, U192, sample, params, public, private,
         k vec![0x09, 0xEC, 0xE7, 0xCA, 0x27, 0xD0, 0xF5, 0xA4,
                0xDD, 0x4E, 0x55, 0x6C, 0x9D, 0xF1, 0xD2, 0x1D,
                0x28, 0x10, 0x4F, 0x8B],
@@ -178,7 +176,7 @@ fn appendix_a21() {
     //    k = 5C842DF4F9E344EE09F056838B42C7A17F4A6433
     //    r = 42AB2052FD43E123F0607F115052A67DCD9C5C77
     //    s = 183916B0230D45B9931491D4C6B0BD2FB4AAF088
-    run_rfc6979_test!(Sha1, U192, test, params, public, private,
+    run_rfc6979_test!(SHA1, U192, test, params, public, private,
         k vec![0x5C, 0x84, 0x2D, 0xF4, 0xF9, 0xE3, 0x44, 0xEE,
                0x09, 0xF0, 0x56, 0x83, 0x8B, 0x42, 0xC7, 0xA1,
                0x7F, 0x4A, 0x64, 0x33],
@@ -192,7 +190,7 @@ fn appendix_a21() {
     //    k = 4598B8EFC1A53BC8AECD58D1ABBB0C0C71E67297
     //    r = 6868E9964E36C1689F6037F91F28D5F2C30610F2
     //    s = 49CEC3ACDC83018C5BD2674ECAAD35B8CD22940F
-    run_rfc6979_test!(Sha224, U192, test, params, public, private,
+    run_rfc6979_test!(SHA224, U192, test, params, public, private,
         k vec![0x45, 0x98, 0xB8, 0xEF, 0xC1, 0xA5, 0x3B, 0xC8,
                0xAE, 0xCD, 0x58, 0xD1, 0xAB, 0xBB, 0x0C, 0x0C,
                0x71, 0xE6, 0x72, 0x97],
@@ -206,7 +204,7 @@ fn appendix_a21() {
     //    k = 5A67592E8128E03A417B0484410FB72C0B630E1A
     //    r = 22518C127299B0F6FDC9872B282B9E70D0790812
     //    s = 6837EC18F150D55DE95B5E29BE7AF5D01E4FE160
-    run_rfc6979_test!(Sha256, U192, test, params, public, private,
+    run_rfc6979_test!(SHA256, U192, test, params, public, private,
         k vec![0x5A, 0x67, 0x59, 0x2E, 0x81, 0x28, 0xE0, 0x3A,
                0x41, 0x7B, 0x04, 0x84, 0x41, 0x0F, 0xB7, 0x2C,
                0x0B, 0x63, 0x0E, 0x1A],
@@ -220,7 +218,7 @@ fn appendix_a21() {
     //    k = 220156B761F6CA5E6C9F1B9CF9C24BE25F98CD89
     //    r = 854CF929B58D73C3CBFDC421E8D5430CD6DB5E66
     //    s = 91D0E0F53E22F898D158380676A871A157CDA622
-    run_rfc6979_test!(Sha384, U192, test, params, public, private,
+    run_rfc6979_test!(SHA384, U192, test, params, public, private,
         k vec![0x22, 0x01, 0x56, 0xB7, 0x61, 0xF6, 0xCA, 0x5E,
                0x6C, 0x9F, 0x1B, 0x9C, 0xF9, 0xC2, 0x4B, 0xE2,
                0x5F, 0x98, 0xCD, 0x89],
@@ -234,7 +232,7 @@ fn appendix_a21() {
     //    k = 65D2C2EEB175E370F28C75BFCDC028D22C7DBE9C
     //    r = 8EA47E475BA8AC6F2D821DA3BD212D11A3DEB9A0
     //    s = 7C670C7AD72B6C050C109E1790008097125433E8
-    run_rfc6979_test!(Sha512, U192, test, params, public, private,
+    run_rfc6979_test!(SHA512, U192, test, params, public, private,
         k vec![0x65, 0xD2, 0xC2, 0xEE, 0xB1, 0x75, 0xE3, 0x70,
                0xF2, 0x8C, 0x75, 0xBF, 0xCD, 0xC0, 0x28, 0xD2,
                0x2C, 0x7D, 0xBE, 0x9C],
@@ -368,7 +366,7 @@ fn appendix_a22() {
     // k = 888FA6F7738A41BDC9846466ABDB8174C0338250AE50CE955CA16230F9CBD53E
     // r = 3A1B2DBD7489D6ED7E608FD036C83AF396E290DBD602408E8677DAABD6E7445A
     // s = D26FCBA19FA3E3058FFC02CA1596CDBB6E0D20CB37B06054F7E36DED0CDBBCCF
-    run_rfc6979_test!(Sha1, U256, sample, params, public, private,
+    run_rfc6979_test!(SHA1, U256, sample, params, public, private,
         k vec![0x88,0x8F,0xA6,0xF7,0x73,0x8A,0x41,0xBD,
                0xC9,0x84,0x64,0x66,0xAB,0xDB,0x81,0x74,
                0xC0,0x33,0x82,0x50,0xAE,0x50,0xCE,0x95,
@@ -385,7 +383,7 @@ fn appendix_a22() {
     // k = BC372967702082E1AA4FCE892209F71AE4AD25A6DFD869334E6F153BD0C4D806
     // r = DC9F4DEADA8D8FF588E98FED0AB690FFCE858DC8C79376450EB6B76C24537E2C
     // s = A65A9C3BC7BABE286B195D5DA68616DA8D47FA0097F36DD19F517327DC848CEC
-    run_rfc6979_test!(Sha224, U256, sample, params, public, private,
+    run_rfc6979_test!(SHA224, U256, sample, params, public, private,
         k vec![0xBC,0x37,0x29,0x67,0x70,0x20,0x82,0xE1,
                0xAA,0x4F,0xCE,0x89,0x22,0x09,0xF7,0x1A,
                0xE4,0xAD,0x25,0xA6,0xDF,0xD8,0x69,0x33,
@@ -402,7 +400,7 @@ fn appendix_a22() {
     // k = 8926A27C40484216F052F4427CFD5647338B7B3939BC6573AF4333569D597C52
     // r = EACE8BDBBE353C432A795D9EC556C6D021F7A03F42C36E9BC87E4AC7932CC809
     // s = 7081E175455F9247B812B74583E9E94F9EA79BD640DC962533B0680793A38D53
-    run_rfc6979_test!(Sha256, U256, sample, params, public, private,
+    run_rfc6979_test!(SHA256, U256, sample, params, public, private,
         k vec![0x89,0x26,0xA2,0x7C,0x40,0x48,0x42,0x16,
                0xF0,0x52,0xF4,0x42,0x7C,0xFD,0x56,0x47,
                0x33,0x8B,0x7B,0x39,0x39,0xBC,0x65,0x73,
@@ -419,7 +417,7 @@ fn appendix_a22() {
     // k = C345D5AB3DA0A5BCB7EC8F8FB7A7E96069E03B206371EF7D83E39068EC564920
     // r = B2DA945E91858834FD9BF616EBAC151EDBC4B45D27D0DD4A7F6A22739F45C00B
     // s = 19048B63D9FD6BCA1D9BAE3664E1BCB97F7276C306130969F63F38FA8319021B
-    run_rfc6979_test!(Sha384, U256, sample, params, public, private,
+    run_rfc6979_test!(SHA384, U256, sample, params, public, private,
         k vec![0xC3,0x45,0xD5,0xAB,0x3D,0xA0,0xA5,0xBC,
                0xB7,0xEC,0x8F,0x8F,0xB7,0xA7,0xE9,0x60,
                0x69,0xE0,0x3B,0x20,0x63,0x71,0xEF,0x7D,
@@ -436,7 +434,7 @@ fn appendix_a22() {
     // k = 5A12994431785485B3F5F067221517791B85A597B7A9436995C89ED0374668FC
     // r = 2016ED092DC5FB669B8EFB3D1F31A91EECB199879BE0CF78F02BA062CB4C942E
     // s = D0C76F84B5F091E141572A639A4FB8C230807EEA7D55C8A154A224400AFF2351
-    run_rfc6979_test!(Sha512, U256, sample, params, public, private,
+    run_rfc6979_test!(SHA512, U256, sample, params, public, private,
         k vec![0x5A,0x12,0x99,0x44,0x31,0x78,0x54,0x85,
                0xB3,0xF5,0xF0,0x67,0x22,0x15,0x17,0x79,
                0x1B,0x85,0xA5,0x97,0xB7,0xA9,0x43,0x69,
@@ -453,7 +451,7 @@ fn appendix_a22() {
     // k = 6EEA486F9D41A037B2C640BC5645694FF8FF4B98D066A25F76BE641CCB24BA4F
     // r = C18270A93CFC6063F57A4DFA86024F700D980E4CF4E2CB65A504397273D98EA0
     // s = 414F22E5F31A8B6D33295C7539C1C1BA3A6160D7D68D50AC0D3A5BEAC2884FAA
-    run_rfc6979_test!(Sha1, U256, test, params, public, private,
+    run_rfc6979_test!(SHA1, U256, test, params, public, private,
         k vec![0x6E,0xEA,0x48,0x6F,0x9D,0x41,0xA0,0x37,
                0xB2,0xC6,0x40,0xBC,0x56,0x45,0x69,0x4F,
                0xF8,0xFF,0x4B,0x98,0xD0,0x66,0xA2,0x5F,
@@ -470,7 +468,7 @@ fn appendix_a22() {
     // k = 06BD4C05ED74719106223BE33F2D95DA6B3B541DAD7BFBD7AC508213B6DA6670
     // r = 272ABA31572F6CC55E30BF616B7A265312018DD325BE031BE0CC82AA17870EA3
     // s = E9CC286A52CCE201586722D36D1E917EB96A4EBDB47932F9576AC645B3A60806
-    run_rfc6979_test!(Sha224, U256, test, params, public, private,
+    run_rfc6979_test!(SHA224, U256, test, params, public, private,
         k vec![0x06,0xBD,0x4C,0x05,0xED,0x74,0x71,0x91,
                0x06,0x22,0x3B,0xE3,0x3F,0x2D,0x95,0xDA,
                0x6B,0x3B,0x54,0x1D,0xAD,0x7B,0xFB,0xD7,
@@ -487,7 +485,7 @@ fn appendix_a22() {
     // k = 1D6CE6DDA1C5D37307839CD03AB0A5CBB18E60D800937D67DFB4479AAC8DEAD7
     // r = 8190012A1969F9957D56FCCAAD223186F423398D58EF5B3CEFD5A4146A4476F0
     // s = 7452A53F7075D417B4B013B278D1BB8BBD21863F5E7B1CEE679CF2188E1AB19E
-    run_rfc6979_test!(Sha256, U256, test, params, public, private,
+    run_rfc6979_test!(SHA256, U256, test, params, public, private,
         k vec![0x1D,0x6C,0xE6,0xDD,0xA1,0xC5,0xD3,0x73,
                0x07,0x83,0x9C,0xD0,0x3A,0xB0,0xA5,0xCB,
                0xB1,0x8E,0x60,0xD8,0x00,0x93,0x7D,0x67,
@@ -504,7 +502,7 @@ fn appendix_a22() {
     // k = 206E61F73DBE1B2DC8BE736B22B079E9DACD974DB00EEBBC5B64CAD39CF9F91C
     // r = 239E66DDBE8F8C230A3D071D601B6FFBDFB5901F94D444C6AF56F732BEB954BE
     // s = 6BD737513D5E72FE85D1C750E0F73921FE299B945AAD1C802F15C26A43D34961
-    run_rfc6979_test!(Sha384, U256, test, params, public, private,
+    run_rfc6979_test!(SHA384, U256, test, params, public, private,
         k vec![0x20,0x6E,0x61,0xF7,0x3D,0xBE,0x1B,0x2D,
                0xC8,0xBE,0x73,0x6B,0x22,0xB0,0x79,0xE9,
                0xDA,0xCD,0x97,0x4D,0xB0,0x0E,0xEB,0xBC,
@@ -521,7 +519,7 @@ fn appendix_a22() {
     // k = AFF1651E4CD6036D57AA8B2A05CCF1A9D5A40166340ECBBDC55BE10B568AA0AA
     // r = 89EC4BB1400ECCFF8E7D9AA515CD1DE7803F2DAFF09693EE7FD1353E90A68307
     // s = C9F0BDABCC0D880BB137A994CC7F3980CE91CC10FAF529FC46565B15CEA854E1
-    run_rfc6979_test!(Sha512, U256, test, params, public, private,
+    run_rfc6979_test!(SHA512, U256, test, params, public, private,
         k vec![0xAF,0xF1,0x65,0x1E,0x4C,0xD6,0x03,0x6D,
                0x57,0xAA,0x8B,0x2A,0x05,0xCC,0xF1,0xA9,
                0xD5,0xA4,0x01,0x66,0x34,0x0E,0xCB,0xBD,

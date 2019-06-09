@@ -220,7 +220,7 @@ use ed25519::ED25519KeyPair;
 #[cfg(test)]
 use rsa::{RSAPair,RSAPublic,SIGNING_HASH_SHA256};
 #[cfg(test)]
-use sha2::Sha256;
+use sha::SHA256;
 
 #[cfg(test)]
 #[test]
@@ -235,10 +235,10 @@ fn dsa_examples() {
             Ok((keypair, comment)) => {
                 let buffer = [0,1,2,3,4,6,2];
                 let _ : DSAKeyPair<L1024N160> = keypair;
-                let sig = keypair.private.sign::<Sha256>(&buffer);
-                assert!(keypair.public.verify::<Sha256>(&buffer, &sig));
+                let sig = keypair.private.sign::<SHA256>(&buffer);
+                assert!(keypair.public.verify::<SHA256>(&buffer, &sig));
                 let buffer2 = [0,1,2,3,4,6,5];
-                assert!(!keypair.public.verify::<Sha256>(&buffer2, &sig));
+                assert!(!keypair.public.verify::<SHA256>(&buffer2, &sig));
                 match encode_ssh(&keypair, &comment) {
                     Err(e2) => assert!(false, format!("render error: {:?}", e2)),
                     Ok(encodedstr) => {
@@ -345,16 +345,16 @@ fn ecdsa_examples() {
                     ECDSAPair::P224(_,_) =>
                         assert!(false, "Somehow got a P224 in read test"),
                     ECDSAPair::P256(ref pu, ref pr) => {
-                        let sig = pr.sign::<Sha256>(&buffer);
-                        assert!(pu.verify::<Sha256>(&buffer, &sig));
+                        let sig = pr.sign::<SHA256>(&buffer);
+                        assert!(pu.verify::<SHA256>(&buffer, &sig));
                     }
                     ECDSAPair::P384(ref pu, ref pr) => {
-                        let sig = pr.sign::<Sha256>(&buffer);
-                        assert!(pu.verify::<Sha256>(&buffer, &sig));
+                        let sig = pr.sign::<SHA256>(&buffer);
+                        assert!(pu.verify::<SHA256>(&buffer, &sig));
                     }
                     ECDSAPair::P521(ref pu, ref pr) => {
-                        let sig = pr.sign::<Sha256>(&buffer);
-                        assert!(pu.verify::<Sha256>(&buffer, &sig));
+                        let sig = pr.sign::<SHA256>(&buffer);
+                        assert!(pu.verify::<SHA256>(&buffer, &sig));
                     }
                 }
                 // encode this, parse it again

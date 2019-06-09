@@ -25,9 +25,8 @@ mod loads;
 mod point;
 mod scalars;
 
-use digest::Digest;
 use rand::Rng;
-use sha2::Sha512;
+use sha::{Hash,SHA512};
 use self::scalars::{curve25519_scalar_mask,x25519_sc_muladd,x25519_sc_reduce};
 use self::point::{Point,Point2};
 #[cfg(test)]
@@ -103,7 +102,7 @@ impl ED25519Private {
             public: [0; 32]
         };
         result.seed.copy_from_slice(seed);
-        let mut expanded = Sha512::digest(seed);
+        let mut expanded = SHA512::hash(seed);
         let (private, prefix) = expanded.split_at_mut(32);
         result.private.copy_from_slice(private);
         result.prefix.copy_from_slice(prefix);
@@ -120,10 +119,10 @@ impl ED25519Private {
     {
         let mut signature_s = [0u8; 32];
 
-        let mut ctx = Sha512::new();
-        ctx.input(&self.prefix);
-        ctx.input(&msg);
-        let nonce = digest_scalar(ctx.result().as_slice());
+        let mut ctx = SHA512::new();
+        ctx.update(&self.prefix);
+        ctx.update(&msg);
+        let nonce = digest_scalar(&ctx.finalize());
         let r = Point::scalarmult_base(&nonce);
         let signature_r = r.encode();
         let hram_digest = eddsa_digest(&signature_r, &self.public, &msg);
@@ -218,11 +217,11 @@ impl ED25519Public {
 
 fn eddsa_digest(signature_r: &[u8], public_key: &[u8], msg: &[u8]) -> Vec<u8>
 {
-    let mut ctx = Sha512::new();
-    ctx.input(signature_r);
-    ctx.input(public_key);
-    ctx.input(msg);
-    ctx.result().as_slice().to_vec()
+    let mut ctx = SHA512::new();
+    ctx.update(signature_r);
+    ctx.update(public_key);
+    ctx.update(msg);
+    ctx.finalize()
 }
 
 fn digest_scalar(digest: &[u8]) -> Vec<u8> {

@@ -18,7 +18,7 @@
 //! you want to use by using your standard turbofish:
 //! 
 //! ```rust
-//! use simple_crypto::hmac2::HMAC;
+//! use simple_crypto::hmac::HMAC;
 //! use simple_crypto::sha::SHA256;
 //! 
 //! let key = [0,1,2,3,4]; // very secure
@@ -34,7 +34,7 @@
 //! incremental mode as well as just do it all at once, as follows:
 //! 
 //! ```rust
-//! use simple_crypto::hmac2::HMAC;
+//! use simple_crypto::hmac::HMAC;
 //! use simple_crypto::sha::SHA256;
 //! 
 //! let key = [0,1,2,3,4]; // like my suitcase
@@ -63,7 +63,7 @@
 /// incremental mode as well as just do it all at once, as follows:
 /// 
 /// ```rust
-/// use simple_crypto::hmac2::HMAC;
+/// use simple_crypto::hmac::HMAC;
 /// use simple_crypto::sha::SHA256;
 /// 
 /// let key = [0,1,2,3,4]; // like my suitcase
@@ -83,13 +83,14 @@
 /// ```
 use super::Hash;
 
-pub struct HMAC<H: Hash> {
+#[derive(Clone)]
+pub struct HMAC<H: Hash + Clone> {
     ipad_hash: H,
     opad_hash: H,
     result: Option<Vec<u8>>
 }
 
-impl<H: Hash> HMAC<H> {
+impl<H: Hash + Clone> HMAC<H> {
     /// Generate a new HMAC construction for the provide underlying hash
     /// function, and prep it to start taking input via the `update`
     /// method.

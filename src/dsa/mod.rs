@@ -5,10 +5,8 @@
 //! random number generator.
 //! 
 //! ```rust
-//! extern crate sha2;
-//! 
 //! use simple_crypto::dsa::{DSAKeyPair,DSAParameters,L2048N256};
-//! use sha2::Sha224;
+//! use simple_crypto::sha::SHA224;
 //! 
 //! // Generate a set of DSA parameters, assuming you don't have
 //! // them already
@@ -25,8 +23,8 @@
 //! // using it. For example, to sign the vector [0,1,2,3,4] with SHA224
 //! // and then verify that signature, we would write: 
 //! let msg = vec![0,1,2,3,4];
-//! let sig = kp.private.sign::<Sha224>(&msg);
-//! assert!( kp.public.verify::<Sha224>(&msg, &sig) );
+//! let sig = kp.private.sign::<SHA224>(&msg);
+//! assert!( kp.public.verify::<SHA224>(&msg, &sig) );
 //! ```
 
 

@@ -1,6 +1,4 @@
-use digest::Digest;
-use sha1::Sha1;
-use sha2::{Sha224,Sha256,Sha384,Sha512};
+use sha::{Hash,SHA1,SHA224,SHA256,SHA384,SHA512};
 use std::fmt;
 
 /// A hash that can be used to sign a message.
@@ -28,12 +26,8 @@ impl fmt::Debug for SigningHash {
 pub static SIGNING_HASH_NULL: SigningHash = SigningHash {
     name: "NULL",
     ident: &[],
-    run: nohash
+    run: |x| { x.to_vec() }
 };
-
-fn nohash(i: &[u8]) -> Vec<u8> {
-    i.to_vec()
-}
 
 /// Sign a hash based on SHA1. You shouldn't use this unless you're using
 /// very small keys, and this is the only one available to you. Even then,
@@ -42,12 +36,8 @@ pub static SIGNING_HASH_SHA1: SigningHash = SigningHash {
     name: "SHA1",
     ident: &[0x30,0x21,0x30,0x09,0x06,0x05,0x2b,0x0e,0x03,
              0x02,0x1a,0x05,0x00,0x04,0x14],
-    run: runsha1
+    run: |x| { SHA1::hash(x) }
 };
-
-fn runsha1(i: &[u8]) -> Vec<u8> {
-    Sha1::digest(i).as_slice().to_vec()
-}
 
 /// Sign a hash based on SHA2-224. This is the first reasonable choice
 /// we've come across, and is useful when you have smaller RSA key sizes.
@@ -57,12 +47,8 @@ pub static SIGNING_HASH_SHA224: SigningHash = SigningHash {
     ident: &[0x30,0x2d,0x30,0x0d,0x06,0x09,0x60,0x86,0x48,
              0x01,0x65,0x03,0x04,0x02,0x04,0x05,0x00,0x04,
              0x1c],
-    run: runsha224
+    run: |x| { SHA224::hash(x) }
 };
-
-fn runsha224(i: &[u8]) -> Vec<u8> {
-    Sha224::digest(i).as_slice().to_vec()
-}
 
 /// Sign a hash based on SHA2-256. The first one I'd recommend!
 pub static SIGNING_HASH_SHA256: SigningHash = SigningHash {
@@ -70,12 +56,8 @@ pub static SIGNING_HASH_SHA256: SigningHash = SigningHash {
     ident: &[0x30,0x31,0x30,0x0d,0x06,0x09,0x60,0x86,0x48,
              0x01,0x65,0x03,0x04,0x02,0x01,0x05,0x00,0x04,
              0x20],
-    run: runsha256
+    run: |x| { SHA256::hash(x) }
 };
-
-fn runsha256(i: &[u8]) -> Vec<u8> {
-    Sha256::digest(i).as_slice().to_vec()
-}
 
 /// Sign a hash based on SHA2-384. Approximately 50% better than
 /// SHA-256.
@@ -84,12 +66,8 @@ pub static SIGNING_HASH_SHA384: SigningHash = SigningHash {
     ident: &[0x30,0x41,0x30,0x0d,0x06,0x09,0x60,0x86,0x48,
              0x01,0x65,0x03,0x04,0x02,0x02,0x05,0x00,0x04,
              0x30],
-    run: runsha384
+    run: |x| { SHA384::hash(x) }
 };
-
-fn runsha384(i: &[u8]) -> Vec<u8> {
-    Sha384::digest(i).as_slice().to_vec()
-}
 
 /// Sign a hash based on SHA2-512. At this point, you're getting a bit
 /// silly. But if you want to through 8kbit RSA keys with a 512 bit SHA2
@@ -99,11 +77,5 @@ pub static SIGNING_HASH_SHA512: SigningHash = SigningHash {
     ident: &[0x30,0x51,0x30,0x0d,0x06,0x09,0x60,0x86,0x48,
              0x01,0x65,0x03,0x04,0x02,0x03,0x05,0x00,0x04,
              0x40],
-    run: runsha512
+    run: |x| { SHA512::hash(x) }
 };
-
-fn runsha512(i: &[u8]) -> Vec<u8> {
-    Sha512::digest(i).as_slice().to_vec()
-}
-
-
