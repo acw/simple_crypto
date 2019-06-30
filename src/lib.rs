@@ -21,6 +21,8 @@ extern crate rand;
 #[macro_use]
 extern crate simple_asn1;
 
+/// The `aes` module provides bare-bones AES support.
+pub mod aes;
 /// The `rsa` module provides bare-bones support for RSA signing, verification,
 /// encryption, decryption, and key generation.
 pub mod rsa;
