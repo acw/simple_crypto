@@ -2,8 +2,15 @@
 use std::arch::x86::*;
 #[cfg(target_arch="x86_64")]
 use std::arch::x86_64::*;
-
+#[cfg(test)]
+use std::mem::transmute;
 use std::mem::uninitialized;
+
+////////////////////////////////////////////////////////////////////////////////////////////////////
+//
+// 128-Bit Support
+//
+////////////////////////////////////////////////////////////////////////////////////////////////////
 
 struct AES128 {
     expanded_enc: [__m128i; 11],
@@ -104,17 +111,17 @@ impl AES128 {
 }
 
 #[cfg(test)]
-mod aes128 {
-    use std::mem::transmute;
-    use super::*;
-
-    fn unpack_m128(b: __m128i) -> (u64, u64)
-    {
-        unsafe {
-            let data: [u64; 2] = transmute(b);
-            (data[0].to_be(), data[1].to_be())
-        }
+fn unpack_m128(b: __m128i) -> (u64, u64)
+{
+    unsafe {
+        let data: [u64; 2] = transmute(b);
+        (data[0].to_be(), data[1].to_be())
     }
+}
+
+#[cfg(test)]
+mod aes128 {
+    use super::*;
 
     #[test]
     fn expansion() {
@@ -172,5 +179,196 @@ mod aes128 {
         assert_eq!(cipher2, vec![0x69,0xc4,0xe0,0xd8,0x6a,0x7b,0x04,0x30,
                                  0xd8,0xcd,0xb7,0x80,0x70,0xb4,0xc5,0x5a]);
         assert_eq!(input2.to_vec(), aeskey2.decrypt(&cipher2));
+    }
+}
+
+////////////////////////////////////////////////////////////////////////////////////////////////////
+//
+// 256-Bit Support
+//
+////////////////////////////////////////////////////////////////////////////////////////////////////
+
+pub struct AES256 {
+    expanded_enc: [__m128i; 15],
+    expanded_dec: [__m128i; 15],
+}
+
+macro_rules! expand256 {
+    ($prevprev: expr, $prev: expr, $shuffle: expr, $round: expr) => {{
+        let gen0 = _mm_aeskeygenassist_si128($prev, $round);
+        let gen1 = _mm_shuffle_epi32(gen0, $shuffle);
+        let key0 = $prevprev;
+        let key1 = _mm_xor_si128(key0, _mm_slli_si128(key0, 4));
+        let key2 = _mm_xor_si128(key1, _mm_slli_si128(key1, 4));
+        let key3 = _mm_xor_si128(key2, _mm_slli_si128(key2, 4));
+        _mm_xor_si128(gen1, key3) 
+    }};
+}
+
+impl AES256 {
+    pub fn new(base_key: &[u8; 32]) -> AES256 {
+        unsafe {
+            let mut expanded_enc: [__m128i; 15] = uninitialized();
+            let mut expanded_dec: [__m128i; 15] = uninitialized();
+
+            let keyptr = base_key.as_ptr() as *const __m128i;
+            expanded_enc[00] = _mm_loadu_si128(keyptr.offset(0));
+            expanded_enc[01] = _mm_loadu_si128(keyptr.offset(1));
+            expanded_enc[02] = expand256!(expanded_enc[00], expanded_enc[01], 0xff, 0x01);
+            expanded_enc[03] = expand256!(expanded_enc[01], expanded_enc[02], 0xaa, 0x00);
+            expanded_enc[04] = expand256!(expanded_enc[02], expanded_enc[03], 0xff, 0x02);
+            expanded_enc[05] = expand256!(expanded_enc[03], expanded_enc[04], 0xaa, 0x00);
+            expanded_enc[06] = expand256!(expanded_enc[04], expanded_enc[05], 0xff, 0x04);
+            expanded_enc[07] = expand256!(expanded_enc[05], expanded_enc[06], 0xaa, 0x00);
+            expanded_enc[08] = expand256!(expanded_enc[06], expanded_enc[07], 0xff, 0x08);
+            expanded_enc[09] = expand256!(expanded_enc[07], expanded_enc[08], 0xaa, 0x00);
+            expanded_enc[10] = expand256!(expanded_enc[08], expanded_enc[09], 0xff, 0x10);
+            expanded_enc[11] = expand256!(expanded_enc[09], expanded_enc[10], 0xaa, 0x00);
+            expanded_enc[12] = expand256!(expanded_enc[10], expanded_enc[11], 0xff, 0x20);
+            expanded_enc[13] = expand256!(expanded_enc[11], expanded_enc[12], 0xaa, 0x00);
+            expanded_enc[14] = expand256!(expanded_enc[12], expanded_enc[13], 0xff, 0x40);
+
+            expanded_dec[00] = expanded_enc[14];
+            expanded_dec[01] = _mm_aesimc_si128(expanded_enc[13]);
+            expanded_dec[02] = _mm_aesimc_si128(expanded_enc[12]);
+            expanded_dec[03] = _mm_aesimc_si128(expanded_enc[11]);
+            expanded_dec[04] = _mm_aesimc_si128(expanded_enc[10]);
+            expanded_dec[05] = _mm_aesimc_si128(expanded_enc[09]);
+            expanded_dec[06] = _mm_aesimc_si128(expanded_enc[08]);
+            expanded_dec[07] = _mm_aesimc_si128(expanded_enc[07]);
+            expanded_dec[08] = _mm_aesimc_si128(expanded_enc[06]);
+            expanded_dec[09] = _mm_aesimc_si128(expanded_enc[05]);
+            expanded_dec[10] = _mm_aesimc_si128(expanded_enc[04]);
+            expanded_dec[11] = _mm_aesimc_si128(expanded_enc[03]);
+            expanded_dec[12] = _mm_aesimc_si128(expanded_enc[02]);
+            expanded_dec[13] = _mm_aesimc_si128(expanded_enc[01]);
+            expanded_dec[14] = expanded_enc[0];
+
+            AES256{ expanded_enc, expanded_dec }
+        }
+    }
+
+    pub fn encrypt(&self, block: &[u8]) -> Vec<u8> {
+        assert_eq!(block.len(), 16);
+        let mut result = Vec::with_capacity(16);
+        result.resize(16, 0);
+        unsafe {
+            let mut val = _mm_loadu_si128(block.as_ptr() as *const __m128i);
+            val = _mm_xor_si128(val, self.expanded_enc[0]);
+            val = _mm_aesenc_si128(val, self.expanded_enc[01]);
+            val = _mm_aesenc_si128(val, self.expanded_enc[02]);
+            val = _mm_aesenc_si128(val, self.expanded_enc[03]);
+            val = _mm_aesenc_si128(val, self.expanded_enc[04]);
+            val = _mm_aesenc_si128(val, self.expanded_enc[05]);
+            val = _mm_aesenc_si128(val, self.expanded_enc[06]);
+            val = _mm_aesenc_si128(val, self.expanded_enc[07]);
+            val = _mm_aesenc_si128(val, self.expanded_enc[08]);
+            val = _mm_aesenc_si128(val, self.expanded_enc[09]);
+            val = _mm_aesenc_si128(val, self.expanded_enc[10]);
+            val = _mm_aesenc_si128(val, self.expanded_enc[11]);
+            val = _mm_aesenc_si128(val, self.expanded_enc[12]);
+            val = _mm_aesenc_si128(val, self.expanded_enc[13]);
+            val = _mm_aesenclast_si128(val, self.expanded_enc[14]);
+            _mm_storeu_si128(result.as_mut_ptr() as *mut __m128i, val);
+        }
+        result
+    }
+
+    pub fn decrypt(&self, block: &[u8]) -> Vec<u8> {
+        assert_eq!(block.len(), 16);
+        let mut result = Vec::with_capacity(16);
+        result.resize(16, 0);
+        unsafe {
+            let mut val = _mm_loadu_si128(block.as_ptr() as *const __m128i);
+            val = _mm_xor_si128(val, self.expanded_dec[00]);
+            val = _mm_aesdec_si128(val, self.expanded_dec[01]);
+            val = _mm_aesdec_si128(val, self.expanded_dec[02]);
+            val = _mm_aesdec_si128(val, self.expanded_dec[03]);
+            val = _mm_aesdec_si128(val, self.expanded_dec[04]);
+            val = _mm_aesdec_si128(val, self.expanded_dec[05]);
+            val = _mm_aesdec_si128(val, self.expanded_dec[06]);
+            val = _mm_aesdec_si128(val, self.expanded_dec[07]);
+            val = _mm_aesdec_si128(val, self.expanded_dec[08]);
+            val = _mm_aesdec_si128(val, self.expanded_dec[09]);
+            val = _mm_aesdec_si128(val, self.expanded_dec[10]);
+            val = _mm_aesdec_si128(val, self.expanded_dec[11]);
+            val = _mm_aesdec_si128(val, self.expanded_dec[12]);
+            val = _mm_aesdec_si128(val, self.expanded_dec[13]);
+            val = _mm_aesdeclast_si128(val, self.expanded_dec[14]);
+            _mm_storeu_si128(result.as_mut_ptr() as *mut __m128i, val);
+        }
+        result
+    }
+}
+
+#[cfg(test)]
+mod aes256 {
+    use super::*;
+
+    #[test]
+    fn expansion() {
+        let zero_key = AES256::new(&[0x00; 32]);
+        assert_eq!(unpack_m128(zero_key.expanded_enc[00]), (0x0000000000000000, 0x0000000000000000));
+        assert_eq!(unpack_m128(zero_key.expanded_enc[01]), (0x0000000000000000, 0x0000000000000000));
+        assert_eq!(unpack_m128(zero_key.expanded_enc[02]), (0x6263636362636363, 0x6263636362636363));
+        assert_eq!(unpack_m128(zero_key.expanded_enc[03]), (0xaafbfbfbaafbfbfb, 0xaafbfbfbaafbfbfb));
+        assert_eq!(unpack_m128(zero_key.expanded_enc[04]), (0x6f6c6ccf0d0f0fac, 0x6f6c6ccf0d0f0fac));
+        assert_eq!(unpack_m128(zero_key.expanded_enc[05]), (0x7d8d8d6ad7767691, 0x7d8d8d6ad7767691));
+        assert_eq!(unpack_m128(zero_key.expanded_enc[06]), (0x5354edc15e5be26d, 0x31378ea23c38810e));
+        assert_eq!(unpack_m128(zero_key.expanded_enc[07]), (0x968a81c141fcf750, 0x3c717a3aeb070cab));
+        assert_eq!(unpack_m128(zero_key.expanded_enc[08]), (0x9eaa8f28c0f16d45, 0xf1c6e3e7cdfe62e9));
+        assert_eq!(unpack_m128(zero_key.expanded_enc[09]), (0x2b312bdf6acddc8f, 0x56bca6b5bdbbaa1e));
+        assert_eq!(unpack_m128(zero_key.expanded_enc[10]), (0x6406fd52a4f79017, 0x553173f098cf1119));
+        assert_eq!(unpack_m128(zero_key.expanded_enc[11]), (0x6dbba90b07767584, 0x51cad331ec71792f));
+        assert_eq!(unpack_m128(zero_key.expanded_enc[12]), (0xe7b0e89c4347788b, 0x16760b7b8eb91a62));
+        assert_eq!(unpack_m128(zero_key.expanded_enc[13]), (0x74ed0ba1739b7e25, 0x2251ad14ce20d43b));
+        assert_eq!(unpack_m128(zero_key.expanded_enc[14]), (0x10f80a1753bf729c, 0x45c979e7cb706385));
+        let ff_key = AES256::new(&[0xff; 32]);
+        assert_eq!(unpack_m128(ff_key.expanded_enc[00]), (0xffffffffffffffff, 0xffffffffffffffff));
+        assert_eq!(unpack_m128(ff_key.expanded_enc[01]), (0xffffffffffffffff, 0xffffffffffffffff));
+        assert_eq!(unpack_m128(ff_key.expanded_enc[02]), (0xe8e9e9e917161616, 0xe8e9e9e917161616));
+        assert_eq!(unpack_m128(ff_key.expanded_enc[03]), (0x0fb8b8b8f0474747, 0x0fb8b8b8f0474747));
+        assert_eq!(unpack_m128(ff_key.expanded_enc[04]), (0x4a4949655d5f5f73, 0xb5b6b69aa2a0a08c));
+        assert_eq!(unpack_m128(ff_key.expanded_enc[05]), (0x355858dcc51f1f9b, 0xcaa7a7233ae0e064));
+        assert_eq!(unpack_m128(ff_key.expanded_enc[06]), (0xafa80ae5f2f75596, 0x4741e30ce5e14380));
+        assert_eq!(unpack_m128(ff_key.expanded_enc[07]), (0xeca0421129bf5d8a, 0xe318faa9d9f81acd));
+        assert_eq!(unpack_m128(ff_key.expanded_enc[08]), (0xe60ab7d014fde246, 0x53bc014ab65d42ca));
+        assert_eq!(unpack_m128(ff_key.expanded_enc[09]), (0xa2ec6e658b5333ef, 0x684bc946b1b3d38b));
+        assert_eq!(unpack_m128(ff_key.expanded_enc[10]), (0x9b6c8a188f91685e, 0xdc2d69146a702bde));
+        assert_eq!(unpack_m128(ff_key.expanded_enc[11]), (0xa0bd9f782beeac97, 0x43a565d1f216b65a));
+        assert_eq!(unpack_m128(ff_key.expanded_enc[12]), (0xfc22349173b35ccf, 0xaf9e35dbc5ee1e05));
+        assert_eq!(unpack_m128(ff_key.expanded_enc[13]), (0x0695ed132d7b4184, 0x6ede24559cc8920f));
+        assert_eq!(unpack_m128(ff_key.expanded_enc[14]), (0x546d424f27de1e80, 0x88402b5b4dae355e));
+        let nist_key = AES256::new(&[0x60, 0x3d, 0xeb, 0x10, 0x15, 0xca, 0x71, 0xbe,
+                                     0x2b, 0x73, 0xae, 0xf0, 0x85, 0x7d, 0x77, 0x81,
+                                     0x1f, 0x35, 0x2c, 0x07, 0x3b, 0x61, 0x08, 0xd7,
+                                     0x2d, 0x98, 0x10, 0xa3, 0x09, 0x14, 0xdf, 0xf4]);
+        assert_eq!(unpack_m128(nist_key.expanded_enc[00]), (0x603deb1015ca71be, 0x2b73aef0857d7781));
+        assert_eq!(unpack_m128(nist_key.expanded_enc[01]), (0x1f352c073b6108d7, 0x2d9810a30914dff4));
+        assert_eq!(unpack_m128(nist_key.expanded_enc[02]), (0x9ba354118e6925af, 0xa51a8b5f2067fcde));
+        assert_eq!(unpack_m128(nist_key.expanded_enc[03]), (0xa8b09c1a93d194cd, 0xbe49846eb75d5b9a));
+        assert_eq!(unpack_m128(nist_key.expanded_enc[04]), (0xd59aecb85bf3c917, 0xfee94248de8ebe96));
+        assert_eq!(unpack_m128(nist_key.expanded_enc[05]), (0xb5a9328a2678a647, 0x983122292f6c79b3));
+        assert_eq!(unpack_m128(nist_key.expanded_enc[06]), (0x812c81addadf48ba, 0x24360af2fab8b464));
+        assert_eq!(unpack_m128(nist_key.expanded_enc[07]), (0x98c5bfc9bebd198e, 0x268c3ba709e04214));
+        assert_eq!(unpack_m128(nist_key.expanded_enc[08]), (0x68007bacb2df3316, 0x96e939e46c518d80));
+        assert_eq!(unpack_m128(nist_key.expanded_enc[09]), (0xc814e20476a9fb8a, 0x5025c02d59c58239));
+        assert_eq!(unpack_m128(nist_key.expanded_enc[10]), (0xde1369676ccc5a71, 0xfa2563959674ee15));
+        assert_eq!(unpack_m128(nist_key.expanded_enc[11]), (0x5886ca5d2e2f31d7, 0x7e0af1fa27cf73c3));
+        assert_eq!(unpack_m128(nist_key.expanded_enc[12]), (0x749c47ab18501dda, 0xe2757e4f7401905a));
+        assert_eq!(unpack_m128(nist_key.expanded_enc[13]), (0xcafaaae3e4d59b34, 0x9adf6acebd10190d));
+        assert_eq!(unpack_m128(nist_key.expanded_enc[14]), (0xfe4890d1e6188d0b, 0x046df344706c631e));
+    }
+
+    #[test]
+    fn fips197_example() {
+        let input  = [0x00,0x11,0x22,0x33,0x44,0x55,0x66,0x77,0x88,0x99,0xaa,0xbb,0xcc,0xdd,0xee,0xff];
+        let key    = [0x00,0x01,0x02,0x03,0x04,0x05,0x06,0x07,0x08,0x09,0x0a,0x0b,0x0c,0x0d,0x0e,0x0f,
+                      0x10,0x11,0x12,0x13,0x14,0x15,0x16,0x17,0x18,0x19,0x1a,0x1b,0x1c,0x1d,0x1e,0x1f];
+        let aeskey = AES256::new(&key);
+        let cipher = aeskey.encrypt(&input);
+        assert_eq!(cipher, vec![0x8e,0xa2,0xb7,0xca,0x51,0x67,0x45,0xbf,
+                                0xea,0xfc,0x49,0x90,0x4b,0x49,0x60,0x89]);
+        assert_eq!(input.to_vec(), aeskey.decrypt(&cipher));
     }
 }
