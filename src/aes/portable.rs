@@ -1,8 +1,3 @@
-const AES128_KEY_LENGTH: usize = 4;  // Nk
-const AES128_BLOCK_SIZE: usize = 4;  // Nb
-const AES128_NUM_ROUNDS: usize = 10; // Nr
-const AES128_STATE_WORDS: usize = AES128_BLOCK_SIZE * (AES128_NUM_ROUNDS + 1);
-
 const RIJNDAEL_KEY_SCHEDULE: [u32; 11] = [
     0x00000000, 0x01000000, 0x02000000, 0x04000000, 
     0x08000000, 0x10000000, 0x20000000, 0x40000000, 
@@ -28,10 +23,6 @@ const SUB_BYTES_SBOX: [u8; 256] = [
     0x8c, 0xa1, 0x89, 0x0d, 0xbf, 0xe6, 0x42, 0x68, 0x41, 0x99, 0x2d, 0x0f, 0xb0, 0x54, 0xbb, 0x16,
     ];
 
-struct AES128 {
-    expanded: [u32; AES128_STATE_WORDS]
-}
-
 fn word(a: u8, b: u8, c: u8, d: u8) -> u32 {
     ((a as u32) << 24) | ((b as u32) << 16) |
     ((c as u32) << 08) | ((d as u32) << 00)
@@ -46,6 +37,21 @@ fn sub_word(x: u32) -> u32 {
     (((SUB_BYTES_SBOX[((x >> 16) & 0xff) as usize]) as u32) << 16) |
     (((SUB_BYTES_SBOX[((x >> 08) & 0xff) as usize]) as u32) << 08) |
     (((SUB_BYTES_SBOX[((x >> 00) & 0xff) as usize]) as u32) << 00)
+}
+
+/**************************************************************************************************/
+/*                                                                                                */
+/* AES256 Implementation                                                                          */
+/*                                                                                                */
+/**************************************************************************************************/
+
+const AES128_KEY_LENGTH: usize = 4;  // Nk
+const AES128_BLOCK_SIZE: usize = 4;  // Nb
+const AES128_NUM_ROUNDS: usize = 10; // Nr
+const AES128_STATE_WORDS: usize = AES128_BLOCK_SIZE * (AES128_NUM_ROUNDS + 1);
+
+struct AES128 {
+    expanded: [u32; AES128_STATE_WORDS]
 }
 
 impl AES128 {
@@ -151,3 +157,145 @@ mod aes128 {
         assert_eq!(expanded.expanded[43], 0xb6630ca6);
     }
 }
+
+/**************************************************************************************************/
+/*                                                                                                */
+/* AES256 Implementation                                                                          */
+/*                                                                                                */
+/**************************************************************************************************/
+
+const AES256_KEY_LENGTH: usize = 8;  // Nk
+const AES256_BLOCK_SIZE: usize = 4;  // Nb
+const AES256_NUM_ROUNDS: usize = 14; // Nr
+const AES256_STATE_WORDS: usize = AES256_BLOCK_SIZE * (AES256_NUM_ROUNDS + 1);
+
+struct AES256 {
+    expanded: [u32; AES256_STATE_WORDS]
+}
+
+impl AES256 {
+    pub fn new(base_key: &[u8; 32]) -> AES256 {
+        let mut expanded = [0; AES256_STATE_WORDS];
+        let mut i = 0;
+
+        // while (i < Nk)
+        //    w[i] = word(key[4*i],key[4*i+1],key[4*i+2],key[4*i+3])
+        //    i = i+1
+        // end while
+        while i < AES256_KEY_LENGTH {
+            expanded[i] = word(base_key[(4*i)+0], base_key[(4*i)+1],
+                               base_key[(4*i)+2], base_key[(4*i)+3]);
+            println!("{:02}: expanded[{}] = {:08x}", i, i, expanded[i]);
+            i = i + 1;
+        }
+
+        // i = Nk
+        assert_eq!(i, AES256_KEY_LENGTH);
+
+        // while (i < Nb * (Nr + 1))
+        while i < AES256_BLOCK_SIZE * (AES256_NUM_ROUNDS+1) {
+            // temp = w[i-1]
+            let mut temp = expanded[i-1];
+            println!("{:02}: temp = {:08x}", i, temp);
+            // if (i mod Nk = 0)
+            //    temp = sub_word(rot_word(temp)) xor Rcon[i/Nk]
+            // else
+            //    temp = sub_word(temp)
+            // end if
+            if i % AES256_KEY_LENGTH == 0 {
+                temp = rot_word(temp);
+                println!("{:02}: after rotword = {:08x}", i, temp);
+                temp = sub_word(temp);
+                println!("{:02}: after subword = {:08x}", i, temp);
+                temp ^= RIJNDAEL_KEY_SCHEDULE[i/AES256_KEY_LENGTH];
+                println!("{:02}: after rcon xor = {:08x}", i, temp);
+            } else if i % 4 == 0 {
+                temp = sub_word(temp);
+                println!("{:02}: after subword' = {:08x}", i, temp);
+            }
+            // w[i] = w[i-Nk] ^ temp;
+            println!("{:02}: w[{}-{}] = {:08x}", i, i, AES256_KEY_LENGTH, expanded[i-AES256_KEY_LENGTH]);
+            expanded[i] = expanded[i-AES256_KEY_LENGTH] ^ temp;
+            println!("{:02}: expanded[{:02}] = {:08x}", i, i, expanded[i]);
+            // i = i + 1
+            i = i + 1;
+        }
+
+        AES256{ expanded }
+    }
+}
+
+#[cfg(test)]
+mod aes256 {
+    use super::*;
+
+    #[test]
+    fn fips197_key_expansion_example() {
+        let cipher_key = [0x60,0x3d,0xeb,0x10,0x15,0xca,0x71,0xbe,
+                          0x2b,0x73,0xae,0xf0,0x85,0x7d,0x77,0x81,
+                          0x1f,0x35,0x2c,0x07,0x3b,0x61,0x08,0xd7,
+                          0x2d,0x98,0x10,0xa3,0x09,0x14,0xdf,0xf4];
+        let expanded = AES256::new(&cipher_key);
+        assert_eq!(expanded.expanded[00], 0x603deb10);
+        assert_eq!(expanded.expanded[01], 0x15ca71be);
+        assert_eq!(expanded.expanded[02], 0x2b73aef0);
+        assert_eq!(expanded.expanded[03], 0x857d7781);
+        assert_eq!(expanded.expanded[04], 0x1f352c07);
+        assert_eq!(expanded.expanded[05], 0x3b6108d7);
+        assert_eq!(expanded.expanded[06], 0x2d9810a3);
+        assert_eq!(expanded.expanded[07], 0x0914dff4);
+        assert_eq!(expanded.expanded[08], 0x9ba35411);
+        assert_eq!(expanded.expanded[09], 0x8e6925af);
+        assert_eq!(expanded.expanded[10], 0xa51a8b5f);
+        assert_eq!(expanded.expanded[11], 0x2067fcde);
+        assert_eq!(expanded.expanded[12], 0xa8b09c1a);
+        assert_eq!(expanded.expanded[13], 0x93d194cd);
+        assert_eq!(expanded.expanded[14], 0xbe49846e);
+        assert_eq!(expanded.expanded[15], 0xb75d5b9a);
+        assert_eq!(expanded.expanded[16], 0xd59aecb8);
+        assert_eq!(expanded.expanded[17], 0x5bf3c917);
+        assert_eq!(expanded.expanded[18], 0xfee94248);
+        assert_eq!(expanded.expanded[19], 0xde8ebe96);
+        assert_eq!(expanded.expanded[20], 0xb5a9328a);
+        assert_eq!(expanded.expanded[21], 0x2678a647);
+        assert_eq!(expanded.expanded[22], 0x98312229);
+        assert_eq!(expanded.expanded[23], 0x2f6c79b3);
+        assert_eq!(expanded.expanded[24], 0x812c81ad);
+        assert_eq!(expanded.expanded[25], 0xdadf48ba);
+        assert_eq!(expanded.expanded[26], 0x24360af2);
+        assert_eq!(expanded.expanded[27], 0xfab8b464);
+        assert_eq!(expanded.expanded[28], 0x98c5bfc9);
+        assert_eq!(expanded.expanded[29], 0xbebd198e);
+        assert_eq!(expanded.expanded[30], 0x268c3ba7);
+        assert_eq!(expanded.expanded[31], 0x09e04214);
+        assert_eq!(expanded.expanded[32], 0x68007bac);
+        assert_eq!(expanded.expanded[33], 0xb2df3316);
+        assert_eq!(expanded.expanded[34], 0x96e939e4);
+        assert_eq!(expanded.expanded[35], 0x6c518d80);
+        assert_eq!(expanded.expanded[36], 0xc814e204);
+        assert_eq!(expanded.expanded[37], 0x76a9fb8a);
+        assert_eq!(expanded.expanded[38], 0x5025c02d);
+        assert_eq!(expanded.expanded[39], 0x59c58239);
+        assert_eq!(expanded.expanded[40], 0xde136967);
+        assert_eq!(expanded.expanded[41], 0x6ccc5a71);
+        assert_eq!(expanded.expanded[42], 0xfa256395);
+        assert_eq!(expanded.expanded[43], 0x9674ee15);
+        assert_eq!(expanded.expanded[44], 0x5886ca5d);
+        assert_eq!(expanded.expanded[45], 0x2e2f31d7);
+        assert_eq!(expanded.expanded[46], 0x7e0af1fa);
+        assert_eq!(expanded.expanded[47], 0x27cf73c3);
+        assert_eq!(expanded.expanded[48], 0x749c47ab);
+        assert_eq!(expanded.expanded[49], 0x18501dda);
+        assert_eq!(expanded.expanded[50], 0xe2757e4f);
+        assert_eq!(expanded.expanded[51], 0x7401905a);
+        assert_eq!(expanded.expanded[52], 0xcafaaae3);
+        assert_eq!(expanded.expanded[53], 0xe4d59b34);
+        assert_eq!(expanded.expanded[54], 0x9adf6ace);
+        assert_eq!(expanded.expanded[55], 0xbd10190d);
+        assert_eq!(expanded.expanded[56], 0xfe4890d1);
+        assert_eq!(expanded.expanded[57], 0xe6188d0b);
+        assert_eq!(expanded.expanded[58], 0x046df344);
+        assert_eq!(expanded.expanded[59], 0x706c631e);
+    }
+}
+
