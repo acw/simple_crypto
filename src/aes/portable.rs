@@ -385,10 +385,11 @@ struct AES128 {
 }
 
 impl AES128 {
-    pub fn new(base_key: &[u8; 16]) -> AES128 {
+    pub fn new(base_key: &[u8]) -> AES128 {
         let mut expanded = [0; AES128_STATE_WORDS];
         let mut i = 0;
 
+        assert_eq!(base_key.len(), 16);
         // while (i < Nk)
         //    w[i] = word(key[4*i],key[4*i+1],key[4*i+2],key[4*i+3])
         //    i = i+1
@@ -481,6 +482,7 @@ impl AES128 {
 mod aes128 {
     use super::*;
     use super::aes256::RandomBlock;
+    use testing::run_test;
 
     #[test]
     fn fips197_key_expansion_example() {
@@ -559,6 +561,23 @@ mod aes128 {
             block2 == block.block.to_vec()
         }
     }
+
+    #[test]
+    fn nist_test_vectors() {
+        let fname = "testdata/aes/aes128.test";
+        run_test(fname.to_string(), 3, |case| {
+            let (negk, kbytes) = case.get("k").unwrap();
+            let (negp, pbytes) = case.get("p").unwrap();
+            let (negc, cbytes) = case.get("c").unwrap();
+
+            assert!(!negk && !negp && !negc);
+            let key = AES128::new(&kbytes);
+            let cipher = key.encrypt(&pbytes);
+            let plain = key.decrypt(&cipher);
+            assert_eq!(&cipher, cbytes);
+            assert_eq!(&plain, pbytes);
+        });
+    }
 }
 
 /**************************************************************************************************/
@@ -577,10 +596,11 @@ struct AES256 {
 }
 
 impl AES256 {
-    pub fn new(base_key: &[u8; 32]) -> AES256 {
+    pub fn new(base_key: &[u8]) -> AES256 {
         let mut expanded = [0; AES256_STATE_WORDS];
         let mut i = 0;
 
+        assert_eq!(base_key.len(), 32);
         // while (i < Nk)
         //    w[i] = word(key[4*i],key[4*i+1],key[4*i+2],key[4*i+3])
         //    i = i+1
@@ -677,6 +697,7 @@ impl AES256 {
 mod aes256 {
     use quickcheck::{Arbitrary,Gen};
     use super::*;
+    use testing::run_test;
 
     #[test]
     fn fips197_key_expansion_example() {
@@ -792,6 +813,23 @@ mod aes256 {
             let block2 = key.decrypt(&cipher);
             block2 == block.block.to_vec()
         }
+    }
+
+    #[test]
+    fn nist_test_vectors() {
+        let fname = "testdata/aes/aes256.test";
+        run_test(fname.to_string(), 3, |case| {
+            let (negk, kbytes) = case.get("k").unwrap();
+            let (negp, pbytes) = case.get("p").unwrap();
+            let (negc, cbytes) = case.get("c").unwrap();
+
+            assert!(!negk && !negp && !negc);
+            let key = AES256::new(&kbytes);
+            let cipher = key.encrypt(&pbytes);
+            let plain = key.decrypt(&cipher);
+            assert_eq!(&cipher, cbytes);
+            assert_eq!(&plain, pbytes);
+        });
     }
 }
 
