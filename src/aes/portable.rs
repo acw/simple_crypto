@@ -454,7 +454,7 @@ impl AES128 {
         state.decant()
     }
 
-    fn decrypt(&self, block: &[u8]) -> Vec<u8> {
+    pub fn decrypt(&self, block: &[u8]) -> Vec<u8> {
         let mut state = AESState::new(block);
 
         let last_chunk_start = AES128_NUM_ROUNDS * AES128_BLOCK_SIZE;
@@ -608,7 +608,7 @@ impl AES256 {
         while i < AES256_KEY_LENGTH {
             expanded[i] = word(base_key[(4*i)+0], base_key[(4*i)+1],
                                base_key[(4*i)+2], base_key[(4*i)+3]);
-            println!("{:02}: expanded[{}] = {:08x}", i, i, expanded[i]);
+            //println!("{:02}: expanded[{}] = {:08x}", i, i, expanded[i]);
             i = i + 1;
         }
 
@@ -669,7 +669,7 @@ impl AES256 {
         state.decant()
     }
 
-    fn decrypt(&self, block: &[u8]) -> Vec<u8> {
+    pub fn decrypt(&self, block: &[u8]) -> Vec<u8> {
         let mut state = AESState::new(block);
 
         let last_chunk_start = AES256_NUM_ROUNDS * AES256_BLOCK_SIZE;
