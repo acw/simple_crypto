@@ -334,7 +334,7 @@ impl AES256 {
         while i < AES256_BLOCK_SIZE * (AES256_NUM_ROUNDS+1) {
             // temp = w[i-1]
             let mut temp = expanded[i-1];
-            println!("{:02}: temp = {:08x}", i, temp);
+            //println!("{:02}: temp = {:08x}", i, temp);
             // if (i mod Nk = 0)
             //    temp = sub_word(rot_word(temp)) xor Rcon[i/Nk]
             // else
@@ -342,24 +342,46 @@ impl AES256 {
             // end if
             if i % AES256_KEY_LENGTH == 0 {
                 temp = rot_word(temp);
-                println!("{:02}: after rotword = {:08x}", i, temp);
+                //println!("{:02}: after rotword = {:08x}", i, temp);
                 temp = sub_word(temp);
-                println!("{:02}: after subword = {:08x}", i, temp);
+                //println!("{:02}: after subword = {:08x}", i, temp);
                 temp ^= RIJNDAEL_KEY_SCHEDULE[i/AES256_KEY_LENGTH];
-                println!("{:02}: after rcon xor = {:08x}", i, temp);
+                //println!("{:02}: after rcon xor = {:08x}", i, temp);
             } else if i % 4 == 0 {
                 temp = sub_word(temp);
-                println!("{:02}: after subword' = {:08x}", i, temp);
+                //println!("{:02}: after subword' = {:08x}", i, temp);
             }
             // w[i] = w[i-Nk] ^ temp;
-            println!("{:02}: w[{}-{}] = {:08x}", i, i, AES256_KEY_LENGTH, expanded[i-AES256_KEY_LENGTH]);
+            //println!("{:02}: w[{}-{}] = {:08x}", i, i, AES256_KEY_LENGTH, expanded[i-AES256_KEY_LENGTH]);
             expanded[i] = expanded[i-AES256_KEY_LENGTH] ^ temp;
-            println!("{:02}: expanded[{:02}] = {:08x}", i, i, expanded[i]);
+            //println!("{:02}: expanded[{:02}] = {:08x}", i, i, expanded[i]);
             // i = i + 1
             i = i + 1;
         }
 
         AES256{ expanded }
+    }
+
+    pub fn encrypt(&self, block: &[u8]) -> Vec<u8> {
+        let mut state = AESState::new(block);
+
+        assert_eq!(block.len(), 16);
+        state.add_round_key(&self.expanded[0..4]);
+        for round in 1..AES256_NUM_ROUNDS {
+            state.sub_bytes();
+            state.shift_rows();
+            state.mix_columns();
+            let start = round * AES256_BLOCK_SIZE;
+            let end = (round + 1) * AES256_BLOCK_SIZE;
+            state.add_round_key(&self.expanded[start..end]);
+        }
+
+        state.sub_bytes();
+        state.shift_rows();
+        let start = AES256_NUM_ROUNDS * AES256_BLOCK_SIZE;
+        state.add_round_key(&self.expanded[start..]);
+
+        state.decant()
     }
 }
 
@@ -434,6 +456,17 @@ mod aes256 {
         assert_eq!(expanded.expanded[57], 0xe6188d0b);
         assert_eq!(expanded.expanded[58], 0x046df344);
         assert_eq!(expanded.expanded[59], 0x706c631e);
+    }
+
+    #[test]
+    fn fips197_example() {
+        let input  = [0x00,0x11,0x22,0x33,0x44,0x55,0x66,0x77,0x88,0x99,0xaa,0xbb,0xcc,0xdd,0xee,0xff];
+        let key    = [0x00,0x01,0x02,0x03,0x04,0x05,0x06,0x07,0x08,0x09,0x0a,0x0b,0x0c,0x0d,0x0e,0x0f,
+                      0x10,0x11,0x12,0x13,0x14,0x15,0x16,0x17,0x18,0x19,0x1a,0x1b,0x1c,0x1d,0x1e,0x1f];
+        let aeskey = AES256::new(&key);
+        let cipher = aeskey.encrypt(&input);
+        assert_eq!(cipher, vec![0x8e,0xa2,0xb7,0xca,0x51,0x67,0x45,0xbf,
+                                0xea,0xfc,0x49,0x90,0x4b,0x49,0x60,0x89]);
     }
 }
 
