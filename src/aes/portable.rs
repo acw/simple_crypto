@@ -435,7 +435,6 @@ impl AES128 {
     pub fn encrypt(&self, block: &[u8]) -> Vec<u8> {
         let mut state = AESState::new(block);
 
-        assert_eq!(block.len(), 16);
         state.add_round_key(&self.expanded[0..4]);
         for round in 1..AES128_NUM_ROUNDS {
             state.sub_bytes();
@@ -453,11 +452,35 @@ impl AES128 {
 
         state.decant()
     }
+
+    fn decrypt(&self, block: &[u8]) -> Vec<u8> {
+        let mut state = AESState::new(block);
+
+        let last_chunk_start = AES128_NUM_ROUNDS * AES128_BLOCK_SIZE;
+        state.add_round_key(&self.expanded[last_chunk_start..]);
+
+        let mut round = AES128_NUM_ROUNDS - 1;
+        while round > 0 {
+            state.inv_shift_rows();
+            state.inv_sub_bytes();
+            let start = round * AES128_BLOCK_SIZE;
+            let end = start + AES128_BLOCK_SIZE;
+            state.add_round_key(&self.expanded[start..end]);
+            state.inv_mix_columns();
+            round -= 1;
+        }
+        state.inv_shift_rows();
+        state.inv_sub_bytes();
+        state.add_round_key(&self.expanded[0..4]);
+
+        state.decant()
+    }
 }
 
 #[cfg(test)]
 mod aes128 {
     use super::*;
+    use super::aes256::RandomBlock;
 
     #[test]
     fn fips197_key_expansion_example() {
@@ -510,13 +533,31 @@ mod aes128 {
     }
 
     #[test]
-    fn fips197_encrypt_example() {
-        let input = [0x32,0x43,0xf6,0xa8,0x88,0x5a,0x30,0x8d,0x31,0x31,0x98,0xa2,0xe0,0x37,0x07,0x34];
-        let cipher_key = [0x2b,0x7e,0x15,0x16,0x28,0xae,0xd2,0xa6,0xab,0xf7,0x15,0x88,0x09,0xcf,0x4f,0x3c];
-        let expanded = AES128::new(&cipher_key);
-        let ciphertext = expanded.encrypt(&input);
-        assert_eq!(ciphertext, vec![0x39,0x25,0x84,0x1d,0x02,0xdc,0x09,0xfb,
-                                    0xdc,0x11,0x85,0x97,0x19,0x6a,0x0b,0x32]);
+    fn fips197_encrypt_examples() {
+        let input1 = [0x32,0x43,0xf6,0xa8,0x88,0x5a,0x30,0x8d,0x31,0x31,0x98,0xa2,0xe0,0x37,0x07,0x34];
+        let cipher_key1 = [0x2b,0x7e,0x15,0x16,0x28,0xae,0xd2,0xa6,0xab,0xf7,0x15,0x88,0x09,0xcf,0x4f,0x3c];
+        let expanded1 = AES128::new(&cipher_key1);
+        let ciphertext1 = expanded1.encrypt(&input1);
+        assert_eq!(ciphertext1, vec![0x39,0x25,0x84,0x1d,0x02,0xdc,0x09,0xfb,
+                                     0xdc,0x11,0x85,0x97,0x19,0x6a,0x0b,0x32]);
+        assert_eq!(input1.to_vec(), expanded1.decrypt(&ciphertext1));
+        //
+        let input2 = [0x00,0x11,0x22,0x33,0x44,0x55,0x66,0x77,0x88,0x99,0xaa,0xbb,0xcc,0xdd,0xee,0xff];
+        let cipher_key2 = [0x00,0x01,0x02,0x03,0x04,0x05,0x06,0x07,0x08,0x09,0x0a,0x0b,0x0c,0x0d,0x0e,0x0f];
+        let expanded2 = AES128::new(&cipher_key2);
+        let ciphertext2 = expanded2.encrypt(&input2);
+        assert_eq!(ciphertext2, vec![0x69,0xc4,0xe0,0xd8,0x6a,0x7b,0x04,0x30,
+                                     0xd8,0xcd,0xb7,0x80,0x70,0xb4,0xc5,0x5a]);
+        assert_eq!(input2.to_vec(), expanded2.decrypt(&ciphertext2));
+    }
+
+    quickcheck! {
+        fn encrypt_decrypt_is_identity(key: RandomBlock, block: RandomBlock) -> bool {
+            let key = AES128::new(&key.block);
+            let cipher = key.encrypt(&block.block);
+            let block2 = key.decrypt(&cipher);
+            block2 == block.block.to_vec()
+        }
     }
 }
 
@@ -607,10 +648,34 @@ impl AES256 {
 
         state.decant()
     }
+
+    fn decrypt(&self, block: &[u8]) -> Vec<u8> {
+        let mut state = AESState::new(block);
+
+        let last_chunk_start = AES256_NUM_ROUNDS * AES256_BLOCK_SIZE;
+        state.add_round_key(&self.expanded[last_chunk_start..]);
+
+        let mut round = AES256_NUM_ROUNDS - 1;
+        while round > 0 {
+            state.inv_shift_rows();
+            state.inv_sub_bytes();
+            let start = round * AES256_BLOCK_SIZE;
+            let end = start + AES256_BLOCK_SIZE;
+            state.add_round_key(&self.expanded[start..end]);
+            state.inv_mix_columns();
+            round -= 1;
+        }
+        state.inv_shift_rows();
+        state.inv_sub_bytes();
+        state.add_round_key(&self.expanded[0..4]);
+
+        state.decant()
+    }
 }
 
 #[cfg(test)]
 mod aes256 {
+    use quickcheck::{Arbitrary,Gen};
     use super::*;
 
     #[test]
@@ -691,6 +756,42 @@ mod aes256 {
         let cipher = aeskey.encrypt(&input);
         assert_eq!(cipher, vec![0x8e,0xa2,0xb7,0xca,0x51,0x67,0x45,0xbf,
                                 0xea,0xfc,0x49,0x90,0x4b,0x49,0x60,0x89]);
+        assert_eq!(input.to_vec(), aeskey.decrypt(&cipher));
+    }
+
+    #[derive(Clone,Debug)]
+    struct RandomKey {
+        key: [u8; 32]
+    }
+
+    impl Arbitrary for RandomKey {
+        fn arbitrary<G: Gen>(g: &mut G) -> RandomKey {
+            let mut res = RandomKey{ key: [0; 32] };
+            g.fill_bytes(&mut res.key);
+            res
+        }
+    }
+
+    #[derive(Clone,Debug)]
+    pub struct RandomBlock {
+        pub block: [u8; 16]
+    }
+
+    impl Arbitrary for RandomBlock {
+        fn arbitrary<G: Gen>(g: &mut G) -> RandomBlock {
+            let mut res = RandomBlock{ block: [0; 16] };
+            g.fill_bytes(&mut res.block);
+            res
+        }
+    }
+
+    quickcheck! {
+        fn encrypt_decrypt_is_identity(key: RandomKey, block: RandomBlock) -> bool {
+            let key = AES256::new(&key.key);
+            let cipher = key.encrypt(&block.block);
+            let block2 = key.decrypt(&cipher);
+            block2 == block.block.to_vec()
+        }
     }
 }
 
