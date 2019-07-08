@@ -41,7 +41,113 @@ fn sub_word(x: u32) -> u32 {
 
 /**************************************************************************************************/
 /*                                                                                                */
-/* AES256 Implementation                                                                          */
+/* AES State                                                                                      */
+/*                                                                                                */
+/**************************************************************************************************/
+
+struct AESState {
+    state: [[u8; 4]; 4]
+}
+
+macro_rules! double_field {
+    ($e: expr) => {{
+        let base = $e;
+        let dbl = base << 1;
+        let high = base & 0x80;
+        let xorval = if high == 0x80 { 0x1b } else { 0x00 };
+        dbl ^ xorval 
+    }};
+}
+
+impl AESState {
+    fn new(inkey: &[u8]) -> AESState {
+        assert_eq!(inkey.len(), 16);
+        AESState {
+            state: [[inkey[00], inkey[04], inkey[08], inkey[12]],
+                    [inkey[01], inkey[05], inkey[09], inkey[13]],
+                    [inkey[02], inkey[06], inkey[10], inkey[14]],
+                    [inkey[03], inkey[07], inkey[11], inkey[15]]]
+        }
+    }
+
+    //fn print_state(&self) {
+    //    println!("{:02x} {:02x} {:02x} {:02x}", self.state[0][0], self.state[0][1], self.state[0][2], self.state[0][3]);
+    //    println!("{:02x} {:02x} {:02x} {:02x}", self.state[1][0], self.state[1][1], self.state[1][2], self.state[1][3]);
+    //    println!("{:02x} {:02x} {:02x} {:02x}", self.state[2][0], self.state[2][1], self.state[2][2], self.state[2][3]);
+    //    println!("{:02x} {:02x} {:02x} {:02x}", self.state[3][0], self.state[3][1], self.state[3][2], self.state[3][3]);
+    //    println!("-----------");
+    //}
+
+    fn add_round_key(&mut self, w: &[u32]) {
+        assert_eq!(w.len(), 4);
+        for i in 0..4 {
+            self.state[0][i] ^= (w[i] >> 24) as u8;
+            self.state[1][i] ^= (w[i] >> 16) as u8;
+            self.state[2][i] ^= (w[i] >> 08) as u8;
+            self.state[3][i] ^= (w[i] >> 00) as u8;
+        }
+    }
+
+    fn sub_bytes(&mut self) {
+        for i in 0..4 {
+            for j in 0..4 {
+                self.state[i][j] = SUB_BYTES_SBOX[self.state[i][j] as usize];
+            }
+        }
+    }
+
+    fn shift_rows(&mut self) {
+        let temp1 = self.state[1][0];
+        self.state[1][0] = self.state[1][1];
+        self.state[1][1] = self.state[1][2];
+        self.state[1][2] = self.state[1][3];
+        self.state[1][3] = temp1;
+        let temp2a = self.state[2][0];
+        let temp2b = self.state[2][1];
+        self.state[2][0] = self.state[2][2];
+        self.state[2][1] = self.state[2][3];
+        self.state[2][2] = temp2a;
+        self.state[2][3] = temp2b;
+        let temp3 = self.state[3][3];
+        self.state[3][3] = self.state[3][2];
+        self.state[3][2] = self.state[3][1];
+        self.state[3][1] = self.state[3][0];
+        self.state[3][0] = temp3;
+    }
+
+    fn mix_columns(&mut self) {
+        for c in 0..4 {
+            // get the base values
+            let s0c = self.state[0][c];
+            let s1c = self.state[1][c];
+            let s2c = self.state[2][c];
+            let s3c = self.state[3][c];
+
+            // get the doubled values, forced to be within the field
+            let d0c = double_field!(s0c);
+            let d1c = double_field!(s1c);
+            let d2c = double_field!(s2c);
+            let d3c = double_field!(s3c);
+
+            self.state[0][c] = d0c ^ d1c ^ s2c ^ s3c ^ s1c;
+            self.state[1][c] = s0c ^ d1c ^ d2c ^ s3c ^ s2c;
+            self.state[2][c] = s0c ^ s1c ^ d2c ^ d3c ^ s3c;
+            self.state[3][c] = d0c ^ s1c ^ s2c ^ d3c ^ s0c;
+        }
+    }
+
+    fn decant(&self) -> Vec<u8> {
+        vec![self.state[0][0], self.state[1][0], self.state[2][0], self.state[3][0],
+             self.state[0][1], self.state[1][1], self.state[2][1], self.state[3][1],
+             self.state[0][2], self.state[1][2], self.state[2][2], self.state[3][2],
+             self.state[0][3], self.state[1][3], self.state[2][3], self.state[3][3],
+            ]
+    }
+}
+
+/**************************************************************************************************/
+/*                                                                                                */
+/* AES128 Implementation                                                                          */
 /*                                                                                                */
 /**************************************************************************************************/
 
@@ -66,7 +172,7 @@ impl AES128 {
         while i < AES128_KEY_LENGTH {
             expanded[i] = word(base_key[(4*i)+0], base_key[(4*i)+1],
                                base_key[(4*i)+2], base_key[(4*i)+3]);
-            println!("{:02}: expanded[{}] = {:08x}", i, i, expanded[i]);
+            //println!("{:02}: expanded[{}] = {:08x}", i, i, expanded[i]);
             i = i + 1;
         }
 
@@ -77,7 +183,7 @@ impl AES128 {
         while i < AES128_BLOCK_SIZE * (AES128_NUM_ROUNDS+1) {
             // temp = w[i-1]
             let mut temp = expanded[i-1];
-            println!("{:02}: temp = {:08x}", i, temp);
+            //println!("{:02}: temp = {:08x}", i, temp);
             // if (i mod Nk = 0)
             //    temp = sub_word(rot_word(temp)) xor Rcon[i/Nk]
             // else
@@ -85,21 +191,43 @@ impl AES128 {
             // end if
             if i % AES128_KEY_LENGTH == 0 {
                 temp = rot_word(temp);
-                println!("{:02}: after rotword = {:08x}", i, temp);
+                //println!("{:02}: after rotword = {:08x}", i, temp);
                 temp = sub_word(temp);
-                println!("{:02}: after subword = {:08x}", i, temp);
+                //println!("{:02}: after subword = {:08x}", i, temp);
                 temp ^= RIJNDAEL_KEY_SCHEDULE[i/AES128_KEY_LENGTH];
-                println!("{:02}: after rcon xor = {:08x}", i, temp);
+                //println!("{:02}: after rcon xor = {:08x}", i, temp);
             }
             // w[i] = w[i-Nk] ^ temp;
-            println!("{:02}: w[{}-{}] = {:08x}", i, i, AES128_KEY_LENGTH, expanded[i-AES128_KEY_LENGTH]);
+            //println!("{:02}: w[{}-{}] = {:08x}", i, i, AES128_KEY_LENGTH, expanded[i-AES128_KEY_LENGTH]);
             expanded[i] = expanded[i-AES128_KEY_LENGTH] ^ temp;
-            println!("{:02}: expanded[{:02}] = {:08x}", i, i, expanded[i]);
+            //println!("{:02}: expanded[{:02}] = {:08x}", i, i, expanded[i]);
             // i = i + 1
             i = i + 1;
         }
 
         AES128{ expanded }
+    }
+
+    pub fn encrypt(&self, block: &[u8]) -> Vec<u8> {
+        let mut state = AESState::new(block);
+
+        assert_eq!(block.len(), 16);
+        state.add_round_key(&self.expanded[0..4]);
+        for round in 1..AES128_NUM_ROUNDS {
+            state.sub_bytes();
+            state.shift_rows();
+            state.mix_columns();
+            let start = round * AES128_BLOCK_SIZE;
+            let end = (round + 1) * AES128_BLOCK_SIZE;
+            state.add_round_key(&self.expanded[start..end]);
+        }
+
+        state.sub_bytes();
+        state.shift_rows();
+        let start = AES128_NUM_ROUNDS * AES128_BLOCK_SIZE;
+        state.add_round_key(&self.expanded[start..]);
+
+        state.decant()
     }
 }
 
@@ -155,6 +283,16 @@ mod aes128 {
         assert_eq!(expanded.expanded[41], 0xc9ee2589);
         assert_eq!(expanded.expanded[42], 0xe13f0cc8);
         assert_eq!(expanded.expanded[43], 0xb6630ca6);
+    }
+
+    #[test]
+    fn fips197_encrypt_example() {
+        let input = [0x32,0x43,0xf6,0xa8,0x88,0x5a,0x30,0x8d,0x31,0x31,0x98,0xa2,0xe0,0x37,0x07,0x34];
+        let cipher_key = [0x2b,0x7e,0x15,0x16,0x28,0xae,0xd2,0xa6,0xab,0xf7,0x15,0x88,0x09,0xcf,0x4f,0x3c];
+        let expanded = AES128::new(&cipher_key);
+        let ciphertext = expanded.encrypt(&input);
+        assert_eq!(ciphertext, vec![0x39,0x25,0x84,0x1d,0x02,0xdc,0x09,0xfb,
+                                    0xdc,0x11,0x85,0x97,0x19,0x6a,0x0b,0x32]);
     }
 }
 
