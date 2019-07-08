@@ -23,6 +23,25 @@ const SUB_BYTES_SBOX: [u8; 256] = [
     0x8c, 0xa1, 0x89, 0x0d, 0xbf, 0xe6, 0x42, 0x68, 0x41, 0x99, 0x2d, 0x0f, 0xb0, 0x54, 0xbb, 0x16,
     ];
 
+const INVSUB_BYTES_SBOX: [u8; 256] = [
+    0x52, 0x09, 0x6a, 0xd5, 0x30, 0x36, 0xa5, 0x38, 0xbf, 0x40, 0xa3, 0x9e, 0x81, 0xf3, 0xd7, 0xfb,
+    0x7c, 0xe3, 0x39, 0x82, 0x9b, 0x2f, 0xff, 0x87, 0x34, 0x8e, 0x43, 0x44, 0xc4, 0xde, 0xe9, 0xcb,
+    0x54, 0x7b, 0x94, 0x32, 0xa6, 0xc2, 0x23, 0x3d, 0xee, 0x4c, 0x95, 0x0b, 0x42, 0xfa, 0xc3, 0x4e,
+    0x08, 0x2e, 0xa1, 0x66, 0x28, 0xd9, 0x24, 0xb2, 0x76, 0x5b, 0xa2, 0x49, 0x6d, 0x8b, 0xd1, 0x25,
+    0x72, 0xf8, 0xf6, 0x64, 0x86, 0x68, 0x98, 0x16, 0xd4, 0xa4, 0x5c, 0xcc, 0x5d, 0x65, 0xb6, 0x92,
+    0x6c, 0x70, 0x48, 0x50, 0xfd, 0xed, 0xb9, 0xda, 0x5e, 0x15, 0x46, 0x57, 0xa7, 0x8d, 0x9d, 0x84,
+    0x90, 0xd8, 0xab, 0x00, 0x8c, 0xbc, 0xd3, 0x0a, 0xf7, 0xe4, 0x58, 0x05, 0xb8, 0xb3, 0x45, 0x06,
+    0xd0, 0x2c, 0x1e, 0x8f, 0xca, 0x3f, 0x0f, 0x02, 0xc1, 0xaf, 0xbd, 0x03, 0x01, 0x13, 0x8a, 0x6b,
+    0x3a, 0x91, 0x11, 0x41, 0x4f, 0x67, 0xdc, 0xea, 0x97, 0xf2, 0xcf, 0xce, 0xf0, 0xb4, 0xe6, 0x73,
+    0x96, 0xac, 0x74, 0x22, 0xe7, 0xad, 0x35, 0x85, 0xe2, 0xf9, 0x37, 0xe8, 0x1c, 0x75, 0xdf, 0x6e,
+    0x47, 0xf1, 0x1a, 0x71, 0x1d, 0x29, 0xc5, 0x89, 0x6f, 0xb7, 0x62, 0x0e, 0xaa, 0x18, 0xbe, 0x1b,
+    0xfc, 0x56, 0x3e, 0x4b, 0xc6, 0xd2, 0x79, 0x20, 0x9a, 0xdb, 0xc0, 0xfe, 0x78, 0xcd, 0x5a, 0xf4,
+    0x1f, 0xdd, 0xa8, 0x33, 0x88, 0x07, 0xc7, 0x31, 0xb1, 0x12, 0x10, 0x59, 0x27, 0x80, 0xec, 0x5f,
+    0x60, 0x51, 0x7f, 0xa9, 0x19, 0xb5, 0x4a, 0x0d, 0x2d, 0xe5, 0x7a, 0x9f, 0x93, 0xc9, 0x9c, 0xef,
+    0xa0, 0xe0, 0x3b, 0x4d, 0xae, 0x2a, 0xf5, 0xb0, 0xc8, 0xeb, 0xbb, 0x3c, 0x83, 0x53, 0x99, 0x61,
+    0x17, 0x2b, 0x04, 0x7e, 0xba, 0x77, 0xd6, 0x26, 0xe1, 0x69, 0x14, 0x63, 0x55, 0x21, 0x0c, 0x7d,
+    ];
+
 fn word(a: u8, b: u8, c: u8, d: u8) -> u32 {
     ((a as u32) << 24) | ((b as u32) << 16) |
     ((c as u32) << 08) | ((d as u32) << 00)
@@ -49,14 +68,45 @@ struct AESState {
     state: [[u8; 4]; 4]
 }
 
-macro_rules! double_field {
+macro_rules! xtime {
     ($e: expr) => {{
-        let base = $e;
+        let base: u8 = $e;
         let dbl = base << 1;
         let high = base & 0x80;
         let xorval = if high == 0x80 { 0x1b } else { 0x00 };
         dbl ^ xorval 
     }};
+}
+
+macro_rules! field_09 {
+    ($e: expr) => {{
+        let base = $e;
+        base ^ xtime!(xtime!(xtime!(base)))
+    }}
+}
+
+macro_rules! field_0b {
+    ($e: expr) => {{
+        let base = $e;
+        // 1 + 8                         + 2 = 11 = 0xb
+        base ^ xtime!(xtime!(xtime!(base))) ^ xtime!(base)
+    }}
+}
+
+macro_rules! field_0d {
+    ($e: expr) => {{
+        let base = $e;
+        // 1 + 8                         + 4 = 13 = 0xd
+        base ^ xtime!(xtime!(xtime!(base))) ^ xtime!(xtime!(base))
+    }}
+}
+
+macro_rules! field_0e {
+    ($e: expr) => {{
+        let base = $e;
+        // 2 + 8                         + 4 = 14 = 0xe
+        xtime!(base) ^ xtime!(xtime!(xtime!(base))) ^ xtime!(xtime!(base))
+    }}
 }
 
 impl AESState {
@@ -70,13 +120,13 @@ impl AESState {
         }
     }
 
-    //fn print_state(&self) {
-    //    println!("{:02x} {:02x} {:02x} {:02x}", self.state[0][0], self.state[0][1], self.state[0][2], self.state[0][3]);
-    //    println!("{:02x} {:02x} {:02x} {:02x}", self.state[1][0], self.state[1][1], self.state[1][2], self.state[1][3]);
-    //    println!("{:02x} {:02x} {:02x} {:02x}", self.state[2][0], self.state[2][1], self.state[2][2], self.state[2][3]);
-    //    println!("{:02x} {:02x} {:02x} {:02x}", self.state[3][0], self.state[3][1], self.state[3][2], self.state[3][3]);
-    //    println!("-----------");
-    //}
+//    fn print_state(&self) {
+//        println!("{:02x} {:02x} {:02x} {:02x}", self.state[0][0], self.state[0][1], self.state[0][2], self.state[0][3]);
+//        println!("{:02x} {:02x} {:02x} {:02x}", self.state[1][0], self.state[1][1], self.state[1][2], self.state[1][3]);
+//        println!("{:02x} {:02x} {:02x} {:02x}", self.state[2][0], self.state[2][1], self.state[2][2], self.state[2][3]);
+//        println!("{:02x} {:02x} {:02x} {:02x}", self.state[3][0], self.state[3][1], self.state[3][2], self.state[3][3]);
+//        println!("-----------");
+//    }
 
     fn add_round_key(&mut self, w: &[u32]) {
         assert_eq!(w.len(), 4);
@@ -92,6 +142,14 @@ impl AESState {
         for i in 0..4 {
             for j in 0..4 {
                 self.state[i][j] = SUB_BYTES_SBOX[self.state[i][j] as usize];
+            }
+        }
+    }
+
+    fn inv_sub_bytes(&mut self) {
+        for i in 0..4 {
+            for j in 0..4 {
+                self.state[i][j] = INVSUB_BYTES_SBOX[self.state[i][j] as usize];
             }
         }
     }
@@ -115,6 +173,25 @@ impl AESState {
         self.state[3][0] = temp3;
     }
 
+    fn inv_shift_rows(&mut self) {
+        let temp1 = self.state[1][3];
+        self.state[1][3] = self.state[1][2];
+        self.state[1][2] = self.state[1][1];
+        self.state[1][1] = self.state[1][0];
+        self.state[1][0] = temp1;
+        let temp2a = self.state[2][0];
+        let temp2b = self.state[2][1];
+        self.state[2][0] = self.state[2][2];
+        self.state[2][1] = self.state[2][3];
+        self.state[2][2] = temp2a;
+        self.state[2][3] = temp2b;
+        let temp3 = self.state[3][0];
+        self.state[3][0] = self.state[3][1];
+        self.state[3][1] = self.state[3][2];
+        self.state[3][2] = self.state[3][3];
+        self.state[3][3] = temp3;
+    }
+
     fn mix_columns(&mut self) {
         for c in 0..4 {
             // get the base values
@@ -124,15 +201,30 @@ impl AESState {
             let s3c = self.state[3][c];
 
             // get the doubled values, forced to be within the field
-            let d0c = double_field!(s0c);
-            let d1c = double_field!(s1c);
-            let d2c = double_field!(s2c);
-            let d3c = double_field!(s3c);
+            let d0c = xtime!(s0c);
+            let d1c = xtime!(s1c);
+            let d2c = xtime!(s2c);
+            let d3c = xtime!(s3c);
 
             self.state[0][c] = d0c ^ d1c ^ s2c ^ s3c ^ s1c;
             self.state[1][c] = s0c ^ d1c ^ d2c ^ s3c ^ s2c;
             self.state[2][c] = s0c ^ s1c ^ d2c ^ d3c ^ s3c;
             self.state[3][c] = d0c ^ s1c ^ s2c ^ d3c ^ s0c;
+        }
+    }
+
+    fn inv_mix_columns(&mut self) {
+        for c in 0..4 {
+            // get the base values
+            let s0c = self.state[0][c];
+            let s1c = self.state[1][c];
+            let s2c = self.state[2][c];
+            let s3c = self.state[3][c];
+
+            self.state[0][c] = field_0e!(s0c) ^ field_0b!(s1c) ^ field_0d!(s2c) ^ field_09!(s3c); 
+            self.state[1][c] = field_09!(s0c) ^ field_0e!(s1c) ^ field_0b!(s2c) ^ field_0d!(s3c); 
+            self.state[2][c] = field_0d!(s0c) ^ field_09!(s1c) ^ field_0e!(s2c) ^ field_0b!(s3c); 
+            self.state[3][c] = field_0b!(s0c) ^ field_0d!(s1c) ^ field_09!(s2c) ^ field_0e!(s3c); 
         }
     }
 
@@ -142,6 +234,138 @@ impl AESState {
              self.state[0][2], self.state[1][2], self.state[2][2], self.state[3][2],
              self.state[0][3], self.state[1][3], self.state[2][3], self.state[3][3],
             ]
+    }
+}
+
+#[cfg(test)]
+mod state {
+    use quickcheck::{Arbitrary,Gen};
+    use std::fmt;
+    use super::*;
+
+    #[test]
+    fn xtime_works() {
+        assert_eq!(xtime!(0x57), 0xae);
+        assert_eq!(xtime!(0xae), 0x47);
+        assert_eq!(xtime!(0x47), 0x8e);
+        assert_eq!(xtime!(0x8e), 0x07);
+        assert_eq!(xtime!(xtime!(0x57)), 0x47);
+    }
+
+    impl PartialEq for AESState {
+        fn eq(&self, other: &AESState) -> bool {
+            for i in 0..4 {
+                for j in 0..4 {
+                    if self.state[i][j] != other.state[i][j] {
+                        return false;
+                    }
+                }
+            }
+            true
+        }
+    }
+
+    impl fmt::Debug for AESState {
+        fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+            write!(f, "[{:02x} {:02x} {:02x} {:02x}",  self.state[0][0], self.state[0][1], self.state[0][2], self.state[0][3])?;
+            write!(f, " {:02x} {:02x} {:02x} {:02x}",  self.state[1][0], self.state[1][1], self.state[1][2], self.state[1][3])?;
+            write!(f, " {:02x} {:02x} {:02x} {:02x}",  self.state[2][0], self.state[2][1], self.state[2][2], self.state[2][3])?;
+            write!(f, " {:02x} {:02x} {:02x} {:02x}]", self.state[3][0], self.state[3][1], self.state[3][2], self.state[3][3])
+        }
+    }
+
+    #[test]
+    fn fips197_add_round_example() {
+        let mut input = AESState{ state: [[0x32, 0x88, 0x31, 0xe0],
+                                          [0x43, 0x5a, 0x31, 0x37],
+                                          [0xf6, 0x30, 0x98, 0x07],
+                                          [0xa8, 0x8d, 0xa2, 0x34]] };
+        let       key = [0x2b7e1516, 0x28aed2a6, 0xabf71588, 0x09cf4f3c];
+        let    output = AESState{ state: [[0x19, 0xa0, 0x9a, 0xe9],
+                                          [0x3d, 0xf4, 0xc6, 0xf8],
+                                          [0xe3, 0xe2, 0x8d, 0x48],
+                                          [0xbe, 0x2b, 0x2a, 0x08]] };
+        input.add_round_key(&key);
+        assert_eq!(input, output);
+    }
+
+    #[test]
+    fn fips197_sub_bytes_example() {
+        let mut input = AESState{ state: [[0x19, 0xa0, 0x9a, 0xe9],
+                                          [0x3d, 0xf4, 0xc6, 0xf8],
+                                          [0xe3, 0xe2, 0x8d, 0x48],
+                                          [0xbe, 0x2b, 0x2a, 0x08]] };
+        let    output = AESState{ state: [[0xd4, 0xe0, 0xb8, 0x1e],
+                                          [0x27, 0xbf, 0xb4, 0x41],
+                                          [0x11, 0x98, 0x5d, 0x52],
+                                          [0xae, 0xf1, 0xe5, 0x30]] };
+        input.sub_bytes();
+        assert_eq!(input, output);
+    }
+
+    #[test]
+    fn fips197_shift_rows_example() {
+        let mut input = AESState{ state: [[0xd4, 0xe0, 0xb8, 0x1e],
+                                          [0x27, 0xbf, 0xb4, 0x41],
+                                          [0x11, 0x98, 0x5d, 0x52],
+                                          [0xae, 0xf1, 0xe5, 0x30]] };
+        let    output = AESState{ state: [[0xd4, 0xe0, 0xb8, 0x1e],
+                                          [0xbf, 0xb4, 0x41, 0x27],
+                                          [0x5d, 0x52, 0x11, 0x98],
+                                          [0x30, 0xae, 0xf1, 0xe5]] };
+        input.shift_rows();
+        assert_eq!(input, output);
+    }
+
+    #[test]
+    fn fips197_mix_columns_example() {
+        let mut input = AESState{ state: [[0xd4, 0xe0, 0xb8, 0x1e],
+                                          [0xbf, 0xb4, 0x41, 0x27],
+                                          [0x5d, 0x52, 0x11, 0x98],
+                                          [0x30, 0xae, 0xf1, 0xe5]] };
+        let    output = AESState{ state: [[0x04, 0xe0, 0x48, 0x28],
+                                          [0x66, 0xcb, 0xf8, 0x06],
+                                          [0x81, 0x19, 0xd3, 0x26],
+                                          [0xe5, 0x9a, 0x7a, 0x4c]] };
+        input.mix_columns();
+        assert_eq!(input, output);
+    }
+
+    impl Clone for AESState {
+        fn clone(&self) -> AESState {
+            AESState{ state: self.state.clone() }
+        }
+    }
+
+    impl Arbitrary for AESState {
+        fn arbitrary<G: Gen>(g: &mut G) -> AESState {
+            let mut base = [0; 16];
+            g.fill_bytes(&mut base);
+            AESState::new(&base)
+        }
+    }
+
+    quickcheck! {
+        fn check_sub_bytes_inverse(input: AESState) -> bool {
+            let mut output = input.clone();
+            output.sub_bytes();
+            output.inv_sub_bytes();
+            input == output
+        }
+
+        fn check_shift_rows_inverse(input: AESState) -> bool {
+            let mut output = input.clone();
+            output.shift_rows();
+            output.inv_shift_rows();
+            input == output
+        }
+
+        fn check_mix_columns_inverse(input: AESState) -> bool {
+            let mut output = input.clone();
+            output.mix_columns();
+            output.inv_mix_columns();
+            input == output
+        }
     }
 }
 
