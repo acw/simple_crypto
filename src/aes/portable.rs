@@ -380,7 +380,7 @@ const AES128_BLOCK_SIZE: usize = 4;  // Nb
 const AES128_NUM_ROUNDS: usize = 10; // Nr
 const AES128_STATE_WORDS: usize = AES128_BLOCK_SIZE * (AES128_NUM_ROUNDS + 1);
 
-struct AES128 {
+pub struct AES128 {
     expanded: [u32; AES128_STATE_WORDS]
 }
 
@@ -591,7 +591,7 @@ const AES256_BLOCK_SIZE: usize = 4;  // Nb
 const AES256_NUM_ROUNDS: usize = 14; // Nr
 const AES256_STATE_WORDS: usize = AES256_BLOCK_SIZE * (AES256_NUM_ROUNDS + 1);
 
-struct AES256 {
+pub struct AES256 {
     expanded: [u32; AES256_STATE_WORDS]
 }
 
@@ -694,7 +694,7 @@ impl AES256 {
 }
 
 #[cfg(test)]
-mod aes256 {
+pub(crate) mod aes256 {
     use quickcheck::{Arbitrary,Gen};
     use super::*;
     use testing::run_test;
@@ -781,8 +781,8 @@ mod aes256 {
     }
 
     #[derive(Clone,Debug)]
-    struct RandomKey {
-        key: [u8; 32]
+    pub(crate) struct RandomKey {
+        pub(crate) key: [u8; 32]
     }
 
     impl Arbitrary for RandomKey {
@@ -794,8 +794,8 @@ mod aes256 {
     }
 
     #[derive(Clone,Debug)]
-    pub struct RandomBlock {
-        pub block: [u8; 16]
+    pub(crate) struct RandomBlock {
+        pub(crate) block: [u8; 16]
     }
 
     impl Arbitrary for RandomBlock {

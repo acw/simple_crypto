@@ -12,7 +12,7 @@ use std::mem::uninitialized;
 //
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 
-struct AES128 {
+pub struct AES128 {
     expanded_enc: [__m128i; 11],
     expanded_dec: [__m128i; 11],
 }
